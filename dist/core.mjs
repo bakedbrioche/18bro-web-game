@@ -1,11 +1,13 @@
 /** 18Bro deterministic, DOM-free runner simulation. World approaches +Z; cat stays at Z=0. */
 export const LANES = Object.freeze([-2.5, 0, 2.5]);
 export const THEMES = Object.freeze(['HONG KONG']);
-export const POWER_DURATIONS = Object.freeze({ magnet: 8, moon: 5 });
-export const MOTION = Object.freeze({ laneDuration: .16, jumpDuration: .7, jumpHeight: 2.3, slideDuration: .72, jumpBuffer: .1, coyoteTime: .08 });
+export const POWER_DURATIONS = Object.freeze({ magnet: 8, moon: 5, moped: 10 });
+export const MOTION = Object.freeze({ laneDuration: .16, jumpDuration: .82, jumpHeight: 2.65, slideDuration: .72, jumpBuffer: .1, coyoteTime: .08 });
+export const INTRO_DURATION = 5.8;
+export const VEHICLES = Object.freeze({ traffic: { approach: 2.05, height: 1.68, width: 1.72, depth: 3.1 }, scooter: { approach: 1.9, height: 2.02, width: .9, depth: 1.9 } });
 const GRAVITY = 8 * MOTION.jumpHeight / MOTION.jumpDuration ** 2;
 const JUMP_VELOCITY = GRAVITY * MOTION.jumpDuration / 2;
-const HAZARDS = new Set(['blocker', 'jump', 'slide', 'traffic']);
+const HAZARDS = new Set(['blocker', 'jump', 'slide', 'traffic', 'scooter']);
 const COLLECTIBLES = new Set(['coin']);
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 const mix = (a, b, t) => a + (b - a) * t;
@@ -15,11 +17,14 @@ export const PATTERNS = Object.freeze([
   { minTier: 1, slots: ['traffic', null, null] },
   { minTier: 1, slots: [null, 'traffic', null] },
   { minTier: 1, slots: [null, null, 'traffic'] },
+  { minTier: 1, slots: ['scooter', null, null] },
+  { minTier: 1, slots: [null, 'scooter', 'jump'] },
   { minTier: 1, slots: [null, 'jump', null] },
   { minTier: 1, slots: ['slide', null, null] },
   { minTier: 1, slots: ['traffic', null, 'jump'] },
   { minTier: 2, slots: [null, 'traffic', 'traffic'] },
   { minTier: 2, slots: ['slide', 'traffic', null] },
+  { minTier: 2, slots: ['scooter', null, 'traffic'] },
   { minTier: 2, slots: ['jump', null, 'blocker'] },
   { minTier: 3, slots: ['traffic', 'traffic', null] },
   { minTier: 3, slots: ['blocker', null, 'slide'] },
@@ -44,6 +49,7 @@ export function obstacleSpacing(speed, tier = 1) {
 const POWER_DEFINITIONS = {
   magnet: { activate() {}, update() {}, end() {} },
   moon: { activate() {}, update() {}, end() {} },
+  moped: { activate() {}, update() {}, end() {} },
 };
 
 /** Active powers are a Map<string, {type, duration, remaining, elapsed}>. */
@@ -76,7 +82,7 @@ export class PowerUpManager {
       if (power.remaining <= 1e-8) this.remove(type);
     }
   }
-  get speedMultiplier() { return this.has('moon') ? 1.5 : 1; }
+  get speedMultiplier() { return this.has('moped') ? 1.85 : this.has('moon') ? 1.5 : 1; }
   get scoreMultiplier() { return this.has('moon') ? 5 : 1; }
   get magnetRadius() { return this.has('magnet') ? 10 : 0; }
   get invulnerable() { return this.has('moon'); }
@@ -98,10 +104,11 @@ export class RunnerGame {
   _random() { return clamp(Number(this.random()) || 0, 0, .999999999); }
   _reset() {
     this.player = { x: 0, lane: 1, y: 0, vy: 0, slide: 0, hit: 0, grounded: true, anim: 'idle', laneFrom: 0, laneElapsed: MOTION.laneDuration, jumpBuffer: 0, coyote: MOTION.coyoteTime };
-    this.distance = 0; this.time = 0; this.speed = 9.4; this.score = 0; this.chips = 0; this.coins = 0;
+    this.distance = 0; this.time = 0; this.speed = 10.4; this.score = 0; this.chips = 0; this.coins = 0;
     this.chipMeter = 0; this.policeDistance = 10; this.themeIndex = 0; this.theme = THEMES[0];
     this.tier = 1; this.tiers = 1; this.dodgeStreak = 0; this.perfectDodges = 0;
-    this.introRemaining = 3.8; this.introProgress = 0; this._hitAge = 100; this._slowRemaining = 0;
+    this.introRemaining = INTRO_DURATION; this.introProgress = 0; this._hitAge = 100; this._slowRemaining = 0;
+    this.mistakes = 0; this.shieldGrace = 0; this.captureRemaining = 0; this.captureProgress = 0; this.crash = null;
     this._spawnCursor = 30; this._rowId = 0; this._poolCursor = 0; this._lastSafeLane = 1;
     this.patternHistory = []; this.powers.clear();
     for (const entity of this.entities) entity.active = false;
@@ -113,7 +120,7 @@ export class RunnerGame {
     if (skipIntro) { this.introRemaining = 0; this.introProgress = 1; this.player.anim = 'run'; }
     this.setState(skipIntro ? 'RUNNING' : 'STARTING');
   }
-  pause() { if (this.state === 'RUNNING' || this.state === 'STARTING') { this._beforePause = this.state; this.setState('PAUSED'); } }
+  pause() { if (['RUNNING', 'STARTING', 'CAUGHT'].includes(this.state)) { this._beforePause = this.state; this.setState('PAUSED'); } }
   resume() { if (this.state === 'PAUSED') this.setState(this._beforePause || 'RUNNING'); }
   menu() { this._reset(); this.setState('MAIN_MENU'); }
   input(action) {
@@ -157,11 +164,12 @@ export class RunnerGame {
     if (!entity) return null; // Exhaustion loses optional spawns, never allocates or evicts a visible hazard.
     if (!HAZARDS.has(type) && !COLLECTIBLES.has(type) && !POWER_DEFINITIONS[type]) return null;
     const isHazard = HAZARDS.has(type);
-    const approachFactor = type === 'traffic' ? 1.55 : 1;
+    const vehicle = VEHICLES[type];
+    const approachFactor = vehicle?.approach || 1;
     z *= approachFactor;
     Object.assign(entity, { active: true, type, lane, x: LANES[lane], y: isHazard ? 0 : 1.1, z,
-      previousZ: z, approachFactor, width: type === 'traffic' || type === 'blocker' ? 1.7 : 1.8,
-      depth: type === 'blocker' || type === 'traffic' ? 2.7 : .72,
+      previousZ: z, approachFactor, width: vehicle?.width || (type === 'blocker' ? 1.8 : 1.8),
+      depth: vehicle?.depth || (type === 'blocker' ? 1.3 : .72), height: vehicle?.height || (type === 'blocker' ? 3.5 : 1.02), stopped: false,
       variant: 0, hit: false, passed: false, magnetic: false, age: 0, rowId: -1,
       safeLane: -1, fromLane: lane, toLane: lane, spawnDistance: this.distance - z, ...extra });
     return entity;
@@ -200,8 +208,8 @@ export class RunnerGame {
     if (jumpLane >= 0 && rowId % 3 === 1) {
       for (let i = 0; i < 3; i++) this.spawnEntity('coin', jumpLane, z + 2.5 - i * 2.5, { rowId, y: i === 1 ? 2.5 : 1.8 });
     }
-    if (rowId > 0 && rowId % 12 === 6) {
-      const kind = Math.floor(rowId / 12) % 3 === 2 ? 'moon' : 'magnet';
+    if (rowId > 0 && rowId % 8 === 3) {
+      const kind = ['moped', 'magnet', 'moped', 'moon'][Math.floor(rowId / 8) % 4];
       this.spawnEntity(kind, pattern.safeLane, z + 8, { rowId, y: 1.2 });
     }
     const spacing = obstacleSpacing(this.speed, this.tier);
@@ -216,9 +224,15 @@ export class RunnerGame {
   update(dt) {
     if (!Number.isFinite(dt) || dt <= 0 || this.state === 'PAUSED' || this.state === 'MAIN_MENU' || this.state === 'GAME_OVER') return;
     let remaining = Math.min(dt, 1); // A suspended tab cannot advance seconds of unseen hazards.
+    if (this.state === 'CAUGHT') {
+      this.captureRemaining = Math.max(0, this.captureRemaining - remaining);
+      this.captureProgress = 1 - this.captureRemaining / 1.8;
+      if (!this.captureRemaining) { this.setState('GAME_OVER'); this.emit('gameover', this.snapshot()); }
+      return;
+    }
     if (this.state === 'STARTING') {
       const introDt = Math.min(remaining, this.introRemaining);
-      this.introRemaining -= introDt; this.introProgress = 1 - this.introRemaining / 3.8; remaining -= introDt;
+      this.introRemaining -= introDt; this.introProgress = 1 - this.introRemaining / INTRO_DURATION; remaining -= introDt;
       if (this.introRemaining <= 1e-8) { this.introRemaining = 0; this.player.anim = 'run'; this.setState('RUNNING'); }
     }
     while (remaining > 1e-8 && this.state === 'RUNNING') {
@@ -232,6 +246,7 @@ export class RunnerGame {
     this.time += dt;
     this.tier = this.tiers = clamp(Math.round(this.debug.tierOverride || (this.time < 30 ? 1 : this.time < 90 ? 2 : this.time < 180 ? 3 : 4)), 1, 4);
     this._hitAge += dt; this._slowRemaining = Math.max(0, this._slowRemaining - dt);
+    this.shieldGrace = Math.max(0, this.shieldGrace - dt);
     p.hit = Math.max(0, p.hit - dt);
     p.laneElapsed = Math.min(MOTION.laneDuration, p.laneElapsed + dt);
     const ease = 1 - (1 - p.laneElapsed / MOTION.laneDuration) ** 3;
@@ -249,12 +264,12 @@ export class RunnerGame {
       if (p.grounded && p.jumpBuffer > 0 && p.slide <= MOTION.slideDuration / 2) this._jump();
     }
     p.anim = p.hit > .65 ? 'hit' : p.slide > 0 ? 'slide' : p.y > .01 ? p.vy >= 0 ? 'jump' : 'fall' : 'run';
-    const baseSpeed = this.debug.speedOverride != null ? clamp(Number(this.debug.speedOverride) || 9.4, 2, 120) : Math.min(26, 9.4 + this.time * .12);
+    const baseSpeed = this.debug.speedOverride != null ? clamp(Number(this.debug.speedOverride) || 10.4, 2, 120) : Math.min(26, 10.4 + this.time * .12);
     this.speed = baseSpeed * this.powers.speedMultiplier * (this._slowRemaining > 0 ? .7 : 1);
     const movement = this.speed * dt;
     this.distance += movement;
     this.score += movement * this.powers.scoreMultiplier;
-    if (this._hitAge > 7) this.policeDistance = Math.min(10, this.policeDistance + dt * .45);
+    if (this._hitAge > 9) this.policeDistance = Math.min(10, this.policeDistance + dt * .72);
     this.themeIndex = 0; this.theme = THEMES[0];
     for (const chunk of this.chunks) {
       chunk.z += movement;
@@ -265,7 +280,7 @@ export class RunnerGame {
       e.age += dt;
       e.previousZ = e.z;
       const oldX = e.x;
-      e.z += movement * e.approachFactor;
+      if (!e.stopped) e.z += movement * e.approachFactor;
       if (COLLECTIBLES.has(e.type) && this.powers.magnetRadius > 0 && e.z > -this.powers.magnetRadius && e.z < 1) {
         e.magnetic = true;
         e.x += (p.x - e.x) * Math.min(1, dt * 13);
@@ -284,7 +299,7 @@ export class RunnerGame {
         const xOverlap = Math.abs(playerX - entityX) < (hazard ? e.width / 2 + .3 : .72);
         if (xOverlap) {
           if (hazard) {
-            const collides = e.type === 'jump' ? playerY < 1.02 : e.type === 'slide' ? playerY < 3 && (p.slide <= 0 || playerY > .2) : playerY < 2.85;
+            const collides = e.type === 'slide' ? playerY < 3 && (p.slide <= 0 || playerY > .2) : playerY < e.height;
             if (collides) this._hit(e);
           } else if (Math.abs(playerY + .85 - e.y) < .95 || e.magnetic) this._pickup(e);
         }
@@ -317,19 +332,33 @@ export class RunnerGame {
       this.score += 20 * this.powers.scoreMultiplier;
       this.emit('smash', { kind: entity.type, x: entity.x }); return;
     }
-    if (this.player.hit > 0) return;
-    this.policeDistance = Math.max(0, this.policeDistance - 4);
-    this.player.hit = 1.2; this._slowRemaining = .65; this._hitAge = 0; this.dodgeStreak = 0;
-    this.emit('hit', { kind: entity.type, policeDistance: this.policeDistance });
-    if (this.policeDistance <= 0) {
-      this.player.anim = 'caught';
-      this.setState('GAME_OVER'); this.emit('gameover', this.snapshot());
+    if (this.shieldGrace > 0) { entity.active = false; return; }
+    if (this.powers.has('moped')) {
+      this.powers.remove('moped', 'collision'); entity.active = false;
+      this.shieldGrace = 1.1; this.player.hit = 0;
+      this.emit('shieldbreak', { kind: entity.type }); return;
     }
+    // Vehicles are fatal even during an ordinary stumble. Only the moped shield absorbs one.
+    if (VEHICLES[entity.type]) { this._capture(entity); return; }
+    if (this.player.hit > 0) return;
+    this.mistakes++;
+    if (this.mistakes >= 2) { this._capture(entity); return; }
+    this.policeDistance = 1.5;
+    this.player.hit = 1.15; this._slowRemaining = .8; this._hitAge = 0; this.dodgeStreak = 0;
+    this.emit('hit', { kind: entity.type, policeDistance: this.policeDistance });
+  }
+  _capture(entity) {
+    entity.stopped = true;
+    this.crash = { kind: entity.type, entityId: entity.id, x: this.player.x, y: this.player.y, z: entity.z };
+    this.policeDistance = 0; this.speed = 0; this.player.hit = 0;
+    this.player.anim = 'caught'; this.player.vy = 0; this.player.slide = 0;
+    this.captureRemaining = 1.8; this.captureProgress = 0;
+    this.setState('CAUGHT'); this.emit('crash', { kind: entity.type });
   }
   snapshot() {
     return { state: this.state, distance: Math.floor(this.distance), time: this.time, speed: this.speed,
       score: Math.floor(this.score), coins: this.coins,
-      policeDistance: this.policeDistance, theme: this.theme, themeIndex: this.themeIndex, tier: this.tier,
+      policeDistance: this.policeDistance, mistakes: this.mistakes, mopedShield: this.powers.has('moped'), captureProgress: this.captureProgress, crash: this.crash, theme: this.theme, themeIndex: this.themeIndex, tier: this.tier,
       perfectDodges: this.perfectDodges, lane: this.player.lane, activeEntities: this.entities.filter(e => e.active).length,
       powers: [...this.powers.active.values()].map(p => ({ ...p })) };
   }

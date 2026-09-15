@@ -1,0 +1,11 @@
+{
+  "name": "18bro-run-for-the-chips",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "A playable 3D endless runner set on a busy Hong Kong street.",
+  "scripts": {
+    "start": "python3 -m http.server 4173 --directory dist",
+    "test": "node --test tests/*.test.mjs"
+  }
+}

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#101511">
+<title>18Bro: Run for the Chips</title><meta name="description" content="Steal chips. Dodge cops. Run forever. A playable 3D arcade runner set on the neon streets of Hong Kong.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23101411'/%3E%3Cpath d='M5 23V7l8 5h6l8-5v16l-5 5H10z' fill='%2388ed55'/%3E%3Cpath d='M9 17h5v4H9zm10 0h5v4h-5z' fill='%23101411'/%3E%3Cpath d='m14 23 2 3 2-3' fill='%23f78436'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="cabinet">
+<header class="masthead"><div class="mast-right"><span class="record-label">PERSONAL BEST <b id="top-best">000000</b></span><button id="audio-toggle" class="icon-button" aria-label="Mute sound" title="Toggle sound [M]">♫</button><button id="fullscreen" class="icon-button" aria-label="Enter fullscreen" title="Fullscreen">⛶</button></div></header>
+<main id="game-shell" class="game-shell" aria-label="18Bro game">
+<canvas id="game-canvas" aria-label="3D endless runner. Use arrow keys to dodge, jump and slide." tabindex="0"></canvas>
+<div class="crt" aria-hidden="true"></div><div class="vignette" aria-hidden="true"></div>
+<div class="screen-top"><span><i></i> <span id="location">香港 · HONG KONG</span></span><span id="screen-status">INSERT COIN? NAH. STEAL CHIPS.</span></div>
+<section id="main-menu" class="main-menu">
+<div class="edition">AN 18BRO ARCADE EXPERIENCE <span>© 1999</span></div>
+<h1 class="game-logo" aria-label="18Bro: Run for the Chips"><span class="logo-line"><em>18</em><strong>Bro</strong><sup>™</sup></span><span class="logo-sub">RUN FOR THE CHIPS</span></h1>
+<p class="japanese">チップのために走れ</p>
+<p class="tagline">SMALL CAT.<br>BIG APPETITE.<br><span>ZERO REGRETS.</span></p>
+<button class="start-button" id="start-run"><span class="play-triangle">▶</span> LET’S RUN <kbd>ENTER ↵</kbd></button>
+<p class="menu-hint">STEAL CHIPS. DODGE COPS. RUN FOREVER.</p>
+<div class="menu-nav"><button data-panel="characters"><span>01</span> CHARACTERS</button><button data-panel="missions"><span>02</span> MISSIONS</button><button data-panel="records"><span>03</span> RECORDS</button><button data-panel="settings"><span>04</span> SETTINGS</button></div>
+</section>
+<div class="character-caption" id="character-caption"><span class="name-tag">18BRO</span><p>JUST A CAT.<br>JUST CHIPS.</p><div class="character-rule"></div><small>WANTED FOR PETTY SNACK THEFT</small></div>
+<section id="hud" class="hud" hidden><div class="hud-top"><div class="collectibles"><span class="coin-icon">●</span><b id="hud-coins">00</b><small>COINS</small></div><div class="score"><small>SCORE</small><b id="hud-score">000000</b><span id="hud-distance">0 m</span></div><button id="pause-run" class="pause-button" aria-label="Pause game">Ⅱ</button></div><div id="active-powers" class="active-powers"></div></section>
+<div id="run-banner" class="run-banner" aria-live="polite"></div><div id="toast" class="toast" role="status"></div><div id="hit-flash" class="hit-flash"></div>
+<div id="touch-controls" class="touch-controls" hidden><button data-action="left" aria-label="Move left">◀</button><button data-action="slide" aria-label="Slide">▼</button><button data-action="jump" aria-label="Jump">▲</button><button data-action="right" aria-label="Move right">▶</button></div>
+<section id="pause-panel" class="center-overlay" hidden><div class="retro-panel pause-panel"><span class="eyebrow">TAKE A BREATHER</span><h2>PAUSED</h2><p>THE CHIPS CAN WAIT. BRIEFLY.</p><button id="resume-run" class="primary-button">▶ KEEP RUNNING</button><button id="pause-menu" class="secondary-button">MAIN MENU</button></div></section>
+<section id="gameover-panel" class="center-overlay gameover" hidden><div class="retro-panel"><span class="eyebrow">END OF THE ROAD</span><h2>BUSTED<span>!</span></h2><p class="caught-copy">STILL GOT THE CHIPS.</p><div class="results"><div><span>SCORE</span><b id="result-score">0</b></div><div><span>DISTANCE</span><b id="result-distance">0 m</b></div><div><span>COINS BANKED</span><b id="result-coins">0</b></div><div><span>PERSONAL BEST</span><b id="result-best">0</b></div></div><div id="new-record" hidden>★ NEW PERSONAL BEST ★</div><button id="retry-run" class="primary-button">▶ ONE MORE RUN <kbd>ENTER ↵</kbd></button><button id="over-menu" class="secondary-button">MAIN MENU</button></div></section>
+<dialog id="menu-dialog" class="menu-dialog"><div class="dialog-top"><span id="panel-kicker">18BRO</span><button id="close-dialog" class="icon-button" aria-label="Close menu">✕</button></div><h2 id="panel-title">CHARACTERS</h2><div id="panel-content"></div></dialog>
+<aside id="debug-panel" class="debug-panel" hidden><h3>DEVELOPER TOOLS <button id="debug-close" aria-label="Close debug panel">✕</button></h3><div id="debug-stats"></div><label>Speed <input id="debug-speed" type="range" min="0" max="40" value="0"><span id="debug-speed-label">AUTO</span></label><label>Invincible <input id="debug-invincible" type="checkbox"></label><label>Colliders <input id="debug-colliders" type="checkbox"></label><label>Difficulty <select id="debug-tier"><option value="0">Automatic</option><option value="1">Tier 1</option><option value="2">Tier 2</option><option value="3">Tier 3</option><option value="4">Tier 4</option></select></label><div class="debug-spawn"><select id="debug-type"><option>blocker</option><option>jump</option><option>slide</option><option>traffic</option><option>coin</option></select><button id="debug-spawn">SPAWN</button></div><div class="debug-spawn"><select id="debug-power"><option>magnet</option><option>moon</option></select><button id="debug-activate">ACTIVATE</button></div><button id="debug-reset" class="secondary-button">RESET SAVE DATA</button></aside>
+<div class="screen-bottom" id="screen-bottom"><span>LICENSED TO CAUSE MINOR INCONVENIENCE</span><span>HONG KONG / STREET EDITION</span></div>
+</main>
+<footer class="footer"><div class="control-legend"><span><kbd>←</kbd><kbd>→</kbd> DODGE</span><span><kbd>↑</kbd><kbd>SPACE</kbd> JUMP</span><span><kbd>↓</kbd> SLIDE</span><span><kbd>ESC</kbd> PAUSE</span></div><div class="footer-right"><span class="ready-dot"></span><span id="footer-note">ALL CHIPS. NO BRAKES.</span><button id="how-to">HOW TO PLAY <span>?</span></button></div></footer>
+</div>
+<noscript>This game needs JavaScript to run. Enable JavaScript and reload to play.</noscript>
+<script type="module" src="app.mjs"></script>
+</body></html>

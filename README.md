@@ -27,7 +27,7 @@ The crowd includes men and women with varied clothes, hair, bags, heights and wa
 - `dist/choreography.mjs`: opening and capture timelines, shared with regression tests.
 - `dist/scene.mjs`: procedural meshes, city/store construction, character animation and pooled effects.
 - `dist/material-assets.mjs`: local texture loading, atlas regions and material tiling.
-- `dist/assets/textures/`: all supplied store, street, vehicle-cart, produce, storefront and tenement textures, plus the generated city atlas.
+- `dist/assets/textures/`: supplied floor, plaster, pavement and refrigerator textures, plus the generated city atlas.
 - `dist/crowd.mjs`: continuous sidewalk paths and clearance dimensions.
 - `dist/app.mjs`: menus, input, local saves, HUD and optional browser tools.
 - `dist/audio.mjs`: sound effects. `dist/style.css`: responsive interface.
@@ -45,4 +45,4 @@ npm test
 
 ## Assets
 
-All models are editable procedural Three.js geometry; no external model service is required. Texture provenance and the image-generation prompt are in `docs/textures.md`. Third-party engine/font notices are retained in `dist/vendor/`. The supplied images are embedded as local project assets: apartment facades cover upper tenements, matching shop photos cover street storefronts, the soda refrigerator and convenience materials dress the opening store, asphalt covers the road, and the metal, wood, blue-cart and fruit sheets dress street fixtures and produce.
+All models are editable procedural Three.js geometry; no external model service is required. Texture provenance and the image-generation prompt are in `docs/textures.md`. Third-party engine/font notices are retained in `dist/vendor/`. The store design uses the user-requested 7-Eleven reference. The supplied storefront photograph is a design reference and is not embedded.

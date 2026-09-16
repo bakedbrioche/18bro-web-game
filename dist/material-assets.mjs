@@ -10,37 +10,10 @@ export function applyMaterialAssets(scene) {
     t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(...repeat);
     return t;
   };
-  const photo = (name, extra = {}) => scene.mat(0xffffff, {map:load(name), ...extra});
-  const fruit = (row) => {
-    const t = load('fruit-sheet.png');
-    t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
-    t.repeat.set(.235, .235); t.offset.set(.006, row * .25 + .008);
-    return scene.mat(0xffffff, {map:t, flatShading:false});
-  };
   m.storeFloor = scene.mat(0xe9e4d7, {map:load('store-floor.png', [2, 2])});
   m.storeWall = scene.mat(0xeae3ce, {map:load('store-plaster.png')});
   m.sidewalk = scene.mat(0xb8b6b1, {map:load('sidewalk.png', [1, 8])});
-  m.fridges = scene.mat(0xffffff, {map:load('soda-fridge.png'), emissive:0xffffff, emissiveIntensity:.2});
-  m.surfaceMetal = scene.mat(0xffffff, {map:load('metal-user.png', [1, 2])});
-  m.cartWood = scene.mat(0xffffff, {map:load('cart-wood.png', [1, 2])});
-  m.cartBlue = scene.mat(0xffffff, {map:load('cart-blue.png')});
-  m.fruitSkins = [fruit(0), fruit(1), fruit(2), fruit(3)];
-  m.tenements = [
-    'tenement-beige.png', 'tenement-yellow.png', 'tenement-green.png',
-    'tenement-pink.png', 'tenement-blue.png'
-  ].map(name => photo(name));
-  const restaurant = photo('restaurant-counter.png', {emissive:0xffd59b, emissiveIntensity:.08});
-  const cafe = photo('storefront-cafe.png', {emissive:0xffd9a7, emissiveIntensity:.08});
-  const fruitShop = photo('storefront-fruit.png', {emissive:0xb7ffd1, emissiveIntensity:.06});
-  const convenience = photo('storefront-convenience.png', {emissive:0xfff2d4, emissiveIntensity:.12});
-  const electronics = photo('storefront-electronics.png', {emissive:0xd7f5ff, emissiveIntensity:.1});
-  const electronics2 = photo('storefront-electronics-2.png', {emissive:0xd7f5ff, emissiveIntensity:.1});
-  const phoneCases = photo('storefront-phone-cases.png', {emissive:0xd7f5ff, emissiveIntensity:.1});
-  m.storefrontByKind = {
-    0:[cafe], 1:[fruitShop], 3:[restaurant],
-    4:[electronics, electronics2, phoneCases],
-    7:[convenience], 8:[phoneCases, electronics]
-  };
+  m.fridges = scene.mat(0xffffff, {map:load('drink-fridges.png'), emissive:0xffffff, emissiveIntensity:.25});
   const atlasCells = [];
   const atlas = load('hong-kong-atlas.png', [1,1], () => atlasCells.forEach(t => {t.needsUpdate=true;}));
   const cell = (index, color = 0xffffff, extra = {}, tiles = [1,1]) => {
@@ -58,7 +31,7 @@ export function applyMaterialAssets(scene) {
     }
     return material;
   };
-  m.asphalt = scene.mat(0xb0b0b0, {map:load('asphalt-user.png', [2, 8])});
+  m.asphalt = cell(0, 0x9099a1, {}, [2,8]);
   m.brick = cell(1,0xffffff,{},[2,6]); m.shutter = cell(2); m.awning = cell(3);
   m.bamboo = cell(4); m.ice = cell(5); m.groceries = cell(6, 0xffffff, {emissive:0xffedcc, emissiveIntensity:.12});
   m.marketTile = cell(7); m.wall.push(cell(8,0xffffff,{},[1,3]));

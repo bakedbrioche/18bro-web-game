@@ -104,13 +104,9 @@ export class GameScene {
    for(let n=0;n<4;n++){
     if(index===6&&side<0&&(n===1||n===2))continue; // Reserve the opening store footprint.
     const z=-3.75-n*7.5,h=15+rand()*15,w=5+rand()*3,kind=(index*3+n+(side>0?2:0))%m.shops.length,face=7.25+rand()*.22;
-    const photoChoices=m.storefrontByKind[kind],frontMat=photoChoices?.[(index+n+(side>0?1:0))%photoChoices.length]||m.shops[kind];
     box(m.wall[(n+index+(side>0?1:0))%m.wall.length],side*(face+w/2),h/2,z,w,h,7.25);
-    // The supplied apartment photographs form the street-facing tenement skin. Existing
-    // bay windows, AC cages, pipes and ledges remain in front so the facade keeps real depth.
-    b.add(this.plane,m.tenements[(index+n+(side>0?2:0))%m.tenements.length],side*(face-.095),(h+4.05)/2,z,7.08,h-4.05,1,0,side<0?Math.PI/2:-Math.PI/2,0);
     box(m.black,side*(face-.06),2.04,z,.18,4.15,7.2);
-    b.add(this.plane,frontMat,side*(face-.17),photoChoices?1.57:1.65,z,photoChoices?7.02:6.3,photoChoices?2.42:2.8,1,0,side<0?Math.PI/2:-Math.PI/2,0);
+    b.add(this.plane,m.shops[kind],side*(face-.17),1.65,z,6.3,2.8,1,0,side<0?Math.PI/2:-Math.PI/2,0);
     b.add(this.plane,m.fascias[kind],side*(face-.6),3.47,z,7,.76,1,0,side<0?Math.PI/2:-Math.PI/2,0);
     box([m.red,m.green,m.yellow,m.blue][kind%4],side*(face-.67),3.0,z,1.1,.14,7.1,0,0,side*.13);
     for(let a=0;a<7;a++)box(kind%2?m.white:m.yellow,side*(face-1.12),2.91,z-3+a, .04,.14,.44);
@@ -128,11 +124,11 @@ export class GameScene {
     if(kind>=12){this.marketStall(b,kind,vx,vz);}
     else
     if(kind===1||kind===3||kind===6||n===index%4){
-      box(kind===3?m.cartBlue:m.cartWood,vx,.61,vz,1.2,1.12,2.3);box(m.surfaceMetal,vx,1.2,vz,1.4,.12,2.5);
+      box(m.wood,vx,.61,vz,1.2,1.12,2.3);box(m.metal,vx,1.2,vz,1.4,.12,2.5);
       box([m.red,m.green,m.yellow][kind%3],vx,2.48,vz,2,.11,2.8,0,0,side*.08);
-      for(const q of [-1,1])box(m.surfaceMetal,vx+side*.55,1.8,vz+q*1.17,.055,1.6,.055);
+      for(const q of [-1,1])box(m.metal,vx+side*.55,1.8,vz+q*1.17,.055,1.6,.055);
       box(m.lamp,vx,2.34,vz,.06,.06,1.8);
-      if(kind%2){for(let q=0;q<4;q++)for(let a=0;a<3;a++)b.add(this.sphere,m.fruitSkins[(a+q)%m.fruitSkins.length],vx-.4+a*.33,1.37,vz-.78+q*.5,.29,.27,.3);}
+      if(kind%2){for(let q=0;q<4;q++)for(let a=0;a<3;a++)b.add(this.sphere,[m.yellow,m.orange,m.green][(a+q)%3],vx-.4+a*.33,1.37,vz-.78+q*.5,.29,.27,.3);}
       else{for(let q of [-.65,.1,.65]){b.add(this.cylinder,m.metal,vx,1.45,vz+q,.6,.45,.6);b.add(this.cone,m.white,vx,1.76,vz+q,.57,.14,.57);}}
       b.add(this.plane,m.posters[kind%4],vx, .65,vz+1.19,.67,.87,1);
     }else if(kind===5){box(m.metal,vx,2.1,vz,.045,.045,2.5);for(let a=0;a<5;a++){box(m.shirt[a%6],vx,1.6,vz-.9+a*.43,.3,.8,.35);box(m.shirt[a%6],vx,1.9,vz-.9+a*.43,.2,.22,.55);}}
@@ -301,10 +297,10 @@ export class GameScene {
  }
  marketStall(b,kind,x,z){
   const m=this.m,box=(mat,xx,y,zz,w,h,d)=>b.add(this.box,mat,xx,y,zz,w,h,d);
-  box(kind===12?m.cartBlue:m.cartWood,x,.55,z,1.2,1.1,2.5);
-  box(kind===12?m.surfaceMetal:m.cartWood,x,1.14,z,1.38,.12,2.7);
+  box(kind===12?m.marketTile:m.wood,x,.55,z,1.2,1.1,2.5);
+  box(kind===12?m.ice:m.bamboo,x,1.14,z,1.38,.12,2.7);
   box(m.awning,x,2.75,z,1.65,.13,2.95);
-  for(const q of [-1,1])box(m.surfaceMetal,x+.5,1.9,z+q*1.25,.055,1.65,.055);
+  for(const q of [-1,1])box(m.metal,x+.5,1.9,z+q*1.25,.055,1.65,.055);
   box(m.lamp,x,2.55,z,.08,.05,2.2);
   for(const f of [-1,1])b.add(this.plane,m.fascias[kind],x,2.41,z+f*1.4,1.4,.4,1,0,f<0?Math.PI:0,0);
   if(kind===12){
@@ -315,7 +311,7 @@ export class GameScene {
   }else if(kind===13){
     for(let j=0;j<5;j++){box(m.metal,x,2.37,z-.95+j*.45,.035,.25,.035);b.add(this.sphere,m.wood,x,1.95,z-.95+j*.45,.31,.57,.28);b.add(this.sphere,m.orange,x,1.7,z-.95+j*.45,.36,.24,.25);}
     box(m.white,x,1.24,z,1.1,.09,2.1);
-  }else{for(let j=0;j<4;j++)for(let k=0;k<3;k++){const xx=x-.35+k*.32,zz=z-.93+j*.57;b.add(this.sphere,m.fruitSkins[(j+k)%m.fruitSkins.length],xx,1.35,zz,.32,.28,.38);if(j%2===0)box(m.leaf,xx,1.53,zz,.04,.17,.04);}}
+  }else{for(let j=0;j<4;j++)for(let k=0;k<3;k++){const xx=x-.35+k*.32,zz=z-.93+j*.57;b.add(this.sphere,j%2?m.leaf:m.purple,xx,1.35,zz,.32,.28,.38);if(j%2===0)box(m.leaf,xx,1.53,zz,.04,.17,.04);}}
  }
  makeMenuProps(){
   const m=this.m;this.menuProps=new THREE.Group();this.scene.add(this.menuProps);this.menuCoins=[];
@@ -331,13 +327,13 @@ export class GameScene {
   for(const x of [-3.4,0,3.4])for(const z of [-1.5,-4.5,-6.6])bx(m.lamp,x,4.5,z,1.8,.07,.48);
   panel(m.fridges,0,2.08,-7.37,9.8,3.85);
   for(const x of [-3.65,3.6]){
-    bx(m.surfaceMetal,x,1.17,-4.1,1.5,2.34,3.6);
+    bx(m.metal,x,1.17,-4.1,1.5,2.34,3.6);
     for(const side of [-1,1])panel(m.groceries,x+side*.76,1.32,-4.1,3.48,2.16,side*Math.PI/2);
     for(const y of [.3,.84,1.4,1.97]){bx(m.white,x,y,-2.28,1.57,.065,.48);for(let j=0;j<6;j++)bx([m.chip,m.red,m.green,m.yellow][j%4],x-.6+j*.24,y+.22,-2.12,.18,.37,.17);}
     panel(m.posters[x<0?0:3],x,2.64,-2.12,.72,.61);
   }
   // This is the shelf used by the heist. The removable packet lives at the hand's contact pose.
-  bx(m.surfaceMetal,-1.42,1.3,-4.15,2.45,2.6,.18);
+  bx(m.metal,-1.42,1.3,-4.15,2.45,2.6,.18);
   panel(m.groceries,-1.42,1.3,-4.045,2.36,2.45);
   for(const y of [.35,1,1.64,2.28])bx(m.white,-1.42,y,-3.84,2.5,.065,.63);
   for(const y of [.55,1.85,2.48])for(let j=0;j<7;j++)bx([m.chip,m.red,m.green][j%3],-2.42+j*.31,y,-3.75,.24,.36,.13);
@@ -368,7 +364,7 @@ export class GameScene {
   for(let j=0;j<5;j++)panel(m.posters[j%4],-4.76+j*.37,1.07,1.07,.33,.77);
   bx(m.metal,-4.02,.52,1.02,2.08,.1,.58);
   for(let j=0;j<8;j++){bx(m.blue,-4.77+j*.12,.52,1.44,.055,.89,.055);bx(m.metal,-4.77+j*.12,1.02,1.44,.025,.22,.025);}
-  bx(m.cartWood,4.2,.3,1.07,1.7,.58,.75);panel(m.groceries,4.2,.62,1.48,1.6,1.14);
+  bx(m.wood,4.2,.3,1.07,1.7,.58,.75);panel(m.groceries,4.2,.62,1.48,1.6,1.14);
   panel(m.posters[1],-2.6,3.37,.56,.82,.75);panel(m.posters[2],2.3,3.37,.56,.88,.74);
   this.batchStatic(this.store);
   this.shelfBag=new THREE.Group();this.boxMesh(this.shelfBag,m.chip,0,-.19,.01,.34,.54,.15);this.shelfBag.scale.setScalar(.8);this.scene.add(this.shelfBag);

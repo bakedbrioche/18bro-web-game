@@ -1,10 +1,12 @@
 /** 18Bro deterministic, DOM-free runner simulation. World approaches +Z; cat stays at Z=0. */
+import { INTRO_DURATION, CAPTURE_DURATION } from './choreography.mjs';
+export { INTRO_DURATION, CAPTURE_DURATION } from './choreography.mjs';
 export const LANES = Object.freeze([-2.5, 0, 2.5]);
 export const THEMES = Object.freeze(['HONG KONG']);
 export const POWER_DURATIONS = Object.freeze({ magnet: 8, moon: 5, moped: 10 });
 export const MOTION = Object.freeze({ laneDuration: .16, jumpDuration: .82, jumpHeight: 2.65, slideDuration: .72, jumpBuffer: .1, coyoteTime: .08 });
-export const INTRO_DURATION = 5.8;
-export const VEHICLES = Object.freeze({ traffic: { approach: 2.05, height: 1.68, width: 1.72, depth: 3.1 }, scooter: { approach: 1.9, height: 2.02, width: .9, depth: 1.9 } });
+export const BARRIERS = Object.freeze({ jump: { height: 1.72, width: 2.05, depth: .84 }, blocker: { height: 4.3, width: 2.12, depth: 1.5 }, slide: { height: 3.5, width: 2.16, depth: .72 } });
+export const VEHICLES = Object.freeze({ traffic: { approach: 2.05, height: 1.89, width: 1.94, depth: 3.56 }, scooter: { approach: 1.9, height: 2.26, width: 1.04, depth: 2.0 } });
 const GRAVITY = 8 * MOTION.jumpHeight / MOTION.jumpDuration ** 2;
 const JUMP_VELOCITY = GRAVITY * MOTION.jumpDuration / 2;
 const HAZARDS = new Set(['blocker', 'jump', 'slide', 'traffic', 'scooter']);
@@ -28,6 +30,11 @@ export const PATTERNS = Object.freeze([
   { minTier: 2, slots: ['jump', null, 'blocker'] },
   { minTier: 3, slots: ['traffic', 'traffic', null] },
   { minTier: 3, slots: ['blocker', null, 'slide'] },
+  { minTier: 2, slots: ['jump', 'jump', null] },
+  { minTier: 2, slots: [null, 'slide', 'jump'] },
+  { minTier: 3, slots: ['blocker', 'jump', null] },
+  { minTier: 4, slots: [null, 'blocker', 'blocker'] },
+  { minTier: 4, slots: ['slide', null, 'blocker'] },
 ]);
 
 export function validatePattern(pattern) {
@@ -42,7 +49,7 @@ export function validatePattern(pattern) {
 
 export function obstacleSpacing(speed, tier = 1) {
   // At top speed both full two-lane travel (.32s) and jump/slide recovery fit between rows.
-  const reaction = [1.14, 1.04, .97, .92][clamp(tier, 1, 4) - 1];
+  const reaction = [1.24, 1.12, 1.01, .94][clamp(tier, 1, 4) - 1];
   return Math.max(13.5, speed * reaction + 2.8);
 }
 
@@ -105,7 +112,7 @@ export class RunnerGame {
   _reset() {
     this.player = { x: 0, lane: 1, y: 0, vy: 0, slide: 0, hit: 0, grounded: true, anim: 'idle', laneFrom: 0, laneElapsed: MOTION.laneDuration, jumpBuffer: 0, coyote: MOTION.coyoteTime };
     this.distance = 0; this.time = 0; this.speed = 10.4; this.score = 0; this.chips = 0; this.coins = 0;
-    this.chipMeter = 0; this.policeDistance = 10; this.themeIndex = 0; this.theme = THEMES[0];
+    this.chipMeter = 0; this.policeDistance = 1.5; this.themeIndex = 0; this.theme = THEMES[0];
     this.tier = 1; this.tiers = 1; this.dodgeStreak = 0; this.perfectDodges = 0;
     this.introRemaining = INTRO_DURATION; this.introProgress = 0; this._hitAge = 100; this._slowRemaining = 0;
     this.mistakes = 0; this.shieldGrace = 0; this.captureRemaining = 0; this.captureProgress = 0; this.crash = null;
@@ -164,12 +171,12 @@ export class RunnerGame {
     if (!entity) return null; // Exhaustion loses optional spawns, never allocates or evicts a visible hazard.
     if (!HAZARDS.has(type) && !COLLECTIBLES.has(type) && !POWER_DEFINITIONS[type]) return null;
     const isHazard = HAZARDS.has(type);
-    const vehicle = VEHICLES[type];
+    const vehicle = VEHICLES[type], dimensions = vehicle || BARRIERS[type];
     const approachFactor = vehicle?.approach || 1;
     z *= approachFactor;
     Object.assign(entity, { active: true, type, lane, x: LANES[lane], y: isHazard ? 0 : 1.1, z,
-      previousZ: z, approachFactor, width: vehicle?.width || (type === 'blocker' ? 1.8 : 1.8),
-      depth: vehicle?.depth || (type === 'blocker' ? 1.3 : .72), height: vehicle?.height || (type === 'blocker' ? 3.5 : 1.02), stopped: false,
+      previousZ: z, approachFactor, width: dimensions?.width || .75,
+      depth: dimensions?.depth || .72, height: dimensions?.height || 1.02, stopped: false,
       variant: 0, hit: false, passed: false, magnetic: false, age: 0, rowId: -1,
       safeLane: -1, fromLane: lane, toLane: lane, spawnDistance: this.distance - z, ...extra });
     return entity;
@@ -178,7 +185,8 @@ export class RunnerGame {
     return this.spawnEntity(type, lane, -Math.max(18, this.speed * 2.2));
   }
   _makePattern() {
-    const candidates = PATTERNS.filter(p => p.minTier <= this.tier);
+    const dense = this._random() < [0, .55, .8, .94][this.tier - 1];
+    const candidates = PATTERNS.filter(p => p.minTier <= this.tier && (!dense || p.slots.filter(Boolean).length === 2));
     let source = candidates[Math.floor(this._random() * candidates.length)];
     // Moving obstacles remain sparse, even after they become eligible.
     if (source.movingTo != null && this._random() > .22) source = candidates[0];
@@ -203,10 +211,14 @@ export class RunnerGame {
         fromLane: lane, toLane: type === 'moving' ? pattern.movingTo : lane });
     }
     // Coins lead through the guaranteed clear lane, aligned to scheduled encounters.
-    for (let i = 0; i < 4; i++) this.spawnEntity('coin', pattern.safeLane, z + 5.5 - i * 2.4, { rowId, y: 1.1 });
+    for (let i = 0; i < 6; i++) this.spawnEntity('coin', pattern.safeLane, z + 5.625 - i * 2.25, { rowId, y: 1.1 });
     const jumpLane = pattern.slots.indexOf('jump');
-    if (jumpLane >= 0 && rowId % 3 === 1) {
-      for (let i = 0; i < 3; i++) this.spawnEntity('coin', jumpLane, z + 2.5 - i * 2.5, { rowId, y: i === 1 ? 2.5 : 1.8 });
+    if (jumpLane >= 0) {
+      // Samples of the actual jump parabola: the center coin sits above the barrier at the apex.
+      for (let i = -2; i <= 2; i++) {
+        const offset = i * .12;
+        this.spawnEntity('coin', jumpLane, z + this.speed * offset, { rowId, y: .85 + MOTION.jumpHeight * (1 - (2 * offset / MOTION.jumpDuration) ** 2), jumpArc: true });
+      }
     }
     if (rowId > 0 && rowId % 8 === 3) {
       const kind = ['moped', 'magnet', 'moped', 'moon'][Math.floor(rowId / 8) % 4];
@@ -226,7 +238,7 @@ export class RunnerGame {
     let remaining = Math.min(dt, 1); // A suspended tab cannot advance seconds of unseen hazards.
     if (this.state === 'CAUGHT') {
       this.captureRemaining = Math.max(0, this.captureRemaining - remaining);
-      this.captureProgress = 1 - this.captureRemaining / 1.8;
+      this.captureProgress = 1 - this.captureRemaining / CAPTURE_DURATION;
       if (!this.captureRemaining) { this.setState('GAME_OVER'); this.emit('gameover', this.snapshot()); }
       return;
     }
@@ -244,7 +256,7 @@ export class RunnerGame {
     const p = this.player;
     const previousX = p.x, previousY = p.y;
     this.time += dt;
-    this.tier = this.tiers = clamp(Math.round(this.debug.tierOverride || (this.time < 30 ? 1 : this.time < 90 ? 2 : this.time < 180 ? 3 : 4)), 1, 4);
+    this.tier = this.tiers = clamp(Math.round(this.debug.tierOverride || (this.time < 20 ? 1 : this.time < 55 ? 2 : this.time < 110 ? 3 : 4)), 1, 4);
     this._hitAge += dt; this._slowRemaining = Math.max(0, this._slowRemaining - dt);
     this.shieldGrace = Math.max(0, this.shieldGrace - dt);
     p.hit = Math.max(0, p.hit - dt);
@@ -259,7 +271,7 @@ export class RunnerGame {
         p.y += p.vy * dt - GRAVITY * dt * dt / 2;
         p.vy -= GRAVITY * dt;
         p.coyote = Math.max(0, p.coyote - dt);
-        if (p.y <= 0) { p.y = 0; p.vy = 0; p.grounded = true; p.coyote = MOTION.coyoteTime; }
+        if (p.y <= 0) { p.y = 0; p.vy = 0; p.grounded = true; p.coyote = MOTION.coyoteTime; this.emit('land', {x:p.x}); }
       } else p.coyote = MOTION.coyoteTime;
       if (p.grounded && p.jumpBuffer > 0 && p.slide <= MOTION.slideDuration / 2) this._jump();
     }
@@ -269,7 +281,7 @@ export class RunnerGame {
     const movement = this.speed * dt;
     this.distance += movement;
     this.score += movement * this.powers.scoreMultiplier;
-    if (this._hitAge > 9) this.policeDistance = Math.min(10, this.policeDistance + dt * .72);
+    if (this.time > 2.5 && this._hitAge > 9) this.policeDistance = Math.min(10, this.policeDistance + dt * 1.65);
     this.themeIndex = 0; this.theme = THEMES[0];
     for (const chunk of this.chunks) {
       chunk.z += movement;
@@ -300,7 +312,10 @@ export class RunnerGame {
         if (xOverlap) {
           if (hazard) {
             const collides = e.type === 'slide' ? playerY < 3 && (p.slide <= 0 || playerY > .2) : playerY < e.height;
-            if (collides) this._hit(e);
+            if (collides) {
+              const sideImpact = !!VEHICLES[e.type] && (Math.abs(playerX - entityX) > e.width * .39 || (e.previousZ > -halfDepth + .12 && Math.abs(p.x - previousX) > .001));
+              this._hit(e, sideImpact ? 'side' : 'front');
+            }
           } else if (Math.abs(playerY + .85 - e.y) < .95 || e.magnetic) this._pickup(e);
         }
       }
@@ -325,7 +340,7 @@ export class RunnerGame {
     else this.powers.activate(kind);
     this.emit('pickup', { kind, id: entity.id, x: entity.x, y: entity.y, chips: this.chips, coins: this.coins });
   }
-  _hit(entity) {
+  _hit(entity, impact = 'front') {
     entity.hit = true;
     if (this.debug.invincible || this.powers.invulnerable) {
       entity.active = false;
@@ -338,22 +353,22 @@ export class RunnerGame {
       this.shieldGrace = 1.1; this.player.hit = 0;
       this.emit('shieldbreak', { kind: entity.type }); return;
     }
-    // Vehicles are fatal even during an ordinary stumble. Only the moped shield absorbs one.
-    if (VEHICLES[entity.type]) { this._capture(entity); return; }
+    // A head-on vehicle hit is fatal; clipping its side counts as the one recoverable stumble.
+    if (VEHICLES[entity.type] && impact === 'front') { this._capture(entity); return; }
     if (this.player.hit > 0) return;
     this.mistakes++;
     if (this.mistakes >= 2) { this._capture(entity); return; }
     this.policeDistance = 1.5;
     this.player.hit = 1.15; this._slowRemaining = .8; this._hitAge = 0; this.dodgeStreak = 0;
-    this.emit('hit', { kind: entity.type, policeDistance: this.policeDistance });
+    this.emit('hit', { kind: entity.type, impact, x: this.player.x, policeDistance: this.policeDistance });
   }
   _capture(entity) {
     entity.stopped = true;
     this.crash = { kind: entity.type, entityId: entity.id, x: this.player.x, y: this.player.y, z: entity.z };
     this.policeDistance = 0; this.speed = 0; this.player.hit = 0;
     this.player.anim = 'caught'; this.player.vy = 0; this.player.slide = 0;
-    this.captureRemaining = 1.8; this.captureProgress = 0;
-    this.setState('CAUGHT'); this.emit('crash', { kind: entity.type });
+    this.captureRemaining = CAPTURE_DURATION; this.captureProgress = 0;
+    this.setState('CAUGHT'); this.emit('crash', { kind: entity.type, x: this.player.x });
   }
   snapshot() {
     return { state: this.state, distance: Math.floor(this.distance), time: this.time, speed: this.speed,

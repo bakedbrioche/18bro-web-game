@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+import path from 'node:path';
+const [src,out]=process.argv.slice(2);
+const read=f=>fs.readFileSync(path.join(src,f),'utf8');
+function wrap(file,names){let code=read(file).replace(/^import .*?;\s*/gm,'').replace(/^export \{.*?\} from .*?;\s*/gm,'').replace(/\bexport (?=(?:class|function|const|let)\b)/g,'');if(file==='material-assets.mjs')code=code.replace('new URL(`./assets/textures/${name}`, import.meta.url).href','embeddedTextures[name]');return `(()=>{${code}\nreturn {${names.join(',')}};})()`;}
+let three=read('vendor/three.module.js');const match=three.match(/export \{ ([\s\S]*?) \};\s*$/);if(!match)throw Error('Unexpected Three export format');const names=match[1].split(',').map(s=>s.trim().split(/\s+as\s+/)).map(a=>a.length===2?a[1]+':'+a[0]:a[0]).join(',');three=three.slice(0,match.index)+`return {${names}};`;
+const images=Object.fromEntries(fs.readdirSync(path.join(src,'assets/textures')).filter(f=>f.endsWith('.png')).map(f=>[f,'data:image/png;base64,'+fs.readFileSync(path.join(src,'assets/textures',f)).toString('base64')]));
+let code=`const THREE=(()=>{${three}})();\nconst embeddedTextures=${JSON.stringify(images)};\nconst {INTRO_DURATION,CAPTURE_DURATION,STORE,introPose,capturePose,smooth}=${wrap('choreography.mjs',['INTRO_DURATION','CAPTURE_DURATION','STORE','introPose','capturePose','smooth'])};\nconst {RunnerGame,THEMES,BARRIERS}=${wrap('core.mjs',['RunnerGame','THEMES','BARRIERS'])};\nconst {sidewalkPose}=${wrap('crowd.mjs',['sidewalkPose'])};\nconst {applyMaterialAssets}=${wrap('material-assets.mjs',['applyMaterialAssets'])};\nconst {GameScene}=${wrap('scene.mjs',['GameScene'])};\nconst {ArcadeAudio}=${wrap('audio.mjs',['ArcadeAudio'])};\n${read('app.mjs').replace(/^import .*?;\s*/gm,'')}`;
+const font=fs.readFileSync(path.join(src,'vendor/VT323.ttf')).toString('base64');const css=read('style.css').replace('./vendor/VT323.ttf','data:font/ttf;base64,'+font);
+let html=read('index.html').replace('<link rel="stylesheet" href="style.css">',()=>`<style>${css}</style>`).replace(/<script type="module" src="app\.mjs[^\"]*"><\/script>/,()=>`<script type="module">${code.replace(/<\/script/gi,'<\\/script')}</script>`);
+fs.mkdirSync(path.dirname(out),{recursive:true});fs.writeFileSync(out,html);console.log(JSON.stringify({file:out,bytes:Buffer.byteLength(html)}));

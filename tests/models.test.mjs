@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../dist/vendor/three.module.js';
 import { GameScene } from '../dist/scene.mjs';
-import { VEHICLES, MOTION } from '../dist/core.mjs';
+import { VEHICLES, MOTION, BARRIERS } from '../dist/core.mjs';
 
 function modelFactory(){
   const s=Object.create(GameScene.prototype), material=new THREE.MeshBasicMaterial();
@@ -29,5 +29,5 @@ test('visible vehicle bodies and rider heights fit their collision limits and st
 });
 test('the large barrier visibly exceeds the highest jump',()=>{
   const s=modelFactory(),bounds=new THREE.Box3().setFromObject(s.makeEntity('blocker'));
-  assert.ok(bounds.max.y>MOTION.jumpHeight+.7);assert.ok(Math.abs(bounds.max.y-3.5)<.01);
+  assert.ok(bounds.max.y>MOTION.jumpHeight+.7);assert.ok(Math.abs(bounds.max.y-BARRIERS.blocker.height)<.01);
 });

@@ -1,5 +1,5 @@
 // A clear promenade between curb lamps (outer edge 4.17) and vendor counters (inner edge 5.2).
-export const SIDEWALK = Object.freeze({ center: 4.65, sway: .075, pedestrianRadius: .34, vendorEdge: 5.2, lampEdge: 4.17 });
+export const SIDEWALK = Object.freeze({ center: 4.69, sway: .02, pedestrianRadius: .49, vendorEdge: 5.22, lampEdge: 4.17 });
 export function sidewalkPose(index, distance, time) {
   const side = index % 2 ? 1 : -1;
   const speed = .76 + (index % 5) * .065;

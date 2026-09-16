@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {RunnerGame,LANES,MOTION,POWER_DURATIONS,PATTERNS,THEMES,VEHICLES,INTRO_DURATION,validatePattern,obstacleSpacing} from '../dist/core.mjs';
+import {RunnerGame,LANES,MOTION,POWER_DURATIONS,PATTERNS,THEMES,VEHICLES,INTRO_DURATION,CAPTURE_DURATION,validatePattern,obstacleSpacing} from '../dist/core.mjs';
 function game(){const g=new RunnerGame({random:()=>.21});g.start({skipIntro:true});return g;}
 function tick(g,t,dt=1/120){for(let n=0;n<Math.ceil(t/dt);n++)g.update(Math.min(dt,t-n*dt));}
 function empty(g){g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;}
@@ -11,8 +11,8 @@ test('traffic advances faster than road scenery but preserves encounter timing',
 test('quick lane switches finish in 160ms and respect bounds',()=>{const g=game();g.input('left');tick(g,.16);assert.equal(g.player.x,LANES[0]);assert.equal(g.input('left'),false);g.input('right');g.input('right');tick(g,.16);assert.equal(g.player.x,LANES[2]);});
 test('jump and slide keep generous stable timing with no double jump',()=>{const g=game();g.input('jump');tick(g,.41);assert.ok(g.player.y>2.6);g.input('jump');tick(g,.43);assert.equal(g.player.y,0);g.input('slide');assert.equal(g.input('jump'),false);g.input('left');tick(g,.16);assert.equal(g.player.lane,0);tick(g,.57);assert.equal(g.player.slide,0);});
 test('swept traffic collision hits at high relative speed',()=>{const g=game();empty(g);g.debug.speedOverride=100;g.spawnEntity('traffic',1,-2);g.update(.1);assert.equal(g.state,'CAUGHT');assert.equal(g.speed,0);});
-test('jump clears a barricade and slide clears an overhead beam',()=>{let g=game();empty(g);g.debug.speedOverride=10;g.spawnEntity('jump',1,-3.5);g.input('jump');tick(g,.7);assert.equal(g.policeDistance,10);g=game();empty(g);g.debug.speedOverride=10;g.spawnEntity('slide',1,-3);g.input('slide');tick(g,.6);assert.equal(g.policeDistance,10);});
-test('one stumble brings both officers close; a second mistake captures and retry resets',()=>{const g=game();empty(g);g.spawnEntity('jump',1,-.1);tick(g,.1);assert.equal(g.mistakes,1);assert.equal(g.policeDistance,1.5);assert.equal(g.state,'RUNNING');tick(g,1.25);g.spawnEntity('jump',1,-.1);tick(g,.1);assert.equal(g.state,'CAUGHT');tick(g,2);assert.equal(g.state,'GAME_OVER');g.activatePower('magnet');g.start({skipIntro:true});assert.equal(g.state,'RUNNING');assert.equal(g.score,0);assert.equal(g.policeDistance,10);assert.equal(g.powers.active.size,0);assert.equal(g.player.slide,0);});
+test('jump clears a barricade and slide clears an overhead beam',()=>{let g=game();empty(g);g.debug.speedOverride=10;g.spawnEntity('jump',1,-3.5);g.input('jump');tick(g,.7);assert.equal(g.mistakes,0);g=game();empty(g);g.debug.speedOverride=10;g.spawnEntity('slide',1,-3);g.input('slide');tick(g,.6);assert.equal(g.mistakes,0);});
+test('one stumble brings both officers close; a second mistake captures and retry resets',()=>{const g=game();empty(g);g.spawnEntity('jump',1,-.1);tick(g,.1);assert.equal(g.mistakes,1);assert.equal(g.policeDistance,1.5);assert.equal(g.state,'RUNNING');tick(g,1.25);g.spawnEntity('jump',1,-.1);tick(g,.1);assert.equal(g.state,'CAUGHT');tick(g,CAPTURE_DURATION);assert.equal(g.state,'GAME_OVER');g.activatePower('magnet');g.start({skipIntro:true});assert.equal(g.state,'RUNNING');assert.equal(g.score,0);assert.equal(g.policeDistance,1.5);assert.equal(g.powers.active.size,0);assert.equal(g.player.slide,0);});
 test('pause freezes intro, road movement and power durations',()=>{const g=game();g.activatePower('magnet');tick(g,.8);g.pause();const before=g.snapshot();g.update(1);assert.deepEqual(g.snapshot(),before);g.resume();assert.equal(g.state,'RUNNING');g.start();tick(g,.5);g.pause();let p=g.introProgress;tick(g,1);assert.equal(g.introProgress,p);g.resume();tick(g,INTRO_DURATION-.5);assert.equal(g.state,'RUNNING');});
 test('one continuous street and bounded pooled entities for a 10 minute run',()=>{const g=game();g.debug.invincible=true;const pool=g.entities;tick(g,600,1/30);assert.equal(g.entities,pool);assert.equal(pool.length,256);assert.equal(g.theme,'HONG KONG');assert.equal(g.themeIndex,0);assert.ok(g.score>0);assert.ok(g.distance>10000);assert.ok(g.entities.every(e=>!e.active||['traffic','scooter','blocker','jump','slide','coin','magnet','moon','moped'].includes(e.type)));assert.ok(g.patternHistory.length<=32);});
 test('coin collection and magnet expiration remain correct',()=>{const g=game();empty(g);g.spawnEntity('coin',1,-.1);g.update(.1);assert.equal(g.coins,1);assert.ok(g.score>=10);g.activatePower('magnet');tick(g,8.01);assert.equal(g.powers.has('magnet'),false);});
@@ -32,7 +32,7 @@ test('a vehicle impact stops traffic and the world for the seated capture animat
   const g=game();empty(g);const car=g.spawnEntity('traffic',1,-.25);
   tick(g,.1);assert.equal(g.state,'CAUGHT');assert.equal(car.stopped,true);assert.equal(car.active,true);
   const z=car.z,dist=g.distance;tick(g,1);assert.equal(car.z,z);assert.equal(g.distance,dist);
-  assert.equal(g.input('jump'),false);assert.ok(g.captureProgress>.5);tick(g,1);assert.equal(g.state,'GAME_OVER');
+  assert.equal(g.input('jump'),false);assert.ok(g.captureProgress>.2);tick(g,CAPTURE_DURATION);assert.equal(g.state,'GAME_OVER');
 });
 test('moped boosts speed and protects exactly one collision before dismounting',()=>{
   const g=game();empty(g);g.debug.speedOverride=10;g.activatePower('moped');tick(g,.1);
@@ -48,7 +48,7 @@ test('moped shield does not erase an earlier mistake and expires cleanly',()=>{
 });
 test('pause freezes the capture sequence and resumes the same stopped impact',()=>{
   const g=game();empty(g);g.spawnEntity('scooter',1,-.2);tick(g,.1);g.pause();
-  const before=g.snapshot();tick(g,1);assert.deepEqual(g.snapshot(),before);g.resume();tick(g,2);
+  const before=g.snapshot();tick(g,1);assert.deepEqual(g.snapshot(),before);g.resume();tick(g,CAPTURE_DURATION);
   assert.equal(g.state,'GAME_OVER');
 });
 test('a clean interval lets cops fall back without granting another mistake',()=>{

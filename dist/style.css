@@ -13,6 +13,10 @@
 @media(max-width:800px){.masthead{height:44px}.game-shell{height:calc(100dvh - 106px);min-height:570px}.main-menu{top:12%}.gameover{justify-content:center;padding:20px}.skin-grid{grid-template-columns:repeat(2,1fr)}.screen-bottom{font-size:10px}.character-caption{right:4%;bottom:28%}.menu-nav{row-gap:16px}.touch-controls{bottom:25px}.game-shell.playing .hud{bottom:24px}}
 @media(max-width:480px){.game-shell{height:calc(100dvh - 97px);min-height:570px}.main-menu{top:11%}.tagline{font-size:25px}.japanese{margin-bottom:22px}.menu-hint{margin-bottom:24px}.character-caption{bottom:28%;right:5%}.screen-bottom span:first-child{display:none}.screen-bottom{justify-content:flex-end}.hud .collectibles{padding:6px 9px}.collectibles small{display:none}.masthead .record-label{font-size:11px;display:flex;align-items:center;gap:10px}.record-label b{margin:0!important}.footer .control-legend{font-size:12px}.touch-controls button{width:58px;height:50px}}
 
+/* Clerk subtitles sit below the scene rather than covering the action. */
+.clerk-caption{position:absolute;z-index:6;left:12%;right:12%;bottom:26px;text-align:center;background:#101811dd;border-bottom:2px solid #dfb769;padding:12px 18px;color:#fff0cf;font:24px VT323,monospace;text-shadow:1px 2px #000;pointer-events:none}
+.coin-icon{display:inline-block;width:19px;height:26px;border-radius:48% 44% 54% 45%;background:repeating-linear-gradient(80deg,#e7b64d 0 3px,#f9cf72 3px 5px);transform:rotate(-23deg);font-size:0!important;border:1px solid #b88432}
+@media(max-width:800px){.clerk-caption{left:5%;right:5%;bottom:85px;font-size:20px}}
 /* The menu tabs stay across the top, leaving the shop cinematic visible. */
 .main-menu{inset:0;max-width:none;width:auto;pointer-events:none}.main-menu button{pointer-events:auto}
 .menu-story{position:absolute;left:5.5%;top:20%;width:43%;max-width:540px}
@@ -24,3 +28,6 @@
 @media(max-width:800px){.main-menu{inset:0;width:auto}.menu-nav{left:5%;right:5%;top:48px;gap:7px}.menu-nav button{font-size:16px;padding:11px 9px;flex:1;letter-spacing:0}.menu-story{left:6%;top:23%;width:66%}.main-menu .logo-line{font-size:clamp(88px,15vw,120px)}}
 @media(max-width:480px){.menu-nav{gap:5px;left:4%;right:4%;top:45px}.menu-nav button{font-size:13px;padding:10px 4px}.menu-story{top:24%;width:85%}.main-menu .logo-line{font-size:93px}.menu-story .tagline{font-size:24px}.character-caption{display:none}.menu-story .start-button{width:255px}.menu-story .japanese{margin-bottom:22px}}
 @media(max-height:720px) and (min-width:801px){.menu-story{top:24%}.menu-story .tagline{font-size:23px}.main-menu .logo-line{font-size:92px}.menu-story .logo-sub{font-size:24px}.menu-story .japanese{margin:10px 0}.menu-story .start-button{font-size:25px;padding:11px 15px}.menu-nav{top:49px}.menu-nav button{padding:8px 17px;font-size:18px}}
+
+/* Route end remains in the live doorway; controls never cover it with a title card. */
+.arcade-actions{position:absolute;bottom:25px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:6}.arcade-actions button{background:#111923e6;border:1px solid #b4bf83;padding:9px 18px;font-size:20px;color:#e0e6c9}.game-shell.playing .crt{opacity:.12}.game-shell.playing .vignette{background:linear-gradient(0deg,#09091635,transparent 20%,transparent 85%,#09091622)}

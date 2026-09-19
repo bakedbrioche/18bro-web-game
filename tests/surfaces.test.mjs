@@ -31,42 +31,14 @@ test('curved road, pavement and shortcut UVs meet across streamed section bounda
  }
 });
 
-test('shortcut building shells support the facade without blocking entrances or elevated routes',()=>{
+test('former hallway blocks have closed storefronts at ground level',()=>{
  const s=factory();
- for(const b of BRANCHES.filter(b=>!['crossing','cover'].includes(b.kind))){
-  const shell=new THREE.Group(),side=Math.sign(b.offset);
-  for(let at=Math.floor(b.start/10)*10+5;at<=b.end+5;at+=10)
-   s.branchBuildingBase(shell,side,routeCenter(at),-at,at,0,getRouteProfile(at),b,7.2);
-  shell.updateMatrixWorld(true);
-  const bounds=shell.children.filter(o=>o.geometry===s.owner.box||o.userData.buildingShell).map(o=>new THREE.Box3().setFromObject(o));
-  for(let at=b.start;at<=b.end;at+=.5){
-   const off=branchOffset(b,at),x=routeCenter(at)+off.x;
-   const body=new THREE.Box3(new THREE.Vector3(x-.55,off.y+.15,-at-.25),new THREE.Vector3(x+.55,off.y+1.85,-at+.25));
-   assert.ok(bounds.every(box=>!box.intersectsBox(body)),`${b.id}: wall blocks runner at ${at}`);
-  }
-  const at=(b.start+b.end)/2;
-  const ray=new THREE.Raycaster(new THREE.Vector3(routeCenter(at),1.6,-at),new THREE.Vector3(side,0,0));
-  assert.ok(ray.intersectObject(shell,true).length>0,`${b.id}: missing ground-floor frontage`);
- }
-});
-
-test('shortcut outer walls stay closed through bends, bay seams and the noodle-shop exit',()=>{
- const s=factory();
- for(const b of BRANCHES.filter(b=>!['crossing','cover'].includes(b.kind))){
-  const shell=new THREE.Group(),side=Math.sign(b.offset);
-  for(let at=Math.floor(b.start/10)*10+5;at<=b.end+5;at+=10)
-   s.branchBuildingBase(shell,side,routeCenter(at),-at,at,0,getRouteProfile(at),b,7.2);
-  shell.updateMatrixWorld(true);
-  // The outside of the alley must have solid backing even where no individual
-  // five-metre interior wall panel was placed. Test at foot and eye height.
-  for(let at=b.start+1;at<b.end;at+=.5){
-   const off=branchOffset(b,at),p=getRouteProfile(at),front=Math.min(p.buildingEdge,Math.abs(b.offset)-2.65),back=Math.max(p.buildingEdge+8,Math.abs(b.offset)+2.7);
-   if(Math.abs(off.x)<front-2.4)continue;
-   for(const height of [.4,1.6]){
-    const origin=new THREE.Vector3(routeCenter(at)+off.x,off.y+height,-at);
-    const ray=new THREE.Raycaster(origin,new THREE.Vector3(side,0,0),0,back-Math.abs(off.x)+.4);
-    assert.ok(ray.intersectObject(shell,true).length,`${b.id}: exposed outside wall at ${at}, height ${height}`);
-   }
+ for(const [start,end] of [[850,1020],[1730,1900],[2970,3280],[3710,3900],[4240,4490],[4770,4940],[5480,5600]]){
+  for(let at=start+5;at<end;at+=10)for(const side of [-1,1]){
+   const g=new THREE.Group(),p=getRouteProfile(at),cx=routeCenter(at);
+   s.building(g,side,cx,-at,at,8,p);g.updateMatrixWorld(true);
+   const ray=new THREE.Raycaster(new THREE.Vector3(cx,1.6,-at),new THREE.Vector3(side,0,0),0,p.buildingEdge+.5);
+   assert.ok(ray.intersectObject(g,true).length,`open hallway frontage at ${at}`);
   }
  }
 });

@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import { ROUTE, BRANCHES, getRouteProfile, routeCenter, branchOffset, getTrafficPhase } from './route.mjs?v=street-26';
+import { ROUTE, BRANCHES, getRouteProfile, routeCenter, branchOffset, getTrafficPhase } from './route.mjs?v=street-27';
 
 // A small rolling set of physical street sections. Coordinates are measured along
 // the same continuous route as hazards and the player, including shop shortcuts.
@@ -20,8 +20,9 @@ function verticalSign(c,s,w,h,col){c.fillStyle='#17151b';c.fillRect(0,0,w,h);c.s
 
 export class DistrictScene {
  constructor(owner){
-  this.owner=owner;this.root=new THREE.Group();this.root.name='continuous-Hong-Kong-route';this.chunks=new Map();this.time=0;this.makeMaterials();
+  this.owner=owner;this.root=new THREE.Group();this.root.name='continuous-Hong-Kong-route';this.chunks=new Map();this.humanPool=new Map();this.time=0;this.makeMaterials();
  }
+ profile(s){return getRouteProfile(s,this.seed??18);}
  makeMaterials(){
   const o=this.owner,m=this.m={};
   const mat=(color,extra={})=>o.mat(color,extra);
@@ -62,7 +63,7 @@ export class DistrictScene {
   }
  }
  ribbon(g,mat,start,end,left,right,y=0,uvScale=4){
-  const p=[],u=[],n=[],base=routeCenter(g.userData.s);for(let s=start;s<end-.01;s+=2){const t=Math.min(end,s+2),edges=[s,t].map(a=>{const profile=getRouteProfile(a),cx=routeCenter(a)-base;return[cx+(typeof left==='function'?left(profile,a):left),cx+(typeof right==='function'?right(profile,a):right),g.userData.s-a];});const [a,b]=edges;
+  const p=[],u=[],n=[],base=routeCenter(g.userData.s);for(let s=start;s<end-.01;s+=2){const t=Math.min(end,s+2),edges=[s,t].map(a=>{const profile=this.profile(a),cx=routeCenter(a)-base;return[cx+(typeof left==='function'?left(profile,a):left),cx+(typeof right==='function'?right(profile,a):right),g.userData.s-a];});const [a,b]=edges;
    for(const [x,z,ss]of[[a[0],a[2],s],[a[1],a[2],s],[b[0],b[2],t],[a[1],a[2],s],[b[1],b[2],t],[b[0],b[2],t]]){p.push(x,typeof y==='function'?y(ss):y,z);u.push((x+base)/uvScale,ss/uvScale);n.push(0,1,0);}}
   const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(p,3));geo.setAttribute('normal',new THREE.Float32BufferAttribute(n,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(u,2));geo.computeBoundingSphere();const mesh=new THREE.Mesh(geo,mat);mesh.userData.districtOwned=true;g.add(mesh);
  }
@@ -73,33 +74,32 @@ export class DistrictScene {
   for(const side of [-1,1]){
    this.ribbon(g,m.pavement,s,s+LENGTH,p=>side<0?-p.buildingEdge:p.roadHalfWidth,p=>side<0?-p.roadHalfWidth:p.buildingEdge,.08,4);
    for(let i=0;i<2;i++){
-    const at=s+5+i*10,profile=getRouteProfile(at),x=routeCenter(at)-routeCenter(s),z=s-at,edge=profile.buildingEdge;
-    const cross=Math.abs(at-3150)<25;
+    const at=s+5+i*10,profile=this.profile(at),x=routeCenter(at)-routeCenter(s),z=s-at,edge=profile.buildingEdge;
+    const cross=profile.junctionCenter!==null&&Math.abs(at-profile.junctionCenter)<25;
     if(!cross)this.building(g,side,x,z,at,key*4+i+(side>0?2:0),profile);
     else this.crossStreet(g,at,side,x,z,profile);
     if(!cross&&(!this.branchAt(at,side)||profile.roadHalfWidth>10)){
-     const px=x+side*(edge-.95),count=profile.night>.45?2:1;
-     for(let q=0;q<count;q++)this.person(g,px+side*q*.32,z+q*2.4,(key*7+i+q+(side>0?2:0))%6);
-     if(i===0&&key%3===0)this.props(g,x+side*(edge-.7),z+2,side,key,profile);
+     const px=x+side*(profile.roadHalfWidth+.65);
+     for(let q=0;q<2;q++)this.person(g,px,z-2.5+q*5,(key*7+i+q+(side>0?2:0))%12,true);
+     if(i===0)this.props(g,x+side*(edge-.4),z+2,side,key,profile);
+     if(i===1&&key%2===0)this.streetActivity(g,side,x,z,key,profile);
     }
     if(profile.night>.12&&r()<profile.night*.8)this.plane(g,m.wet[(key+i)%6],x+side*2,-.038,z,1.3,5,0,-Math.PI/2);
    }
   }
-  if(key%3===0&&!(s>3070&&s<3210)){
-   const p=getRouteProfile(s+11),cx=routeCenter(s+11)-routeCenter(s),zz=-11;
+  if(key%3===0&&this.profile(s+10).id!=='intersection'){
+   const p=this.profile(s+11),cx=routeCenter(s+11)-routeCenter(s),zz=-11;
    for(let q=0;q<3;q++){this.line(g,m.black,[cx-p.buildingEdge,8+q*.9,zz-2],[cx,7.4+q*.9,zz],.035);this.line(g,m.black,[cx,7.4+q*.9,zz],[cx+p.buildingEdge,8+q*.9,zz+2],.035);}
   }
   if(s<410&&key%2===0)this.marketEdge(g,s,key);
-  if(s>=2980&&s<3300)this.intersection(g,s,key);
+  if(this.profile(s+10).id==='intersection')this.intersection(g,s,key);
   for(const branch of BRANCHES)if(branch.id!=='crossing'&&branch.id!=='van-cover'&&s<branch.end&&s+LENGTH>branch.start)this.branch(g,branch,s);
-  if(s>=5400)this.ending(g,s,key);
-  if(s>3520&&key%3===0)this.overheadSign(g,s,key);
-  if(s>2750&&key%9===0){const at=s+12,p=getRouteProfile(at),x=routeCenter(at)-routeCenter(s)+(key%2?1:-1)*(p.buildingEdge-.85);this.person(g,x,-12,3);const cop=g.userData.people.at(-1);this.box(cop.userData.model,m.blue,0,1.22,.01,.51,.67,.31);this.box(cop.userData.model,m.blue,0,2.01,.035,.36,.1,.42);this.box(cop.userData.model,m.yellow,.12,1.41,.18,.07,.09,.025);}
+  if(this.profile(s+10).night>.3&&key%2===0)this.overheadSign(g,s,key);
   this.batch(g);
   return g;
  }
  overheadSign(g,s,key){
-  const m=this.m,p=getRouteProfile(s+10),cx=routeCenter(s+10)-routeCenter(s),y=6.2+(key%3)*.4,z=-10,index=10+key%6;
+  const m=this.m,p=this.profile(s+10),cx=routeCenter(s+10)-routeCenter(s),y=6.2+(key%3)*.4,z=-10,index=10+key%6;
   this.line(g,m.metal,[cx-p.buildingEdge,y+1.4,z],[cx+p.buildingEdge,y+1.4,z],.075);
   const w=key%2?6.2:4.6,h=key%2?1.5:2.0,col=m.lights[key%6];
   this.box(g,m.black,cx,y,z,w,h,.22);this.plane(g,m.fascias[index],cx,y,z+.13,w-.15,h-.12);
@@ -112,7 +112,7 @@ export class DistrictScene {
   const temp=g.children.filter(x=>x.isMesh&&x.userData.districtOwned).map(x=>x.geometry);this.owner.batchStatic(g);for(const geo of temp)geo.dispose();
  }
  building(g,side,cx,z,at,index,p){
-  const m=this.m,r=rnd(index+328),branch=this.branchAt(at,side),opening=!!branch||(side>0&&at>5470);
+  const m=this.m,r=rnd(index+328),branch=this.branchAt(at,side),opening=!!branch;
   const face=p.buildingEdge,depth=8,height=(5+index%8)*2.6,night=p.night||0,kind=night>.25&&(index%5)/5<night?10+index%6:index%10;
   // Upper storeys continue above every shortcut. Ground floor openings expose
   // actual rooms and alleys rather than placing an opaque facade across a route.
@@ -164,7 +164,7 @@ export class DistrictScene {
   // including the entrance/exit returns. Thin front panels alone left holes
   // through the ends of the block and beneath the upper floors.
   for(const outer of [false,true])this.solidStrip(g,m.concrete,at-5,at+5,distance=>{
-   const profile=getRouteProfile(distance),f=Math.min(profile.buildingEdge,Math.abs(branch.offset)-2.65),b=Math.max(profile.buildingEdge+8,Math.abs(branch.offset)+2.7);
+   const profile=this.profile(distance),f=Math.min(profile.buildingEdge,Math.abs(branch.offset)-2.65),b=Math.max(profile.buildingEdge+8,Math.abs(branch.offset)+2.7);
    const off=Math.abs(branchOffset(branch,distance).x),lo=outer?clamp(off+2.4,f,b):f,hi=outer?b:clamp(off-2.4,f,b);
    const center=cx+routeCenter(distance)-routeCenter(at),x1=center+side*lo,x2=center+side*hi;
    return [Math.min(x1,x2),Math.max(x1,x2),z+at-distance];
@@ -190,33 +190,50 @@ export class DistrictScene {
   else if(kind===3){this.box(g,m.black,x,.3,z,.6,.52,.51);this.box(g,m.black,x+.3,.23,z+.4,.49,.4,.45);}
   else {this.box(g,m.blue,x,.52,z,.48,.45,1.5);this.box(g,m.black,x,.81,z-.2,.47,.14,.65);for(const zz of [-.56,.56]){const wheel=new THREE.Mesh(this.owner.cylinder,m.black);wheel.rotation.z=Math.PI/2;wheel.position.set(x,.24,z+zz);wheel.scale.set(.48,.13,.48);g.add(wheel);}this.line(g,m.metal,[x,.52,z+.5],[x,1.24,z+.42],.075);this.box(g,m.metal,x,1.25,z+.42,.65,.07,.07);}
  }
- marketEdge(g,s,key){const m=this.m;for(const side of [-1,1]){const at=s+13,p=getRouteProfile(at),x=routeCenter(at)-routeCenter(s)+side*(p.buildingEdge-.95),z=-13;this.box(g,m.wood,x,.75,z,1.4,1.3,2);this.box(g,m.colors[key%6],x,2.4,z,2.2,.12,2.8);for(const dz of [-1.15,1.15])this.box(g,m.metal,x+side*.7,1.65,z+dz,.06,1.8,.06);for(let q=0;q<5;q++)this.box(g,m.colors[(q+key)%6],x-side*.75,.94,z-.8+q*.4,.08,.3,.27);this.box(g,m.red,x-side*.7,.45,z+1.9,.45,.13,.45);for(const xx of [-.15,.15])this.box(g,m.red,x-side*.7+xx,.24,z+1.9,.05,.4,.34);}}
- person(g,x,z,index){
-  const root=new THREE.Group();root.position.set(x,.1,z);const model=new THREE.Group(),sprite=new THREE.Group();root.add(model,sprite);
-  this.box(model,this.m.colors[index],0,1.22,0,.49,.65,.28);this.box(model,this.m.skin,0,1.78,0,.3,.37,.29);this.box(model,this.m.black,0,1.96,0,.32,.08,.31);
-  const legs=[],arms=[];for(const side of [-1,1]){const leg=new THREE.Group();leg.position.set(side*.13,.91,0);this.box(leg,this.m.dark,0,-.37,0,.19,.75,.2);this.box(leg,this.m.black,0,-.77,.05,.22,.12,.31);model.add(leg);legs.push(leg);const arm=new THREE.Group();arm.position.set(side*.31,1.5,0);this.box(arm,this.m.colors[index],0,-.29,0,.13,.53,.16);this.box(arm,this.m.skin,0,-.61,0,.12,.16,.13);model.add(arm);arms.push(arm);this.owner.batchStatic(leg);this.owner.batchStatic(arm);}
-  this.owner.batchStatic(model);const card=this.plane(sprite,this.m.crowds[index],0,1.04,0,1,2.1);root.userData={model,sprite,legs,arms,index};g.userData.people.push(root);g.add(root);
+ marketEdge(g,s,key){const m=this.m;for(const side of [-1,1]){const at=s+13,p=this.profile(at),x=routeCenter(at)-routeCenter(s)+side*(p.buildingEdge-.95),z=-13;this.box(g,m.wood,x,.75,z,1.4,1.3,2);this.box(g,m.colors[key%6],x,2.4,z,2.2,.12,2.8);for(const dz of [-1.15,1.15])this.box(g,m.metal,x+side*.7,1.65,z+dz,.06,1.8,.06);for(let q=0;q<5;q++)this.box(g,m.colors[(q+key)%6],x-side*.75,.94,z-.8+q*.4,.08,.3,.27);this.box(g,m.red,x-side*.7,.45,z+1.9,.45,.13,.45);for(const xx of [-.15,.15])this.box(g,m.red,x-side*.7+xx,.24,z+1.9,.05,.4,.34);}}
+ streetActivity(g,side,cx,z,key,p){
+  const m=this.m,x=cx+side*(p.buildingEdge-.38),col=m.colors[key%6];
+  this.box(g,m.wood,x,.53,z,.64,1.06,2.2);this.box(g,m.cream,x,1.1,z,.76,.09,2.3);
+  for(let q=0;q<5;q++){this.box(g,m.colors[(key+q)%6],x,1.3,z-.84+q*.42,.33,.33,.28);this.box(g,m.yellow,x-side*.35,.92,z-.84+q*.42,.035,.11,.22);}
+  this.box(g,col,x,2.65,z,1.15,.12,2.7);for(const dz of [-1.2,1.2])this.box(g,m.metal,x+side*.2,1.85,z+dz,.055,1.5,.055);
+  this.box(g,m.warm,x,2.51,z,.15,.06,1.7);
+ }
+ person(g,x,z,index,walking=false){
+  const root=new THREE.Group(),sprite=new THREE.Group();root.position.set(x,.1,z);root.add(sprite);
+  this.plane(sprite,this.m.crowds[index%6],0,1.2,0,1.05,2.4);
+  root.userData={sprite,rig:null,index,walking,at:g.userData.s-z,side:Math.sign(x-(routeCenter(g.userData.s-z)-routeCenter(g.userData.s)))};
+  g.userData.people.push(root);g.add(root);
+ }
+ releasePerson(p){const {rig,index}=p.userData;if(!rig)return;p.remove(rig.root);const pool=this.humanPool.get(index)||[];pool.push(rig);this.humanPool.set(index,pool);p.userData.rig=null;}
+ updatePerson(p,chunk,distance){
+  const data=p.userData,{index,walking,side}=data,t=this.time;
+  if(walking){const at=data.at+Math.sin(t*.55+index)*.8,profile=this.profile(at);p.position.set(routeCenter(at)-routeCenter(chunk.userData.s)+side*(profile.roadHalfWidth+.65),.1,chunk.userData.s-at);}
+  const far=-(chunk.position.z+p.position.z)>38||chunk.position.z+p.position.z>10;
+  if(far)this.releasePerson(p);
+  else if(!data.rig){data.rig=this.humanPool.get(index)?.pop()||this.owner.makePerson(index);data.rig.root.scale.setScalar(1.12);p.add(data.rig.root);}
+  data.sprite.visible=far;
+  if(data.rig){const phase=t*3.4+index;this.owner.animateHumanWalk(data.rig,phase,walking?.6:.08);data.rig.root.rotation.y=walking?(Math.cos(t*.55+index)>0?Math.PI:0):side*Math.PI/2;}
  }
  crossStreet(g,at,side,cx,z,p){
   const m=this.m;this.box(g,m.road,cx+side*37,-.08,z,40,.08,10.2);
   // Side roads stay open across BOTH traffic streams. Only the outer rows have
   // corner buildings; repeating a facade in every row would block the crossing.
-  const edge=at<3140?1:at>3160?-1:0;
+  const edge=at<p.junctionCenter-10?1:at>p.junctionCenter+10?-1:0;
   if(edge){this.box(g,m.concrete,cx+side*39,.02,z+edge*5.15,44,.2,.35);this.box(g,m.concrete,cx+side*40,13,z+edge*10.5,42,26,10);this.plane(g,m.facades[(Math.floor(at)+edge+7)%5],cx+side*40,14,z+edge*5.42,42,22,edge<0?0:Math.PI,0,4,4);}
  }
  intersection(g,s,key){
-  const m=this.m;
-  for(const at of [3126,3174])if(at>=s&&at<s+LENGTH){const cx=routeCenter(at)-routeCenter(s),p=getRouteProfile(at),z=s-at;
+  const m=this.m,center=this.profile(s+10).junctionCenter;
+  for(const at of [center-24,center+24])if(at>=s&&at<s+LENGTH){const cx=routeCenter(at)-routeCenter(s),p=this.profile(at),z=s-at;
    for(let x=-p.roadHalfWidth+1;x<p.roadHalfWidth;x+=2.2)this.box(g,m.white,cx+x,-.026,z,1.25,.022,5);
    for(const side of [-1,1]){
     this.box(g,m.concrete,cx+side*5,.05,z+side*5,1.7,.21,4);this.box(g,m.metal,cx+side*(p.roadHalfWidth+.5),2.6,z,.13,5.2,.13);
     const signal=new THREE.Group();signal.position.set(cx+side*(p.roadHalfWidth+.5),4.2,z);this.box(signal,m.black,0,0,0,.53,1.27,.31);
     const lamps=[];for(let k=0;k<3;k++){const l=this.box(signal,m.black,0,.39-k*.39,.17,.31,.3,.04);lamps.push(l);}g.add(signal);g.userData.signals.push({lamps});
-    for(let q=0;q<3;q++)this.person(g,cx+side*(p.roadHalfWidth+1+q*.52),z+3.4+q*.28,(key+q)%6);
+    for(let q=0;q<3;q++)this.person(g,cx+side*(p.roadHalfWidth+1+q*.75),z+3.4+q*1.5,(key+q)%12);
    }
   }
-  if(s<=3090&&s+LENGTH>3090){const at=3090,cx=routeCenter(at)-routeCenter(s);this.box(g,m.metal,cx,7.2,s-at,33,.17,.17);this.box(g,m.dark,cx,6.4,s-at,10,1.5,.2);this.plane(g,m.fascias[6],cx,6.4,s-at+.12,9.8,1.35);}
-  if(s<=3120&&s+LENGTH>3120){const x=routeCenter(3120)-routeCenter(s)+7.5,z=s-3120;this.box(g,m.cream,x,1.15,z,1.95,1.65,4.7);this.box(g,m.black,x,1.7,z+1.8,1.65,.65,.06);for(const side of [-1,1]){this.box(g,m.black,x+side*.97,.3,z+1.45,.14,.6,.7);this.box(g,m.black,x+side*.97,.3,z-1.45,.14,.6,.7);this.box(g,m.cream,x+side*1.35,1.2,z+2.7,.85,1.7,.1,side*.75);}for(let q=0;q<2;q++)this.box(g,m.wood,x+1.6,.3,z+3+q*.7,.55,.6,.6);}
+  if(s<=center-60&&s+LENGTH>center-60){const at=center-60,cx=routeCenter(at)-routeCenter(s);this.box(g,m.metal,cx,7.2,s-at,33,.17,.17);this.box(g,m.dark,cx,6.4,s-at,10,1.5,.2);this.plane(g,m.fascias[6],cx,6.4,s-at+.12,9.8,1.35);}
+  if(s<=center-30&&s+LENGTH>center-30){const x=routeCenter(center-30)-routeCenter(s)+7.5,z=s-center+30;this.box(g,m.cream,x,1.15,z,1.95,1.65,4.7);this.box(g,m.black,x,1.7,z+1.8,1.65,.65,.06);for(const side of [-1,1]){this.box(g,m.black,x+side*.97,.3,z+1.45,.14,.6,.7);this.box(g,m.black,x+side*.97,.3,z-1.45,.14,.6,.7);this.box(g,m.cream,x+side*1.35,1.2,z+2.7,.85,1.7,.1,side*.75);}for(let q=0;q<2;q++)this.box(g,m.wood,x+1.6,.3,z+3+q*.7,.55,.6,.6);}
  }
  branch(g,b,s){
   const start=Math.max(s,b.start),end=Math.min(s+LENGTH,b.end),m=this.m,base=routeCenter(s),corridor=(at)=>routeCenter(at)-base+branchOffset(b,at).x;
@@ -244,22 +261,23 @@ export class DistrictScene {
  }
  ending(g,s,key){
   const m=this.m;
-  if(s+LENGTH>5480){const a=Math.max(s,5480),b=Math.min(s+LENGTH,5562);if(a<b)this.ribbon(g,m.tile,a,b,(_,at)=>getRouteProfile(at).offsetX-2.6,(_,at)=>getRouteProfile(at).offsetX+2.6,.1,2);}
-  if(s>=5480){const cx=routeCenter(s+10)-routeCenter(s);this.box(g,m.concrete,cx+13.2,2.35,-10,.28,4.7,20.1);for(const dz of [-5,-15]){this.box(g,m.dark,cx+13.02,2.25,dz,.04,1.7,3);this.box(g,m.metal,cx+12.98,2.25,dz,.05,.06,3.1);if(Math.abs(getRouteProfile(s-dz).offsetX-6.8)>4)this.box(g,m.concrete,cx+6.8,3.6,dz,.35,7.2,.35);} }
+  if(s+LENGTH>5480){const a=Math.max(s,5480),b=Math.min(s+LENGTH,5562);if(a<b)this.ribbon(g,m.tile,a,b,(_,at)=>this.profile(at).offsetX-2.6,(_,at)=>this.profile(at).offsetX+2.6,.1,2);}
+  if(s>=5480){const cx=routeCenter(s+10)-routeCenter(s);this.box(g,m.concrete,cx+13.2,2.35,-10,.28,4.7,20.1);for(const dz of [-5,-15]){this.box(g,m.dark,cx+13.02,2.25,dz,.04,1.7,3);this.box(g,m.metal,cx+12.98,2.25,dz,.05,.06,3.1);if(Math.abs(this.profile(s-dz).offsetX-6.8)>4)this.box(g,m.concrete,cx+6.8,3.6,dz,.35,7.2,.35);} }
   if(s<=5564&&s+LENGTH>5564){const x=routeCenter(5564)-routeCenter(s)+10,z=s-5564;this.box(g,m.cream,x,1.65,z,5.4,3.3,.2);this.box(g,m.tube,x,2.95,z+.15,4.6,.15,.1);}
   if(s<=5535&&s+LENGTH>5535){const x=routeCenter(5535)-routeCenter(s),z=s-5535;this.box(g,m.white,x,1.05,z,6.8,2.1,2.1);this.box(g,m.blue,x,1.0,z+1.07,6.8,.52,.025);for(const side of [-1,1]){this.box(g,m.black,x+side*2.1,1.57,z+1.1,1.48,.63,.025);this.box(g,m.black,x+side*2.18,.31,z+1.04,.9,.62,.18);}this.box(g,m.signRed,x-.45,2.18,z,1.1,.17,.4);this.box(g,m.signGreen,x+.45,2.18,z,.5,.17,.4);for(const side of [-1,1]){this.box(g,m.yellow,x+side*4,1,z+.3,1.05,1.8,.25);this.person(g,x+side*4.8,z+2,3);const cop=g.userData.people.at(-1);this.box(cop.userData.model,m.blue,0,1.22,.01,.51,.67,.31);this.box(cop.userData.model,m.blue,0,2.01,.035,.36,.1,.42);this.box(cop.userData.model,m.black,.38,1.12,.02,.065,.64,.065);}}
   const at=5557;if(at>=s&&at<s+LENGTH){const x=routeCenter(at)-routeCenter(s)+10,z=s-at;this.box(g,m.dark,x-2.8,2.1,z,.48,4.2,1.2);this.box(g,m.dark,x+2.8,2.1,z,.48,4.2,1.2);this.box(g,m.dark,x,4.2,z,6.2,.5,1.2);this.plane(g,m.fascias[11],x,3.65,z+.66,5.5,1);for(const side of [-1,1]){this.box(g,m.lights[side<0?0:3],x+side*2.54,1.7,z+.68,.11,3.35,.1);this.box(g,m.cream,x+side*2.75,1.55,z-1.3,.12,3.1,3.5);}this.box(g,m.tube,x,3.07,z+.12,4.8,.1,.6);}
  }
- disposeChunk(chunk){this.root.remove(chunk);chunk.traverse(o=>{if(o.geometry&&o.geometry!==this.owner.box&&o.geometry!==this.owner.plane&&o.geometry!==this.owner.cylinder)o.geometry.dispose();});}
+ disposeChunk(chunk){this.root.remove(chunk);for(const p of chunk.userData.people)this.releasePerson(p);chunk.traverse(o=>{if(o.geometry&&o.geometry!==this.owner.box&&o.geometry!==this.owner.plane&&o.geometry!==this.owner.cylinder)o.geometry.dispose();});}
  update(game,dt){
-  const distance=game.distance||0;this.time+=dt;this.root.visible=distance>START-AHEAD&&game.state!=='MENU'&&game.state!=='INTRO';if(!this.root.visible)return;
-  const lo=Math.max(0,Math.floor((distance-BEHIND-START)/LENGTH)),hi=Math.min(Math.ceil((5565-START)/LENGTH),Math.ceil((distance+AHEAD-START)/LENGTH));
+  const distance=game.distance||0;this.time+=dt;this.root.visible=distance>START-AHEAD&&!['MAIN_MENU','STARTING'].includes(game.state);if(!this.root.visible)return;
+  if(this.seed!==game.routeSeed){for(const chunk of this.chunks.values())this.disposeChunk(chunk);this.chunks.clear();this.seed=game.routeSeed;}
+  const lo=Math.max(0,Math.floor((distance-BEHIND-START)/LENGTH)),hi=Math.ceil((distance+AHEAD-START)/LENGTH);
   for(const [key,chunk]of this.chunks)if(key<lo||key>hi){this.disposeChunk(chunk);this.chunks.delete(key);}
   for(let key=lo;key<=hi;key++)if(!this.chunks.has(key)){const chunk=this.makeChunk(key);this.chunks.set(key,chunk);this.root.add(chunk);}
   const phase=game.routeTraffic||getTrafficPhase(game.elapsed||this.time);
   for(const chunk of this.chunks.values()){
    chunk.position.set(routeCenter(chunk.userData.s)-routeCenter(distance),0,distance-chunk.userData.s);
-   for(const p of chunk.userData.people){const far=-(chunk.position.z+p.position.z)>34;p.userData.model.visible=!far;p.userData.sprite.visible=far;const frame=Math.floor(this.time*9)/9,pulse=Math.sin(frame*3.4+p.userData.index);p.userData.legs.forEach((leg,i)=>leg.rotation.x=pulse*(i?-.22:.22));p.userData.arms.forEach((arm,i)=>arm.rotation.x=pulse*(i?.16:-.16));}
+   for(const p of chunk.userData.people)this.updatePerson(p,chunk,distance);
    for(const signal of chunk.userData.signals)signal.lamps.forEach((l,i)=>l.material=(phase.road||phase.signal?.road)===(['red','amber','green'][i])?[this.m.signRed,this.m.signAmber,this.m.signGreen][i]:this.m.black);
   }
  }

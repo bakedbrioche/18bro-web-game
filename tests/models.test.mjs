@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../dist/vendor/three.module.js';
 import { GameScene } from '../dist/scene.mjs';
+import { DistrictScene } from '../dist/district-scene.mjs';
 import { VEHICLES, MOTION, BARRIERS } from '../dist/core.mjs';
 
 function modelFactory(){
@@ -10,6 +11,27 @@ function modelFactory(){
   s.box=new THREE.BoxGeometry(1,1,1);s.sphere=new THREE.SphereGeometry(.5,20,14);s.plane=new THREE.PlaneGeometry(1,1);
   s.cylinder=new THREE.CylinderGeometry(.5,.5,1,16);return s;
 }
+test('district crowds reuse the articulated police build without retaining offscreen models',()=>{
+  const owner=modelFactory(),d=Object.create(DistrictScene.prototype),chunk=new THREE.Group();
+  d.owner=owner;d.humanPool=new Map();d.time=0;d.seed=18;
+  chunk.userData={s:450};chunk.position.z=0;
+  const p=new THREE.Group(),sprite=new THREE.Group();p.add(sprite);
+  p.userData={sprite,rig:null,index:2,walking:true,at:455,side:1};chunk.add(p);
+  d.updatePerson(p,chunk,450);const rig=p.userData.rig,cop=owner.makeCop();
+  assert.equal(rig.root.userData.humanRig,cop.root.userData.humanRig);
+  assert.equal(rig.root.scale.x,cop.root.scale.x);
+  for(const key of ['legs','arms','knees','elbows','feet']){
+    assert.equal(rig[key].length,2);
+    rig[key].forEach((joint,i)=>assert.ok(joint.position.distanceTo(cop[key][i].position)<1e-9));
+  }
+  for(let n=0;n<30;n++){
+    chunk.position.z=-100;d.updatePerson(p,chunk,350);
+    assert.equal(p.userData.rig,null);assert.equal(d.humanPool.get(2).length,1);
+    chunk.position.z=0;d.time=n*.3;d.updatePerson(p,chunk,450);
+    assert.equal(p.userData.rig,rig);assert.equal(d.humanPool.get(2).length,0);
+    assert.equal(sprite.visible,false);
+  }
+});
 test('store fixtures, product stock, signs and refrigerator doors use only modeled surfaces',()=>{
   const s=modelFactory();s.scene=new THREE.Scene();s.mat=()=>new THREE.MeshBasicMaterial();
   s.makeMenuProps();let surfaces=0,triangles=0;

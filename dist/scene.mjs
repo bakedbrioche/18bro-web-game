@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
-import { sidewalkPose, CROWD_COUNT } from './crowd.mjs?v=street-26';
-import { INTRO_DURATION, CAPTURE_DURATION, STORE, introPose, capturePose, smooth, slidePose } from './choreography.mjs?v=street-26';
-import { applyMaterialAssets } from './material-assets.mjs?v=street-26';
-import { BARRIERS } from './core.mjs?v=street-26';
-import { ROUTE, BRANCHES, getRouteProfile, routeCenter, branchOffset } from './route.mjs?v=street-26';
-import { DistrictScene } from './district-scene.mjs?v=street-26';
+import { sidewalkPose, CROWD_COUNT } from './crowd.mjs?v=street-27';
+import { INTRO_DURATION, CAPTURE_DURATION, STORE, introPose, capturePose, smooth, slidePose } from './choreography.mjs?v=street-27';
+import { applyMaterialAssets } from './material-assets.mjs?v=street-27';
+import { BARRIERS } from './core.mjs?v=street-27';
+import { ROUTE, BRANCHES, getRouteProfile, routeCenter, branchOffset } from './route.mjs?v=street-27';
+import { DistrictScene } from './district-scene.mjs?v=street-27';
 
 const TAU = Math.PI * 2;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -290,7 +290,7 @@ export class GameScene {
   const female=!police&&index%4<2,skirt=female&&index%3===0;
   const skin=m.complexions[index%4],shirt=police?m.police:m.shirt[index%6],pants=police?m.policeDark:m.pants[index%3];
   const torso=this.humanProfile(body,shirt,[[.99,.25,.15],[1.12,.23,.145],[1.29,.275,.18],[1.48,.32,.18],[1.60,.35,.145],[1.69,.12,.105]],24);
-  torso.scale.x=female?.9:1;
+  torso.scale.x=1;
   this.humanProfile(body,pants,[[.8,.21,.145],[.94,.28,.185],[1.03,.255,.16]],24);
   this.humanProfile(body,skin,[[1.66,.085,.08],[1.76,.093,.085],[1.86,.083,.08]],20);
   const head=this.humanProfile(body,skin,[[1.79,.064,.073,.016],[1.84,.115,.099,.01],[1.92,.16,.127],[2.015,.174,.143],[2.105,.156,.129],[2.16,.105,.091],[2.185,.03,.027]],24);
@@ -331,11 +331,17 @@ export class GameScene {
   else if(index%3===0){this.ellipsoid(body,m.wood,.31,.91,.04,.3,.45,.22);}
   if(police){baton=new THREE.Group();baton.position.set(0,-.49,.055);baton.rotation.x=-.25;elbows[1].add(baton);baton.add(new THREE.Mesh(new THREE.CylinderGeometry(.031,.039,.7,12),m.black));this.ellipsoid(baton,m.metal,0,.18,0,.105,.04,.105);}
   this.batchStatic(body);for(const limb of [...legs,...arms,...knees,...elbows])this.batchStatic(limb);
+  root.userData.humanRig='shared-police-build';
   return {root,body,legs,arms,knees,elbows,feet,baton,female,skirt};
  }
  makeCop(){const c=this.makePerson(1,true);c.root.scale.setScalar(1.12);return c;}
  makePedestrians(){
-  this.people=Array.from({length:CROWD_COUNT},(_,i)=>{const p=this.makePerson(i);p.root.scale.setScalar(p.female?1.00+(i%3)*.025:1.05+(i%3)*.025);this.scene.add(p.root);return p;});
+  this.people=Array.from({length:CROWD_COUNT},(_,i)=>{const p=this.makePerson(i);p.root.scale.setScalar(1.12);this.scene.add(p.root);return p;});
+ }
+ animateHumanWalk(person,phase,stride=1){
+  const s=Math.sin(phase);person.body.position.y=(1-Math.cos(phase*2))*.013*stride;person.body.rotation.z=s*.018*stride;person.body.rotation.y=s*.04*stride;
+  person.legs.forEach((leg,i)=>{const wave=s*(i?1:-1)*stride;leg.rotation.x=wave*.34;person.knees[i].rotation.x=Math.max(0,-wave)*.4;});
+  person.arms.forEach((arm,i)=>{arm.rotation.x=s*(i?-1:1)*.24*stride;person.elbows[i].rotation.x=-.15-Math.max(0,s*(i?1:-1))*.13*stride;});
  }
  updatePeople(dist,time,inside=false){for(let i=0;i<this.people.length;i++){const p=this.people[i],pose=sidewalkPose(i,dist,time),s=Math.sin(pose.phase);p.root.position.set(pose.x,.11,pose.z);p.root.rotation.y=pose.yaw;p.root.visible=pose.z>-100&&!(inside&&pose.x<0&&Math.abs(pose.z+2)<6);p.body.position.y=pose.bob;p.body.rotation.z=Math.sin(pose.phase)*.018;p.body.rotation.y=Math.sin(pose.phase)*.04;p.legs.forEach((l,j)=>{const wave=s*(j?1:-1);l.rotation.x=wave*.34;p.knees[j].rotation.x=Math.max(0,-wave)*.4;});p.arms.forEach((a,j)=>{a.rotation.x=s*(j?-1:1)*.24;p.elbows[j].rotation.x=-.15-Math.max(0,s*(j?1:-1))*.13;});}}
  roundedMesh(parent,mat,x,y,z,w,h,d,r=.09){

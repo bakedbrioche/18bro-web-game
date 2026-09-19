@@ -1,7 +1,7 @@
 /** 18Bro deterministic, DOM-free runner simulation. World approaches +Z; cat stays at Z=0. */
-import { INTRO_DURATION, CAPTURE_DURATION, introPose, capturePose } from './choreography.mjs?v=street-26';
-import { ROUTE, BRANCHES, getRouteProfile, branchOffset, getTrafficPhase, CROSS_STREETS, PEDESTRIAN_STOP } from './route.mjs?v=street-26';
-export { INTRO_DURATION, CAPTURE_DURATION } from './choreography.mjs?v=street-26';
+import { INTRO_DURATION, CAPTURE_DURATION, introPose, capturePose } from './choreography.mjs?v=street-27';
+import { ROUTE, BRANCHES, getRouteProfile, branchOffset, getTrafficPhase, crossStreetsAt } from './route.mjs?v=street-27';
+export { INTRO_DURATION, CAPTURE_DURATION } from './choreography.mjs?v=street-27';
 export const LANES = Object.freeze([-2.5, 0, 2.5]);
 export const THEMES = Object.freeze(['HONG KONG']);
 export const POWER_DURATIONS = Object.freeze({ magnet: 8, moon: 5, moped: 10 });
@@ -110,7 +110,9 @@ export class RunnerGame {
   emit(type, data = {}) { this.onEvent({ type, ...data }); }
   setState(state) { if (this.state !== state) { this.state = state; this.emit('state', { state }); } }
   _random() { return clamp(Number(this.random()) || 0, 0, .999999999); }
+  _routeProfile(s){return getRouteProfile(s,this.routeSeed);}
   _reset() {
+    this.routeSeed=Math.floor(this._random()*4294967295);
     this.player = { x: 0, lane: 1, y: 0, vy: 0, slide: 0, hit: 0, grounded: true, anim: 'idle', laneFrom: 0, laneElapsed: MOTION.laneDuration, jumpBuffer: 0, coyote: MOTION.coyoteTime };
     this.distance = 0; this.time = 0; this.speed = 10.4; this.score = 0; this.chips = 0; this.coins = 0;
     this.chipMeter = 0; this.policeDistance = 1.5; this.themeIndex = 0; this.theme = THEMES[0];
@@ -119,7 +121,7 @@ export class RunnerGame {
     this.mistakes = 0; this.shieldGrace = 0; this.captureRemaining = 0; this.captureDuration = CAPTURE_DURATION; this.captureProgress = 0; this.crash = null;
     this._spawnCursor = 30; this._rowId = 0; this._poolCursor = 0; this._lastSafeLane = 1;
     this.patternHistory = []; this.powers.clear();
-    this.route=getRouteProfile(0);this.routeTraffic=getTrafficPhase(0);this._branch=null;this._branchEntries=new Set();this._crossWave=-1;this._crossReleased=false;this._routeComplete=false;this._routeWaiting=false;
+    this.route=this._routeProfile(0);this.routeTraffic=getTrafficPhase(0);this._branch=null;this._branchEntries=new Set();this._crossWave=-1;this._crossReleased=false;this._routeComplete=false;this._routeWaiting=false;
     for (const entity of this.entities) entity.active = false;
     for (let i = 0; i < this.chunks.length; i++) Object.assign(this.chunks[i], { z: -i * 32, index: i, theme: THEMES[0] });
   }
@@ -143,7 +145,7 @@ export class RunnerGame {
     const s=this.distance;
     if(this._branch&&s>=this._branch.end){this._branch=null;this._crossReleased=false;}
     const pose=this._branch?branchOffset(this._branch,s):null;
-    this.route={...getRouteProfile(s),...(pose?{offsetX:pose.x,offsetY:pose.y}:{}),
+    this.route={...this._routeProfile(s),...(pose?{offsetX:pose.x,offsetY:pose.y}:{}),
       branch:this._branch?.id||null,branchProgress:this._branch?clamp((s-this._branch.start)/(this._branch.end-this._branch.start),0,1):0,
       waiting:!!this._routeWaiting};
     this.routeTraffic=getTrafficPhase(this.time);
@@ -166,11 +168,11 @@ export class RunnerGame {
     }
   }
   _updateCrossTraffic(dt) {
-    if(this.distance<ROUTE.intersectionStart-95||this.distance>ROUTE.intersectionEnd+25)return;
+    const streets=crossStreetsAt(this.distance,this.routeSeed);if(!streets.length)return;
     const phase=getTrafficPhase(this.time),wave=Math.floor(this.time/1.55);
     if(phase.cross==='green'&&wave!==this._crossWave){
       this._crossWave=wave;
-      for(const [index,street]of CROSS_STREETS.entries()){
+      for(const [index,street]of streets.entries()){
         const kind=(phase.cycle+wave+index)%5,vehicleKind=kind===0?'bus':kind===1?'van':kind===2?'scooter':kind===3?'police':'taxi';
         const length=vehicleKind==='bus'?6.8:vehicleKind==='van'?4.7:vehicleKind==='scooter'?2:3.55;
         const e=this.spawnEntity('crossTraffic',1,this.distance-street.distance,{x:-street.direction*33,z:this.distance-street.distance,
@@ -252,13 +254,12 @@ export class RunnerGame {
     return result;
   }
   _spawnPattern(spawnDistance) {
-    if(spawnDistance>=ROUTE.end)return 60;
     const doorway=BRANCHES.find(b=>Math.abs(spawnDistance-b.start)<12||Math.abs(spawnDistance-b.end)<10);
     if(doorway){for(let i=0;i<3;i++)this.spawnEntity('coin',doorway.side<0?0:2,this.distance-spawnDistance-i*2.5);return 18;}
     // A broad junction uses its real lateral traffic and signal cycle, not a
     // second layer of invisible procedural roadblocks.
-    if(spawnDistance>2950&&spawnDistance<3320||spawnDistance>ROUTE.roadblock){
-      if(spawnDistance<ROUTE.roadblock||spawnDistance>5520)for(let i=0;i<3;i++)this.spawnEntity('coin',1,this.distance-spawnDistance-i*2.5,{y:1,finale:spawnDistance>ROUTE.roadblock});
+    if(this._routeProfile(spawnDistance).id==='intersection'){
+      for(let i=0;i<3;i++)this.spawnEntity('coin',1,this.distance-spawnDistance-i*2.5,{y:1});
       return 24;
     }
     const pattern = this._makePattern();
@@ -301,7 +302,7 @@ export class RunnerGame {
       const kind = ['moped', 'magnet', 'moped', 'moon'][Math.floor(rowId / 8) % 4];
       this.spawnEntity(kind, pattern.safeLane, z + 8, { rowId, y: 1.2 });
     }
-    const spacing = obstacleSpacing(this.speed, this.tier)*(spawnDistance>ROUTE.start?1.5-getRouteProfile(spawnDistance).trafficIntensity*.55:1);
+    const spacing = obstacleSpacing(this.speed, this.tier)*(spawnDistance>ROUTE.start?1.5-this._routeProfile(spawnDistance).trafficIntensity*.55:1);
     this.patternHistory.push({ id: rowId, distance: spawnDistance, spacing, speed: this.speed, tier: this.tier, ...pattern });
     if (this.patternHistory.length > 32) this.patternHistory.shift();
     return spacing;
@@ -355,14 +356,10 @@ export class RunnerGame {
     p.anim = p.hit > .65 ? 'hit' : p.slide > 0 ? 'slide' : p.y > .01 ? p.vy >= 0 ? 'jump' : 'fall' : 'run';
     const baseSpeed = this.debug.speedOverride != null ? clamp(Number(this.debug.speedOverride) || 10.4, 2, 120) : Math.min(26, 10.4 + this.time * .12);
     this.speed = baseSpeed * this.powers.speedMultiplier * (this._slowRemaining > 0 ? .7 : 1);
-    if(this.distance>=ROUTE.start&&this.debug.speedOverride==null)this.speed=Math.min(this.speed,getRouteProfile(this.distance).speedLimit*this.powers.speedMultiplier);
+    if(this.distance>=ROUTE.start&&this.debug.speedOverride==null)this.speed=Math.min(this.speed,this._routeProfile(this.distance).speedLimit*this.powers.speedMultiplier);
     const phase=getTrafficPhase(this.time),beforeDistance=this.distance;
     this._routeWaiting=false;
-    if(this._branch?.id==='crossing'&&!this._crossReleased&&this.distance+this.speed*dt>=PEDESTRIAN_STOP){
-      if(phase.pedestrian==='green'&&phase.remaining>=4.3)this._crossReleased=true;
-      else {this.speed=Math.min(this.speed,Math.max(0,PEDESTRIAN_STOP-this.distance)/dt);this._routeWaiting=true;}
-    }
-    const movement=Math.min(this.speed*dt,Math.max(0,ROUTE.end-this.distance));
+    const movement=this.speed*dt;
     this.distance+=movement;this._enterRoutes(beforeDistance,this.distance);this._refreshRoute();this._updateCrossTraffic(dt);
     if(this._routeWaiting)p.anim='idle';
     this.score += movement * this.powers.scoreMultiplier;
@@ -412,7 +409,7 @@ export class RunnerGame {
         const lateralScale=1-branchMagnitude*.68;
         const playerX = mix(previousX, p.x, crossing)*lateralScale+this.route.offsetX;
         const playerY = mix(previousY, p.y, crossing);
-        const ep=e.routeBranch?branchOffset(e.routeBranch,this.distance-e.z):{x:e.finale?getRouteProfile(this.distance-e.z).offsetX:0};
+        const ep=e.routeBranch?branchOffset(e.routeBranch,this.distance-e.z):{x:e.finale?this._routeProfile(this.distance-e.z).offsetX:0};
         const entityX = mix(oldX, e.x, crossing)*(e.routeBranch===this.route.branch&&e.routeBranch?lateralScale:1)+(ep.x||0);
         const sameFloor=(!e.routeBranch||e.routeBranch===this.route.branch)&&!(e.type==='crossTraffic'&&this.route.branch==='corner-shop');
         const xOverlap = sameFloor&&Math.abs(playerX - entityX) < (hazard ? e.width / 2*(e.routeBranch?lateralScale:1) + .3 : .72);
@@ -439,7 +436,6 @@ export class RunnerGame {
       }
       if (e.z > 9) e.active = false;
     }
-    if(this.state==='RUNNING'&&this.distance>=ROUTE.end){this.speed=0;p.anim='idle';this._routeComplete=true;this.setState('ARCADE');this.emit('routecomplete',this.snapshot());}
     if (this.state === 'RUNNING') this._fillAhead();
   }
   _pickup(entity) {

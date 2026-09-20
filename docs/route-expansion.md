@@ -9,3 +9,11 @@ Sidewalk crowds are denser and walk in separated stretches. Nearby people use th
 The PS1 presentation and quiet overlapping market ambience (gain 0.0225) remain. The source is self-contained, and the exporter generates the standalone HTML with all assets embedded.
 
 Validation covers long endless runs, seeded variation, continuous section boundaries, later crossing collisions, sealed former shortcut frontages, menu behavior, the opening, arrests, powers and vehicle/barrier separation. The preview page allows arbitrary route distances and traffic phases.
+
+## September 20 refinement
+
+The market boundary now uses exact chunk coordinates, matched road/pavement edges and stable textured vertices. The skyline retreats into fog instead of switching at the boundary. Opening hazards render during the store exit, with matching simulation coordinates at handoff.
+
+Commercial sidewalk density is halved. Walk distance drives the leg cycle. Crosswalks have separated opposing pedestrian paths and a 32-second green interval in a 56-second signal cycle. LED boards animate shared low-resolution advertising textures; shopfronts, windows and sheltered minibus stops fill the intersection corners. Painted neon asphalt reflections are removed.
+
+Customization purchases and new Jetpack, Double Chips and Shield powers have automated regressions, alongside offscreen police carry and opening continuity.

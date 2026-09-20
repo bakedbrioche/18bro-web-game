@@ -1,10 +1,11 @@
 import * as THREE from './vendor/three.module.js';
-import { sidewalkPose, CROWD_COUNT } from './crowd.mjs?v=street-27';
-import { INTRO_DURATION, CAPTURE_DURATION, STORE, introPose, capturePose, smooth, slidePose } from './choreography.mjs?v=street-27';
-import { applyMaterialAssets } from './material-assets.mjs?v=street-27';
-import { BARRIERS } from './core.mjs?v=street-27';
-import { ROUTE, BRANCHES, getRouteProfile, routeCenter, branchOffset } from './route.mjs?v=street-27';
-import { DistrictScene } from './district-scene.mjs?v=street-27';
+import { sidewalkPose, CROWD_COUNT } from './crowd.mjs?v=street-28';
+import { INTRO_DURATION, CAPTURE_DURATION, STORE, introPose, capturePose, smooth, slidePose } from './choreography.mjs?v=street-28';
+import { applyMaterialAssets } from './material-assets.mjs?v=street-28';
+import { BARRIERS } from './core.mjs?v=street-28';
+import { ROUTE, BRANCHES, getRouteProfile, routeCenter, branchOffset } from './route.mjs?v=street-28';
+import { DistrictScene } from './district-scene.mjs?v=street-28';
+import { FURS } from './customization.mjs?v=street-28';
 
 const TAU = Math.PI * 2;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -69,7 +70,7 @@ export class GameScene {
    // coordinates. Independent affine sampling made neon lettering double and
    // large road/wall triangles fold as the camera passed their vertices.
    shader.vertexShader='uniform vec2 retroResolution;\nuniform float retroWobble;\n'+shader.vertexShader;
-   shader.vertexShader=shader.vertexShader.replace('#include <project_vertex>',`#include <project_vertex>\nif(gl_Position.w>0.08){\n vec2 snapGrid=retroResolution*0.5;\n vec2 rawNdc=gl_Position.xy/gl_Position.w;\n float amount=0.12*smoothstep(25.0,75.0,gl_Position.w)*retroWobble;\n gl_Position.xy=mix(rawNdc,floor(rawNdc*snapGrid+0.5)/snapGrid,amount)*gl_Position.w;\n}`);
+   shader.vertexShader=shader.vertexShader.replace('#include <project_vertex>',`#include <project_vertex>\nif(gl_Position.w>0.08){\n vec2 snapGrid=retroResolution*0.5;\n vec2 rawNdc=gl_Position.xy/gl_Position.w;\n float amount=${m.map?'0.0':'0.12'}*smoothstep(25.0,75.0,gl_Position.w)*retroWobble;\n gl_Position.xy=mix(rawNdc,floor(rawNdc*snapGrid+0.5)/snapGrid,amount)*gl_Position.w;\n}`);
    // Ordered colour quantization is applied in display space, after fog. No blur,
    // modern bloom, temporal noise, shadow maps or reflective material pipeline.
    shader.fragmentShader=shader.fragmentShader.replace('#include <colorspace_fragment>',`#include <colorspace_fragment>\nvec2 dp=mod(floor(gl_FragCoord.xy),4.0);\nfloat b0=mod(dp.x,2.0)*2.0+mod(dp.y,2.0)*3.0;\nfloat b1=floor(dp.x/2.0)*2.0+floor(dp.y/2.0)*3.0;\nfloat ordered=(mod(b0,4.0)*4.0+mod(b1,4.0))/16.0-0.5;\ngl_FragColor.rgb=clamp(floor(gl_FragColor.rgb*31.0+ordered+0.5)/31.0,0.0,1.0);`);
@@ -217,9 +218,11 @@ export class GameScene {
   const b=new Batch(),rand=seeded(1877),m=this.m;for(let i=0;i<38;i++){const x=(rand()-.5)*160,z=-72-rand()*50,h=26+rand()*40,w=3+rand()*5;b.add(this.box,m.skyGlass,x,h/2,z,w,h,w*.8);for(const s of [-1,1])b.add(this.box,m.skyTrim,x+s*w*.45,h/2,z+w*.41,.075,h,.08);for(let y=6;y<h;y+=6)b.add(this.box,m.skyTrim,x,y,z+w*.42,w,.035,.035);if(i%3===0){b.add(this.box,m.skyGlass,x,h+2,z,w*.7,4,w*.6);b.add(this.cylinder,m.skyTrim,x,h+7,z,.15,10,.15);for(let y=10;y<h-6;y+=9)b.add(this.box,m.skyTrim,x,y,z+w*.44,w*1.3,.1,.1,0,0,i%2?.63:-.63);}}return b.group();
  }
  ellipsoid(parent,mat,x,y,z,sx,sy,sz){const mesh=new THREE.Mesh(this.sphere,mat);mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);parent.add(mesh);return mesh;}
- makeCat(skin){
+ makeCat(skin,look={}){
   const root=new THREE.Group(),body=new THREE.Group(),m=this.m;root.add(body);
-  const coat=skin==='gold'?m.gold:skin==='business'?m.concrete:m.black,suit=skin==='police'?m.police:skin==='astronaut'?m.white:skin==='business'?m.white:coat;
+  const fur=FURS.find(f=>f.id===look.fur);
+  this.furMaterials??=new Map();if(fur&&!this.furMaterials.has(fur.id))this.furMaterials.set(fur.id,new THREE.MeshLambertMaterial({color:fur.color,flatShading:true}));
+  const coat=fur?this.furMaterials.get(fur.id):skin==='gold'?m.gold:skin==='business'?m.concrete:m.black,suit=skin==='police'?m.police:skin==='astronaut'?m.white:skin==='business'?m.white:coat;
   this.ellipsoid(body,suit,0,.65,0,.83,.96,.7);
   const head=new THREE.Group();head.position.set(0,1.4,.04);body.add(head);
   this.ellipsoid(head,coat,0,0,0,1.68,1.34,1.22);this.ellipsoid(head,coat,-.43,-.23,.17,.78,.7,.9);this.ellipsoid(head,coat,.43,-.23,.17,.78,.7,.9);
@@ -246,6 +249,9 @@ export class GameScene {
   const decalGeo=new THREE.SphereGeometry(.486,28,18,Math.PI/2-.43,.86,.40,.99);
   const label=new THREE.Mesh(decalGeo,m.capLabel);label.scale.set(1.14,.77,1);cap.add(label);
   this.ellipsoid(cap,hatColor,0,.382,0,.12,.06,.12);
+  if(look.hat&&look.hat!=='cap'){
+   cap.visible=false;const hat=this.makeHat(look.hat);head.add(hat);
+  }
   if(skin==='business')this.boxMesh(body,m.red,0,.76,.365,.09,.36,.025);
   if(skin==='ceo'){for(const side of [-1,1])this.boxMesh(head,m.pupil,side*.35,-.05,.7,.55,.25,.05);this.boxMesh(head,m.gold,0,-.01,.725,.22,.025,.025);this.boxMesh(body,m.gold,0,.93,.33,.5,.045,.04);this.ellipsoid(body,m.gold,0,.81,.4,.13,.17,.045);}
   if(skin==='astronaut'){const rim=new THREE.Mesh(new THREE.TorusGeometry(.88,.05,8,24),m.white);rim.position.set(0,1.45,.09);body.add(rim);this.boxMesh(body,m.cyan,0,.68,.37,.33,.22,.04);}
@@ -253,7 +259,25 @@ export class GameScene {
   for(const side of [-1,1]){const leg=new THREE.Group();leg.position.set(side*.24,.4,0);body.add(leg);this.ellipsoid(leg,coat,0,-.13,0,.3,.48,.34);this.ellipsoid(leg,skin==='astronaut'?m.white:coat,0,-.31,.11,.36,.21,.48);legs.push(leg);const arm=new THREE.Group();arm.position.set(side*.45,.96,0);body.add(arm);this.ellipsoid(arm,suit,0,-.2,0,.31,.55,.34);this.ellipsoid(arm,coat,0,-.43,.035,.32,.3,.33);arm.rotation.z=side*.12;arms.push(arm);}
   const tail=new THREE.Mesh(new THREE.CylinderGeometry(.07,.11,.8,10),coat);tail.position.set(.14,.66,-.53);tail.rotation.x=-.75;body.add(tail);
   const bag=new THREE.Group();this.makePacket(bag);bag.position.set(0,-.42,.09);bag.rotation.z=-.12;arms[1].add(bag);
-  return {root,body,head,legs,arms,tail,bag};
+  const jetpack=this.makeJetpack();jetpack.position.set(0,.85,-.46);jetpack.scale.setScalar(.8);body.add(jetpack);jetpack.visible=false;
+  const shield=new THREE.Group();root.add(shield);shield.position.y=1.05;
+  for(const angle of [0,Math.PI/2]){const ring=new THREE.Mesh(new THREE.TorusGeometry(1.02,.025,6,32),m.cyan);ring.rotation.y=angle;shield.add(ring);}shield.visible=false;
+  return {root,body,head,legs,arms,tail,bag,jetpack,shield};
+ }
+ makeHat(kind){
+  const g=new THREE.Group(),m=this.m;g.position.set(0,.63,-.04);
+  const disc=(mat,r,rt,h,y)=>{const mesh=new THREE.Mesh(new THREE.CylinderGeometry(rt,r,h,16),mat);mesh.position.y=y;g.add(mesh);return mesh;};
+  if(kind==='sombrero'){g.position.y=.98;disc(m.yellow,1.1,1.1,.065,0);disc(m.yellow,.5,.17,.66,.34);disc(m.red,.47,.43,.12,.16);for(let i=0;i<16;i++){const a=i*TAU/16;this.ellipsoid(g,i%2?m.red:m.green,Math.cos(a)*.94,.055,Math.sin(a)*.94,.14,.065,.14);}}
+  else if(kind==='beanie'){const dome=new THREE.Mesh(new THREE.SphereGeometry(.5,16,10,0,TAU,0,Math.PI/2),m.red);dome.scale.y=.95;g.add(dome);disc(m.red,.54,.54,.14,.03);this.ellipsoid(g,m.white,0,.53,0,.2,.2,.2);}
+  else if(kind==='bucket'){disc(m.blue,.77,.72,.07,0);disc(m.blue,.52,.43,.43,.23);disc(m.white,.53,.50,.09,.12);}
+  else if(kind==='crown'){disc(m.gold,.5,.5,.18,.07);for(let i=0;i<7;i++){const a=i*TAU/7,spike=new THREE.Mesh(new THREE.ConeGeometry(.16,.36,4),m.gold);spike.position.set(Math.cos(a)*.43,.3,Math.sin(a)*.43);g.add(spike);this.ellipsoid(g,i%2?m.red:m.cyan,Math.cos(a)*.51,.09,Math.sin(a)*.51,.09,.11,.08);}}
+  g.userData.hat=kind;return g;
+ }
+ makeJetpack(){
+  const g=new THREE.Group(),m=this.m;this.boxMesh(g,m.metal,0,0,0,.56,.65,.22);
+  const flames=new THREE.Group();g.add(flames);g.userData.flames=flames;flames.visible=false;
+  for(const side of [-1,1]){const tank=new THREE.Mesh(new THREE.CylinderGeometry(.17,.17,.66,10),m.blue);tank.position.set(side*.3,0,0);g.add(tank);this.ellipsoid(g,m.cyan,side*.3,.34,0,.31,.14,.31);this.boxMesh(g,m.orange,side*.3,-.38,0,.18,.18,.18);const flame=new THREE.Mesh(new THREE.ConeGeometry(.12,.55,6),m.cyan);flame.rotation.z=Math.PI;flame.position.set(side*.3,-.68,0);flames.add(flame);}
+  return g;
  }
  humanProfile(parent,material,rings,segments=20){
   // Multiple anatomical cross-sections keep the silhouette angular but articulated.
@@ -404,6 +428,9 @@ export class GameScene {
   else if(type==='traffic')return this.makeCar(id);
   else if(type==='scooter')return this.makeMoped(id,true);
   else if(type==='moped'){const bike=this.makeMoped(0);bike.scale.setScalar(.65);bike.position.y=-.42;bike.rotation.y=-.35;g.add(bike);const ring=new THREE.Mesh(new THREE.TorusGeometry(.7,.045,8,32),m.cyan);ring.position.y=.14;g.add(ring);}
+  else if(type==='jetpack')g.add(this.makeJetpack());
+  else if(type==='shield'){const shape=new THREE.Shape();shape.moveTo(-.42,.4);shape.lineTo(.42,.4);shape.lineTo(.36,-.12);shape.lineTo(0,-.46);shape.lineTo(-.36,-.12);shape.closePath();g.add(new THREE.Mesh(new THREE.ExtrudeGeometry(shape,{depth:.1,bevelEnabled:false}),m.cyan));bx(m.white,0,0,.12,.08,.5,.03);bx(m.white,0,.12,.12,.38,.08,.03);}
+  else if(type==='doublechips'){for(const side of [-1,1]){const chip=this.makeCrisp();chip.position.x=side*.23;chip.scale.setScalar(.7);g.add(chip);}this.blockLetters(g,'2',0,.52,.15,.09,m.gold);}
   else if(BARRIERS[type])return this.makeBarrier(type);
   else{const ring=new THREE.Mesh(new THREE.TorusGeometry(.46,.055,8,24),type==='moon'?m.gold:m.cyan);g.add(ring);if(type==='moon')this.ellipsoid(g,m.gold,0,0,0,.54,.54,.3);else{bx(m.red,-.16,0,0,.14,.4,.15);bx(m.red,.16,0,0,.14,.4,.15);bx(m.red,0,-.16,0,.35,.12,.15);bx(m.white,-.16,.17,0,.14,.11,.16);bx(m.white,.16,.17,0,.14,.11,.16);}}
   return g;
@@ -761,7 +788,7 @@ export class GameScene {
  animateCapture(cat,cops,progress,crash={},starts=null,reducedMotion=false){
   const {fall,gather,lift,turn,carry}=capturePose(progress),seconds=progress*CAPTURE_DURATION,px=crash.x||0;
   const grip=smooth((progress-.25)/.11),fold=smooth((progress-.15)/.13),yaw=Math.PI*(1-turn);
-  const travel=carry*2.8,phase=turn*4+travel*4.2;
+  const travel=carry*2.8+Math.max(0,progress-1)*CAPTURE_DURATION*1.8,phase=turn*4+travel*4.2;
   const bob=reducedMotion?0:Math.sin(phase*2)*.014*lift;
   const recoil=.72*smooth(seconds/.4),carriedZ=recoil+travel;
   cat.root.position.set(px,(crash.y||0)*(1-fall)+Math.sin(Math.min(1,seconds/.6)*Math.PI)*.26+fall*.06+lift*.94+bob,carriedZ);
@@ -806,10 +833,10 @@ export class GameScene {
   });
   return {carriedX:px,carriedZ,lift,carry};
  }
- render(game={},dt=1/60,{skin='18bro',menu=false,reducedMotion=false}={}){
+ render(game={},dt=1/60,{skin='18bro',fur,hat,menu=false,reducedMotion=false}={}){
   const state=game.state||'MAIN_MENU',isMenu=menu||state==='MAIN_MENU',isOver=state==='GAME_OVER',isPaused=state==='PAUSED',isStarting=state==='STARTING'||isPaused&&game._beforePause==='STARTING',isCaught=state==='CAUGHT'||isPaused&&game._beforePause==='CAUGHT';
   dt=Math.min(dt,.05);if(!isPaused)this.clock+=dt;if(state!==this.lastState){if(!(state==='PAUSED'||this.lastState==='PAUSED'))this.stateTime=0;this.lastState=state;}if(!isPaused)this.stateTime+=dt;
-  if(skin!==this.skin){this.scene.remove(this.cat.root);this.cat=this.makeCat(skin);this.scene.add(this.cat.root);this.skin=skin;}
+  const lookKey=[skin,fur,hat].join(':');if(lookKey!==this.lookKey){const old=this.cat;this.scene.remove(old.root);old.root.traverse(o=>{if(o.geometry&&![this.box,this.sphere,this.cylinder,this.plane].includes(o.geometry))o.geometry.dispose();});this.cat=this.makeCat(skin,{fur,hat});this.scene.add(this.cat.root);this.skin=skin;this.lookKey=lookKey;}
   const p=game.player||{},dist=isStarting?introPose(game.introProgress*INTRO_DURATION).distance:game.distance||0,t=Math.floor(this.clock*12)/12,moon=game.powers?.has('moon'),riding=game.powers?.has('moped')&&!isCaught&&!isOver;
   const route=game.route||getRouteProfile(dist),newStreet=dist>=230&&!isMenu&&!isStarting;
   const worldCurve=routeCenter(dist),offsetX=route.offsetX||0,offsetY=route.offsetY||0;
@@ -826,13 +853,16 @@ export class GameScene {
   this.scene.fog.near=isMenu||isStarting?24:(route.fogNear||23);
   this.scene.fog.far=isMenu||isStarting?108:(route.fogFar||90);
   const it=isStarting?game.introProgress*INTRO_DURATION:0,inside=isMenu||isStarting&&it<2.65,freeze=isPaused||isCaught||isOver;
-  for(let i=0;i<7;i++){const root=this.chunks[i].root;root.position.z=((dist+i*30)%210)-170;const s=dist-root.position.z;root.visible=s<230;root.position.x=routeCenter(s)-worldCurve;}
-  this.world.visible=true;this.skyline.visible=!newStreet;
+  for(let i=0;i<7;i++){const root=this.chunks[i].root;const s=Math.round((170-i*30+210*Math.floor((dist+i*30)/210))*1e6)/1e6;root.position.z=dist-s;root.visible=s<230;root.position.x=routeCenter(s)-worldCurve;}
+  this.world.visible=true;this.skyline.position.z=-smooth((dist-160)/90)*90;this.skyline.visible=dist<270;
   this.district.update(game,freeze?0:dt);
   this.updatePeople(dist,freeze?this.frozenClock:t,isMenu||isStarting);if(!freeze)this.frozenClock=t;
   for(const person of this.people){const s=dist-person.root.position.z;person.root.visible=person.root.visible&&s<230;person.root.position.x+=routeCenter(s)-worldCurve;}
   this.store.visible=isMenu||isStarting||dist<55;this.store.position.z=STORE.z+dist;this.menuProps.visible=false;if(this.storeInfill)this.storeInfill.visible=dist>=55;
   this.cat.root.visible=true;this.cat.root.scale.setScalar(.776);this.cat.bag.visible=!isMenu&&(!isStarting||it>=.95);
+  this.cat.jetpack.visible=!!game.powers?.has('jetpack')&&!isCaught&&!isOver;this.cat.shield.visible=!!game.powers?.has('shield')&&!isCaught&&!isOver;
+  this.cat.jetpack.userData.flames.visible=this.cat.jetpack.visible;this.cat.jetpack.userData.flames.scale.y=.85+Math.sin(t*23)*.15;
+  this.cat.shield.rotation.y=t*.7;
   this.moped.visible=!!riding;this.stars.visible=(isCaught||isOver)&&!!game.crash;this.shelfBag.visible=isMenu||isStarting&&it<.95;
   let goalFov=65;
   if(isMenu||isStarting){
@@ -865,7 +895,7 @@ export class GameScene {
     this.cops.forEach((cop,i)=>{const pos=pose.officers[i];cop.root.visible=!isMenu;cop.root.position.set(pos.x,0,pos.z);cop.root.rotation.y=Math.PI;this.animateCop(cop,this.clock+i*.19,it>3.5?1:.14);});this.chaseZ=2.825;
     if(!isPaused&&isStarting){if(this.lastIntroTime<.95&&it>=.95)this.burst(-11.9,1.1,-3.4,14,0xffdc7b,1.2,.045);if(this.lastIntroTime<3.02&&it>=3.02){this.burst(-6.75,.45,STORE.z+dist,48,0xf3e3be,3.1,.06);for(const side of [-1,1])this.burst(-6.6,1.5,STORE.z+dist+side*1.4,16,0xffffd2,2.6,.035);}this.lastIntroTime=it;}
   }else if(isCaught||isOver){
-    const progress=game.captureProgress??1,px=game.crash?.x??p.x??0;
+    const progress=(game.captureProgress??1)+(isOver?Math.min(8,this.stateTime)/CAPTURE_DURATION:0),px=game.crash?.x??p.x??0;
     this.target.set(px*.35,3.25,8.8);this.cameraTarget.set(px*.3,1.15,-1);goalFov=64;
     if(!this.captureStarts){
      const arrival=this.camera.clone(),look=this.cameraTarget.clone();arrival.position.copy(this.target);arrival.fov=goalFov;
@@ -883,7 +913,8 @@ export class GameScene {
     const px=p.x||0,py=p.y||0;this.cat.root.position.set(px,py+(riding?.08:0),p.hit>0?.65*Math.sin(Math.PI*smooth((1.15-p.hit)/1.15)):0);this.cat.root.rotation.set(0,Math.PI,0);this.animateCat(this.cat,t,riding?'ride':p.anim==='idle'?'menu':'run',p,reducedMotion);
     if(py>.1&&!riding){this.cat.legs[0].rotation.x=-.65;this.cat.legs[1].rotation.x=.45;}
     this.moped.position.set(px,py,0);this.moped.rotation.y=Math.PI;this.moped.userData.wheels?.forEach(w=>w.rotation.x=-dist*3.7);
-    this.target.set(px*.1,3.85+Math.min(py*.14,.6),7.3);this.cameraTarget.set(px*.12,1.4,-10);
+    const flying=game.powers?.has('jetpack')||py>3.2;
+    this.target.set(px*.1,3.85+(flying?py*.9:Math.min(py*.14,.6)),7.3);this.cameraTarget.set(px*.12,1.4+(flying?py*.9:0),-10);
     const targetZ=1.1+(game.policeDistance??10)*1.15;this.chaseZ+=clamp((targetZ-this.chaseZ)*(1-Math.exp(-dt*2.2)),-dt*5,dt*4)*(isPaused?0:1);
     // Officers fall behind in world space and leave below the camera naturally. Never toggle them at a distance threshold.
     this.updateChasingCops(game,isPaused?0:dt,t);
@@ -901,16 +932,16 @@ export class GameScene {
   this.extraCops.forEach((cop,i)=>{const pressure=smooth(((route.night||0)-.42)/.58);cop.root.visible=newStreet&&!isCaught&&!isOver&&state!=='ARCADE'&&pressure>0;const retreat=Math.max(0,this.chaseZ-12.6);cop.root.position.set(offsetX+(i?1:-1)*2.25*lateralScale,offsetY,12-pressure*9+i*.7+retreat);cop.root.rotation.y=Math.PI;this.animateCop(cop,t+i*.4,game.speed>0?.85:0);});
   for(const slot of this.entities.values())slot.group.visible=false;
   for(const e of game.entities||[]){
-    if(!e.active||isMenu||isStarting||e.z < -125)continue;
+    if(!e.active||isMenu||e.z < -170)continue;
     let slot=this.entities.get(e.id);if(!slot){slot={group:new THREE.Group(),variants:new Map(),type:''};this.scene.add(slot.group);this.entities.set(e.id,slot);}
     const type=e.type,variantKey=type==='crossTraffic'?`${type}-${e.vehicleKind||e.variant||0}`:type;
     if(!slot.variants.has(variantKey)){const mesh=type==='crossTraffic'?(e.vehicleKind==='scooter'?this.makeMoped(e.id,true):this.makeRouteVehicle(e.vehicleKind==='bus'?2:e.vehicleKind==='van'?1:e.vehicleKind==='police'?3:0)):this.makeEntity(type,e.id);slot.group.add(mesh);slot.variants.set(variantKey,mesh);}
     if(slot.type!==variantKey){for(const [key,mesh] of slot.variants)mesh.visible=key===variantKey;slot.type=variantKey;}
-    const s=dist-e.z,entityBranch=e.routeBranch||null,branchPose=entityBranch?branchOffset(entityBranch,s):{x:e.finale?getRouteProfile(s).offsetX:0,y:0};
+    const visualZ=e.z+(isStarting?dist:0),s=dist-visualZ,entityBranch=e.routeBranch||null,branchPose=entityBranch?branchOffset(entityBranch,s):{x:e.finale?getRouteProfile(s).offsetX:0,y:0};
     const sameBranch=!!entityBranch&&entityBranch===route.branch,scale=sameBranch?lateralScale:1;
     slot.group.visible=!(type==='crossTraffic'&&e.x>20.7);slot.group.scale.set(scale,1,1);
-    slot.group.position.set(e.x*scale+routeCenter(s)-worldCurve+(branchPose.x||0),(e.y||0)+(branchPose.y||0),e.z);
-    slot.group.rotation.set(0,e.yaw??(['coin','magnet','moon','moped'].includes(type)?t*2:0),0);
+    slot.group.position.set(e.x*scale+routeCenter(s)-worldCurve+(branchPose.x||0),(e.y||0)+(branchPose.y||0),visualZ);
+    slot.group.rotation.set(0,e.yaw??(['coin','magnet','moon','moped','shield','jetpack','doublechips'].includes(type)?t*2:0),0);
     const mesh=slot.variants.get(variantKey);if(!freeze)mesh.userData.wheels?.forEach(w=>w.rotation.x+=dt*(game.speed||0)*Math.max(0,(e.actualApproach??e.approachFactor)-1)*3.3);
   }
   if(!isPaused){this.camera.position.lerp(this.target,isMenu?1:1-Math.exp(-dt*(isStarting?8:9)));this.camera.lookAt(this.cameraTarget);this.camera.fov+=(goalFov-this.camera.fov)*(1-Math.exp(-dt*9));this.camera.updateProjectionMatrix();}

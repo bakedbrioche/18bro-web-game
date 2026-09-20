@@ -32,6 +32,30 @@ test('district crowds reuse the articulated police build without retaining offsc
     assert.equal(sprite.visible,false);
   }
 });
+test('district pedestrians travel along the sidewalk and across both crossing directions',()=>{
+ const owner=modelFactory(),d=Object.create(DistrictScene.prototype),chunk=new THREE.Group();
+ d.owner=owner;d.humanPool=new Map();d.seed=18;chunk.userData={s:750};
+ for(const side of [-1,1]){
+  const p=new THREE.Group(),sprite=new THREE.Group();p.add(sprite);p.userData={sprite,rig:null,index:2,walking:true,at:755,side};chunk.add(p);
+  d.time=0;d.updatePerson(p,chunk,750);const a=p.position.clone();d.time=3;d.updatePerson(p,chunk,750);assert.ok(a.distanceTo(p.position)>1);
+  Object.assign(p.userData,{walking:false,crossing:true,cx:0,span:18,at:756});
+  const xs=[];for(const t of [22,29.5,37,44.5,52]){d.trafficTime=t;d.updatePerson(p,chunk,750);assert.ok(Number.isFinite(p.position.x));xs.push(p.position.x);}
+  assert.equal(xs[0],-18*side);assert.equal(xs[2],0);assert.equal(xs[4],18*side);
+ }
+});
+test('officers keep their walking carry beyond the camera after the result is available',()=>{
+ const s=modelFactory(),cat=s.makeCat('18bro'),cops=[s.makeCop(),s.makeCop()];cat.root.scale.setScalar(.776);
+ s.animateCapture(cat,cops,1);const before=cat.root.position.z;
+ s.animateCapture(cat,cops,3);assert.ok(cat.root.position.z>8.8);assert.ok(cat.root.position.z>before+10);
+ for(const cop of cops)assert.ok(cop.root.position.z>8.8);
+});
+test('every purchasable fur and hat creates a finite model with its packet attached',()=>{
+ const s=modelFactory();for(const fur of ['black','cream','ginger','silver','pink','gold'])for(const hat of ['cap','none','beanie','sombrero','bucket','crown']){
+  const cat=s.makeCat('18bro',{fur,hat}),bounds=new THREE.Box3().setFromObject(cat.root);
+  assert.ok(Number.isFinite(bounds.max.y));assert.ok(bounds.max.y<3.6);assert.equal(cat.bag.parent,cat.arms[1]);
+  assert.equal(s.furMaterials.size<=6,true);
+ }
+});
 test('store fixtures, product stock, signs and refrigerator doors use only modeled surfaces',()=>{
   const s=modelFactory();s.scene=new THREE.Scene();s.mat=()=>new THREE.MeshBasicMaterial();
   s.makeMenuProps();let surfaces=0,triangles=0;

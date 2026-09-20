@@ -1,10 +1,10 @@
 import * as THREE from './vendor/three.module.js';
-import { ROUTE, BRANCHES, getRouteProfile, routeCenter, branchOffset, getTrafficPhase } from './route.mjs?v=street-27';
+import { ROUTE, BRANCHES, getRouteProfile, routeCenter, branchOffset, getTrafficPhase } from './route.mjs?v=street-28';
 
 // A small rolling set of physical street sections. Coordinates are measured along
 // the same continuous route as hazards and the player, including shop shortcuts.
 const START=230, LENGTH=20, AHEAD=120, BEHIND=35;
-const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+const clamp=(n,a=0,b=1)=>Math.max(a,Math.min(b,n));
 const rnd=(n)=>{let a=(n*1664525+1013904223)>>>0;return()=>((a=(a*1664525+1013904223)>>>0)/4294967296);};
 const palette=['#ad322b','#246e4d','#e0b94f','#2b5892','#853a65','#bb6d32'];
 const neon=['#ff5146','#6cff8b','#ffe878','#55b8ff','#ef71dd','#ffa344'];
@@ -38,10 +38,11 @@ export class DistrictScene {
   m.vertical=[...SHOPS,...NIGHTS].map(([cn],i)=>mat(0xffffff,{map:pixelTexture((c,w,h)=>verticalSign(c,cn,w,h,i<10?['#c19a53','#e7d5ad','#b45642'][i%3]:neon[i%6]),64,128),side:THREE.DoubleSide,emissive:0xffffff,emissiveIntensity:i<10?.17:1.15}));
   m.menu=mat(0xffffff,{map:pixelTexture((c,w,h)=>{c.fillStyle='#dbca94';c.fillRect(0,0,w,h);text(c,'今日特餐',32,10,13,'#ab3929');for(let y=22;y<64;y+=8){c.fillStyle='#453e30';c.fillRect(5,y,28,2);c.fillRect(45,y,13,2);}},64,64)});
   m.crowds=Array.from({length:6},(_,i)=>mat(0xffffff,{map:pixelTexture((c,w,h)=>{c.clearRect(0,0,w,h);c.fillStyle='#34322c';c.fillRect(22,7,20,17);c.fillStyle='#b29472';c.fillRect(24,12,16,21);c.fillStyle=palette[i];c.fillRect(17,33,31,44);c.fillRect(12,38,8,40);c.fillRect(46,39,7,40);c.fillStyle='#343e45';c.fillRect(19,76,11,40);c.fillRect(36,76,11,40);c.fillStyle='#1c232b';c.fillRect(16,114,15,8);c.fillRect(35,114,17,8);},64,128),transparent:true,alphaTest:.5,side:THREE.DoubleSide}));
-  m.wet=palette.map(col=>mat(0xffffff,{map:pixelTexture((c,w,h)=>{c.fillStyle='#393139';c.fillRect(0,0,w,h);c.fillStyle=col;const r=rnd(col.charCodeAt(2));for(let i=0;i<18;i++)c.fillRect(12+r()*34,r()*h,8+r()*24,1+r()*4);c.fillStyle='#655746';for(let i=0;i<8;i++)c.fillRect(r()*w,r()*h,2,1);},64,64)}));
+  this.ledFrames=Array.from({length:3},(_,i)=>pixelTexture((c,w,h)=>{c.fillStyle=['#082329','#331225','#15234b'][i];c.fillRect(0,0,w,h);c.fillStyle=['#58dad7','#f18544','#b2ed70'][i];c.fillRect(4,5,120,8);text(c,['香港夜市','九龍歡迎你','美食廣場'][i],64,40,22);text(c,['HONG KONG','KOWLOON','FOOD & TEA'][i],64,70,14);text(c,['NIGHT MARKET','OPEN LATE','24 HOURS'][i],64,99,12);c.fillStyle='#0006';for(let y=0;y<h;y+=3)c.fillRect(0,y,w,1);},128,128));
+  m.led=mat(0xffffff,{map:this.ledFrames[0],emissive:0xffffff,emissiveMap:this.ledFrames[0],emissiveIntensity:.8});
   m.signRed=mat(0xaa2421,{emissive:0xe93727,emissiveIntensity:.7});m.signGreen=mat(0x48a74e,{emissive:0x5bdd5b,emissiveIntensity:.7});m.signAmber=mat(0xba8b24,{emissive:0xebba31,emissiveIntensity:.65});
-  for(const material of [...m.fascias,...m.vertical,...m.crowds,m.menu,...m.wet])material.map.wrapS=material.map.wrapT=THREE.ClampToEdgeWrapping;
-  for(const material of [...m.facades,...m.wet]){material.polygonOffset=true;material.polygonOffsetFactor=-1;material.polygonOffsetUnits=-2;}
+  for(const material of [...m.fascias,...m.vertical,...m.crowds,m.menu,m.led])material.map.wrapS=material.map.wrapT=THREE.ClampToEdgeWrapping;
+  for(const material of m.facades){material.polygonOffset=true;material.polygonOffsetFactor=-1;material.polygonOffsetUnits=-2;}
   for(const material of m.crowds)material.transparent=false;
  }
  box(g,mat,x,y,z,w,h,d,ry=0){const mesh=this.owner.boxMesh(g,mat,x,y,z,w,h,d);mesh.rotation.y=ry;return mesh;}
@@ -70,9 +71,9 @@ export class DistrictScene {
  branchAt(s,side){return BRANCHES.find(b=>b.id!=='crossing'&&b.id!=='van-cover'&&s>=b.start-5&&s<=b.end+5&&(b.offset||0)*side>0);}
  makeChunk(key){
   const s=START+key*LENGTH,g=new THREE.Group();g.userData={s,people:[],signals:[]};const r=rnd(819+key*61),m=this.m;
-  this.ribbon(g,m.road,s,s+LENGTH,p=>-p.roadHalfWidth,p=>p.roadHalfWidth,-.045,4);
+  this.ribbon(g,m.road,s,s+LENGTH,p=>-p.roadHalfWidth,p=>p.roadHalfWidth,-.04,4);
   for(const side of [-1,1]){
-   this.ribbon(g,m.pavement,s,s+LENGTH,p=>side<0?-p.buildingEdge:p.roadHalfWidth,p=>side<0?-p.roadHalfWidth:p.buildingEdge,.08,4);
+   this.ribbon(g,m.pavement,s,s+LENGTH,p=>side<0?-p.buildingEdge:p.roadHalfWidth,p=>side<0?-p.roadHalfWidth:p.buildingEdge,.113,4);
    for(let i=0;i<2;i++){
     const at=s+5+i*10,profile=this.profile(at),x=routeCenter(at)-routeCenter(s),z=s-at,edge=profile.buildingEdge;
     const cross=profile.junctionCenter!==null&&Math.abs(at-profile.junctionCenter)<25;
@@ -80,11 +81,10 @@ export class DistrictScene {
     else this.crossStreet(g,at,side,x,z,profile);
     if(!cross&&(!this.branchAt(at,side)||profile.roadHalfWidth>10)){
      const px=x+side*(profile.roadHalfWidth+.65);
-     for(let q=0;q<2;q++)this.person(g,px,z-2.5+q*5,(key*7+i+q+(side>0?2:0))%12,true);
+     this.person(g,px,z,(key*7+i+(side>0?2:0))%12,true);
      if(i===0)this.props(g,x+side*(edge-.4),z+2,side,key,profile);
      if(i===1&&key%2===0)this.streetActivity(g,side,x,z,key,profile);
     }
-    if(profile.night>.12&&r()<profile.night*.8)this.plane(g,m.wet[(key+i)%6],x+side*2,-.038,z,1.3,5,0,-Math.PI/2);
    }
   }
   if(key%3===0&&this.profile(s+10).id!=='intersection'){
@@ -190,7 +190,7 @@ export class DistrictScene {
   else if(kind===3){this.box(g,m.black,x,.3,z,.6,.52,.51);this.box(g,m.black,x+.3,.23,z+.4,.49,.4,.45);}
   else {this.box(g,m.blue,x,.52,z,.48,.45,1.5);this.box(g,m.black,x,.81,z-.2,.47,.14,.65);for(const zz of [-.56,.56]){const wheel=new THREE.Mesh(this.owner.cylinder,m.black);wheel.rotation.z=Math.PI/2;wheel.position.set(x,.24,z+zz);wheel.scale.set(.48,.13,.48);g.add(wheel);}this.line(g,m.metal,[x,.52,z+.5],[x,1.24,z+.42],.075);this.box(g,m.metal,x,1.25,z+.42,.65,.07,.07);}
  }
- marketEdge(g,s,key){const m=this.m;for(const side of [-1,1]){const at=s+13,p=this.profile(at),x=routeCenter(at)-routeCenter(s)+side*(p.buildingEdge-.95),z=-13;this.box(g,m.wood,x,.75,z,1.4,1.3,2);this.box(g,m.colors[key%6],x,2.4,z,2.2,.12,2.8);for(const dz of [-1.15,1.15])this.box(g,m.metal,x+side*.7,1.65,z+dz,.06,1.8,.06);for(let q=0;q<5;q++)this.box(g,m.colors[(q+key)%6],x-side*.75,.94,z-.8+q*.4,.08,.3,.27);this.box(g,m.red,x-side*.7,.45,z+1.9,.45,.13,.45);for(const xx of [-.15,.15])this.box(g,m.red,x-side*.7+xx,.24,z+1.9,.05,.4,.34);}}
+ marketEdge(g,s,key){const m=this.m;for(const side of [-1,1]){const at=s+13,p=this.profile(at),x=routeCenter(at)-routeCenter(s)+side*(p.buildingEdge-.35),z=-13;this.box(g,m.wood,x,.75,z,1.4,1.3,2);this.box(g,m.colors[key%6],x,2.4,z,2.2,.12,2.8);for(const dz of [-1.15,1.15])this.box(g,m.metal,x+side*.7,1.65,z+dz,.06,1.8,.06);for(let q=0;q<5;q++)this.box(g,m.colors[(q+key)%6],x-side*.75,.94,z-.8+q*.4,.08,.3,.27);this.box(g,m.red,x-side*.1,.45,z+1.9,.45,.13,.45);for(const xx of [-.15,.15])this.box(g,m.red,x-side*.1+xx,.24,z+1.9,.05,.4,.34);}}
  streetActivity(g,side,cx,z,key,p){
   const m=this.m,x=cx+side*(p.buildingEdge-.38),col=m.colors[key%6];
   this.box(g,m.wood,x,.53,z,.64,1.06,2.2);this.box(g,m.cream,x,1.1,z,.76,.09,2.3);
@@ -202,24 +202,35 @@ export class DistrictScene {
   const root=new THREE.Group(),sprite=new THREE.Group();root.position.set(x,.1,z);root.add(sprite);
   this.plane(sprite,this.m.crowds[index%6],0,1.2,0,1.05,2.4);
   root.userData={sprite,rig:null,index,walking,at:g.userData.s-z,side:Math.sign(x-(routeCenter(g.userData.s-z)-routeCenter(g.userData.s)))};
-  g.userData.people.push(root);g.add(root);
+  g.userData.people.push(root);g.add(root);return root;
  }
  releasePerson(p){const {rig,index}=p.userData;if(!rig)return;p.remove(rig.root);const pool=this.humanPool.get(index)||[];pool.push(rig);this.humanPool.set(index,pool);p.userData.rig=null;}
  updatePerson(p,chunk,distance){
   const data=p.userData,{index,walking,side}=data,t=this.time;
-  if(walking){const at=data.at+Math.sin(t*.55+index)*.8,profile=this.profile(at);p.position.set(routeCenter(at)-routeCenter(chunk.userData.s)+side*(profile.roadHalfWidth+.65),.1,chunk.userData.s-at);}
+  let phase=t*3.4+index,stride=0,yaw=side*Math.PI/2;
+  if(walking){const angle=t*.28+index,travel=Math.sin(angle)*3.2,velocity=Math.cos(angle)*.896,at=data.at+travel,profile=this.profile(at);p.position.set(routeCenter(at)-routeCenter(chunk.userData.s)+side*(profile.roadHalfWidth+.65),.113,chunk.userData.s-at);phase=travel*5;stride=Math.min(1,Math.abs(velocity));yaw=Math.PI*(.5+.5*Math.tanh(velocity*7));}
+  if(data.crossing){const signal=getTrafficPhase(this.trafficTime||0),u=clamp((signal.time-22)/30),span=data.span,dir=signal.cycle%2?-side:side,x=dir*(-span+u*span*2);p.position.x=data.cx+x;p.position.z=chunk.userData.s-data.at;phase=u*span*10;stride=signal.time>22&&signal.time<52?.8:0;yaw=dir*Math.PI/2;}
   const far=-(chunk.position.z+p.position.z)>38||chunk.position.z+p.position.z>10;
   if(far)this.releasePerson(p);
   else if(!data.rig){data.rig=this.humanPool.get(index)?.pop()||this.owner.makePerson(index);data.rig.root.scale.setScalar(1.12);p.add(data.rig.root);}
   data.sprite.visible=far;
-  if(data.rig){const phase=t*3.4+index;this.owner.animateHumanWalk(data.rig,phase,walking?.6:.08);data.rig.root.rotation.y=walking?(Math.cos(t*.55+index)>0?Math.PI:0):side*Math.PI/2;}
+  if(data.rig){this.owner.animateHumanWalk(data.rig,phase,stride);data.rig.root.rotation.y=yaw;}
  }
  crossStreet(g,at,side,cx,z,p){
   const m=this.m;this.box(g,m.road,cx+side*37,-.08,z,40,.08,10.2);
   // Side roads stay open across BOTH traffic streams. Only the outer rows have
   // corner buildings; repeating a facade in every row would block the crossing.
   const edge=at<p.junctionCenter-10?1:at>p.junctionCenter+10?-1:0;
-  if(edge){this.box(g,m.concrete,cx+side*39,.02,z+edge*5.15,44,.2,.35);this.box(g,m.concrete,cx+side*40,13,z+edge*10.5,42,26,10);this.plane(g,m.facades[(Math.floor(at)+edge+7)%5],cx+side*40,14,z+edge*5.42,42,22,edge<0?0:Math.PI,0,4,4);}
+  if(edge){
+   this.box(g,m.concrete,cx+side*39,.02,z+edge*5.15,44,.2,.35);this.box(g,m.concrete,cx+side*40,13,z+edge*10.5,42,26,10);
+   const facade=m.facades[(Math.floor(at)+edge+7)%5];
+   this.plane(g,facade,cx+side*40,14,z+edge*5.42,42,22,edge<0?0:Math.PI,0,4,4);
+   this.plane(g,facade,cx+side*40,14,z+edge*15.58,42,22,edge<0?Math.PI:0,0,4,4);
+   this.plane(g,facade,cx+side*18.95,14,z+edge*10.5,10,22,side<0?Math.PI/2:-Math.PI/2,0,1,4);
+   this.box(g,m.dark,cx+side*18.88,1.6,z+edge*10.5,.1,3.15,10);
+   this.plane(g,m.fascias[(Math.floor(at)+10)%16],cx+side*18.81,3.35,z+edge*10.5,9.8,.9,side<0?Math.PI/2:-Math.PI/2);
+   for(let q=0;q<4;q++){const zz=z+edge*10.5-3.6+q*2.4;this.box(g,m.warm,cx+side*18.76,1.7,zz,.08,2.3,2.05);this.box(g,m.metal,cx+side*18.67,1.5,zz+1.05,.09,2.8,.09);}
+  }
  }
  intersection(g,s,key){
   const m=this.m,center=this.profile(s+10).junctionCenter;
@@ -229,8 +240,22 @@ export class DistrictScene {
     this.box(g,m.concrete,cx+side*5,.05,z+side*5,1.7,.21,4);this.box(g,m.metal,cx+side*(p.roadHalfWidth+.5),2.6,z,.13,5.2,.13);
     const signal=new THREE.Group();signal.position.set(cx+side*(p.roadHalfWidth+.5),4.2,z);this.box(signal,m.black,0,0,0,.53,1.27,.31);
     const lamps=[];for(let k=0;k<3;k++){const l=this.box(signal,m.black,0,.39-k*.39,.17,.31,.3,.04);lamps.push(l);}g.add(signal);g.userData.signals.push({lamps});
-    for(let q=0;q<3;q++)this.person(g,cx+side*(p.roadHalfWidth+1+q*.75),z+3.4+q*1.5,(key+q)%12);
+    for(let q=0;q<2;q++){const dz=side*(.65+q*1.25),person=this.person(g,cx+side*(p.roadHalfWidth+.8),z+dz,(key+q+(side>0?3:0))%12);Object.assign(person.userData,{crossing:true,cx,span:p.roadHalfWidth+.35,at:at-dz});}
    }
+  }
+  for(const at of [center-38,center+38])if(at>=s&&at<s+LENGTH){const p=this.profile(at),cx=routeCenter(at)-routeCenter(s),z=s-at;
+   for(const side of [-1,1]){
+    const x=cx+side*(p.buildingEdge-.15);this.box(g,m.black,x,8.8,z,.35,5.5,9.4);this.plane(g,m.led,x-side*.2,8.8,z,9,5.1,side<0?Math.PI/2:-Math.PI/2);
+    this.box(g,m.yellow,x-side*.25,5.75,z,.45,.4,9.8);
+    // Covered minibus stop, route board and railings on each corner.
+    const bx=cx+side*(p.buildingEdge-1.1);this.box(g,m.green,bx,3.1,z,1.7,.18,5);
+    for(const dz of [-2.1,2.1])this.box(g,m.metal,bx+side*.65,1.6,z+dz,.08,3,.08);
+    this.box(g,m.wood,bx,.62,z,.65,.14,3.4);this.box(g,m.cream,bx+side*.65,1.9,z-1.8,.08,1.3,.8);
+    for(let k=0;k<3;k++)this.box(g,m.green,bx+side*.59,1.6+k*.25,z-1.8,.04,.08,.65);
+   }
+  }
+  if(s<=center+32&&s+LENGTH>center+32){const at=center+32,cx=routeCenter(at)-routeCenter(s),z=s-at;
+   for(const side of [-1,1]){const x=cx+side*12;this.box(g,m.black,x,7.2,z,8.8,4.7,.35);this.plane(g,m.led,x,7.2,z+.2,8.3,4.25);this.box(g,m.metal,x+side*4.3,4,z,.18,8,.18);this.box(g,m.yellow,x,4.72,z,9,.18,.4);}
   }
   if(s<=center-60&&s+LENGTH>center-60){const at=center-60,cx=routeCenter(at)-routeCenter(s);this.box(g,m.metal,cx,7.2,s-at,33,.17,.17);this.box(g,m.dark,cx,6.4,s-at,10,1.5,.2);this.plane(g,m.fascias[6],cx,6.4,s-at+.12,9.8,1.35);}
   if(s<=center-30&&s+LENGTH>center-30){const x=routeCenter(center-30)-routeCenter(s)+7.5,z=s-center+30;this.box(g,m.cream,x,1.15,z,1.95,1.65,4.7);this.box(g,m.black,x,1.7,z+1.8,1.65,.65,.06);for(const side of [-1,1]){this.box(g,m.black,x+side*.97,.3,z+1.45,.14,.6,.7);this.box(g,m.black,x+side*.97,.3,z-1.45,.14,.6,.7);this.box(g,m.cream,x+side*1.35,1.2,z+2.7,.85,1.7,.1,side*.75);}for(let q=0;q<2;q++)this.box(g,m.wood,x+1.6,.3,z+3+q*.7,.55,.6,.6);}
@@ -269,12 +294,13 @@ export class DistrictScene {
  }
  disposeChunk(chunk){this.root.remove(chunk);for(const p of chunk.userData.people)this.releasePerson(p);chunk.traverse(o=>{if(o.geometry&&o.geometry!==this.owner.box&&o.geometry!==this.owner.plane&&o.geometry!==this.owner.cylinder)o.geometry.dispose();});}
  update(game,dt){
-  const distance=game.distance||0;this.time+=dt;this.root.visible=distance>START-AHEAD&&!['MAIN_MENU','STARTING'].includes(game.state);if(!this.root.visible)return;
+  const distance=game.distance||0;this.time+=dt;this.trafficTime=game.time||0;this.root.visible=true;
   if(this.seed!==game.routeSeed){for(const chunk of this.chunks.values())this.disposeChunk(chunk);this.chunks.clear();this.seed=game.routeSeed;}
-  const lo=Math.max(0,Math.floor((distance-BEHIND-START)/LENGTH)),hi=Math.ceil((distance+AHEAD-START)/LENGTH);
+  const lo=Math.max(0,Math.floor((distance-BEHIND-START)/LENGTH)),hi=Math.max(6,Math.ceil((distance+AHEAD-START)/LENGTH));
   for(const [key,chunk]of this.chunks)if(key<lo||key>hi){this.disposeChunk(chunk);this.chunks.delete(key);}
   for(let key=lo;key<=hi;key++)if(!this.chunks.has(key)){const chunk=this.makeChunk(key);this.chunks.set(key,chunk);this.root.add(chunk);}
   const phase=game.routeTraffic||getTrafficPhase(game.elapsed||this.time);
+  if(this.ledFrames){const frame=this.ledFrames[Math.floor(this.time/3)%3];this.m.led.map=frame;this.m.led.emissiveMap=frame;}
   for(const chunk of this.chunks.values()){
    chunk.position.set(routeCenter(chunk.userData.s)-routeCenter(distance),0,distance-chunk.userData.s);
    for(const p of chunk.userData.people)this.updatePerson(p,chunk,distance);

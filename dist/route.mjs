@@ -39,7 +39,7 @@ export function getRouteProfile(s=0,seed=18){
  return {id:section.id,seed,sectionStart:section.start,sectionEnd:section.end,sectionIndex:section.index,cycle:section.cycle,
   junctionCenter:section.id==='intersection'?(section.start+section.end)/2:null,
   progress:clamp((s-section.start)/(section.end-section.start)),night,arcade:0,
-  market:1-ramp(s,240,380),roadHalfWidth:mix(mix(4.5,4.4,entered),18,junction),buildingEdge:mix(mix(7.2,6.8,entered),23,junction),
+  market:1-ramp(s,240,380),roadHalfWidth:mix(mix(4.2,4.4,entered),18,junction),buildingEdge:mix(mix(7.2,6.8,entered),23,junction),
   trafficIntensity:mix(.32,.84,ramp(s,240,900)),siren:ramp(s,420,720)*(.36+night*.64),curve:routeCenter(s),
   fogNear:mix(27,19,entered),fogFar:mix(106,82,entered)-night*8,speedLimit:mix(26,15,entered),
   offsetX:0,offsetY:0,branch:null,branchProgress:0,waiting:false};
@@ -47,7 +47,7 @@ export function getRouteProfile(s=0,seed=18){
 
 /** Signals have clearance intervals. Cross traffic clears before the pedestrian green. */
 export function getTrafficPhase(time=0){
- const duration=28,cycle=Math.floor(Math.max(0,time)/duration),t=((time%duration)+duration)%duration;
+ const duration=56,cycle=Math.floor(Math.max(0,time)/duration),t=((time%duration)+duration)%duration;
  const phases=[
   {end:8,id:'road-green',road:'green',cross:'red',pedestrian:'red'},
   {end:10,id:'road-amber',road:'amber',cross:'red',pedestrian:'red'},
@@ -55,7 +55,8 @@ export function getTrafficPhase(time=0){
   {end:17,id:'cross-green',road:'red',cross:'green',pedestrian:'red'},
   {end:20,id:'cross-clearance',road:'red',cross:'amber',pedestrian:'red'},
   {end:22,id:'all-red',road:'red',cross:'red',pedestrian:'red'},
-  {end:28,id:'pedestrian-green',road:'red',cross:'red',pedestrian:'green'},
+  {end:54,id:'pedestrian-green',road:'red',cross:'red',pedestrian:'green'},
+  {end:56,id:'all-red',road:'red',cross:'red',pedestrian:'red'},
  ];
  const p=phases.find(v=>t<v.end)||phases.at(-1);
  return {...p,remaining:p.end-t,cycle,time:t};

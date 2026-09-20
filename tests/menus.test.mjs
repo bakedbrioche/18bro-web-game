@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {FURS,HATS,normalizeCustom,equipCustom} from '../dist/customization.mjs';
 import {RunnerGame,THEMES,INTRO_DURATION} from '../dist/core.mjs';
 
 // Exercise the real app handlers and simulation without needing a GPU or audio
@@ -29,7 +30,7 @@ function app(){
  class Audio{unlock(){} play(){} setEnabled(){} setMode(){} setEnvironment(){} update(){}}
  const source=fs.readFileSync(new URL('../dist/app.mjs',import.meta.url),'utf8').replace(/^import .*;\s*$/gm,'');
  vm.runInNewContext(source,{document,window,RunnerGame:Game,GameScene:Scene,ArcadeAudio:Audio,
-  THEMES,INTRO_DURATION,localStorage:{getItem:k=>saved.get(k),setItem:(k,v)=>saved.set(k,v)},
+  FURS,HATS,normalizeCustom,equipCustom,THEMES,INTRO_DURATION,localStorage:{getItem:k=>saved.get(k),setItem:(k,v)=>saved.set(k,v)},
   performance:{now:()=>0},requestAnimationFrame(){},console});
  function key(code,{repeat=false}={}){
   let prevented=false;const target=document.activeElement;

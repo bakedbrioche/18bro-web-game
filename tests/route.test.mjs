@@ -61,7 +61,7 @@ test('traffic signals never release conflicting roads or pedestrians together',(
 test('every later intersection generates crossing traffic at its own physical location',()=>{
  const g=new RunnerGame({random:()=>.31});g.start({skipIntro:true});let seen=0;
  for(let s=240;s<12000;s=routeSection(s,g.routeSeed).end){const section=routeSection(s,g.routeSeed);if(section.id!=='intersection')continue;
-  g.distance=(section.start+section.end)/2;empty(g);g.time=12+seen*28;g._updateCrossTraffic(.01);
+  g.distance=(section.start+section.end)/2;empty(g);g.time=12+seen*56;g._updateCrossTraffic(.01);
   const streets=crossStreetsAt(g.distance,g.routeSeed),cars=g.entities.filter(e=>e.active&&e.type==='crossTraffic');
   assert.equal(cars.length,2);assert.deepEqual(cars.map(e=>e.anchor),streets.map(e=>e.distance));seen++;
  }

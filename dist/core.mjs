@@ -1,10 +1,10 @@
 /** 18Bro deterministic, DOM-free runner simulation. World approaches +Z; cat stays at Z=0. */
-import { INTRO_DURATION, CAPTURE_DURATION, introPose, capturePose } from './choreography.mjs?v=street-27';
-import { ROUTE, BRANCHES, getRouteProfile, branchOffset, getTrafficPhase, crossStreetsAt } from './route.mjs?v=street-27';
-export { INTRO_DURATION, CAPTURE_DURATION } from './choreography.mjs?v=street-27';
+import { INTRO_DURATION, CAPTURE_DURATION, introPose, capturePose } from './choreography.mjs?v=street-28';
+import { ROUTE, BRANCHES, getRouteProfile, branchOffset, getTrafficPhase, crossStreetsAt } from './route.mjs?v=street-28';
+export { INTRO_DURATION, CAPTURE_DURATION } from './choreography.mjs?v=street-28';
 export const LANES = Object.freeze([-2.5, 0, 2.5]);
 export const THEMES = Object.freeze(['HONG KONG']);
-export const POWER_DURATIONS = Object.freeze({ magnet: 8, moon: 5, moped: 10 });
+export const POWER_DURATIONS = Object.freeze({ magnet: 8, moon: 5, moped: 10, shield:12, doublechips:12, jetpack:7 });
 export const MOTION = Object.freeze({ laneDuration: .16, jumpDuration: .82, jumpHeight: 2.65, slideDuration: .72, jumpBuffer: .1, coyoteTime: .08 });
 export const BARRIERS = Object.freeze({ jump: { height: 1.9, width: 2.35, depth: 1.0 }, blocker: { opening: 1.55, height: 4.55, width: 2.38, depth: 1.65 }, slide: { height: 4.05, width: 2.38, depth: .9 } });
 export const VEHICLES = Object.freeze({ traffic: { approach: 2.05, height: 1.89, width: 1.94, depth: 3.56 }, scooter: { approach: 1.9, height: 2.26, width: 1.04, depth: 2.0 } });
@@ -57,7 +57,10 @@ export function obstacleSpacing(speed, tier = 1) {
 const POWER_DEFINITIONS = {
   magnet: { activate() {}, update() {}, end() {} },
   moon: { activate() {}, update() {}, end() {} },
-  moped: { activate(game) { game.policeDistance=18;game._hitAge=100; }, update(game) { game.policeDistance=18; }, end() {} },
+  shield: { activate() {}, update() {}, end() {} },
+  doublechips: { activate() {}, update() {}, end() {} },
+  jetpack: { activate(game) {game.powers.remove('moped');game.player.vy=0;game.player.slide=0;}, update() {}, end(game) {game.shieldGrace=Math.max(game.shieldGrace,1.4);} },
+  moped: { activate(game) { game.powers.remove('jetpack');game.policeDistance=18;game._hitAge=100; }, update(game) { game.policeDistance=18; }, end() {} },
 };
 
 /** Active powers are a Map<string, {type, duration, remaining, elapsed}>. */
@@ -93,7 +96,7 @@ export class PowerUpManager {
   get speedMultiplier() { return this.has('moped') ? 1.5 : this.has('moon') ? 1.5 : 1; }
   get scoreMultiplier() { return this.has('moon') ? 5 : 1; }
   get magnetRadius() { return this.has('magnet') ? 10 : 0; }
-  get invulnerable() { return this.has('moon'); }
+  get invulnerable() { return this.has('moon')||this.has('jetpack'); }
 }
 
 export class RunnerGame {
@@ -185,6 +188,7 @@ export class RunnerGame {
   input(action) {
     if (this.state !== 'RUNNING') return false;
     const p = this.player;
+    if(this.powers.has('jetpack')&&['jump','slide'].includes(action))return false;
     if (action === 'left' || action === 'right') {
       const target = clamp(p.lane + (action === 'left' ? -1 : 1), 0, 2);
       if (target === p.lane) return false;
@@ -299,7 +303,8 @@ export class RunnerGame {
       }
     }
     if (rowId > 0 && rowId % 8 === 3) {
-      const kind = ['moped', 'magnet', 'moped', 'moon'][Math.floor(rowId / 8) % 4];
+      const kinds=['moped','magnet','shield','doublechips','jetpack','moon'];
+      const kind = kinds[Math.floor(rowId / 8) % kinds.length];
       this.spawnEntity(kind, pattern.safeLane, z + 8, { rowId, y: 1.2 });
     }
     const spacing = obstacleSpacing(this.speed, this.tier)*(spawnDistance>ROUTE.start?1.5-this._routeProfile(spawnDistance).trafficIntensity*.55:1);
@@ -323,7 +328,7 @@ export class RunnerGame {
     if (this.state === 'STARTING') {
       const introDt = Math.min(remaining, this.introRemaining);
       this.introRemaining -= introDt; this.introProgress = 1 - this.introRemaining / INTRO_DURATION; remaining -= introDt;
-      if (this.introRemaining <= 1e-8) { this.introRemaining = 0; this.distance=introPose(INTRO_DURATION).distance; this.player.anim = 'run'; this.setState('RUNNING'); }
+      if (this.introRemaining <= 1e-8) { this.introRemaining = 0; this.distance=introPose(INTRO_DURATION).distance; for(const e of this.entities)if(e.active){e.z+=this.distance;e.previousZ=e.z;} this.player.anim = 'run'; this.setState('RUNNING'); }
     }
     while (remaining > 1e-8 && this.state === 'RUNNING') {
       const step = Math.min(remaining, 1 / 120);
@@ -344,7 +349,11 @@ export class RunnerGame {
     p.slide = Math.max(0, p.slide - dt);
     p.jumpBuffer = Math.max(0, p.jumpBuffer - dt);
     this.powers.update(dt);
-    {
+    if(this.powers.has('jetpack')){
+      const flight=this.powers.active.get('jetpack'),blend=Math.min(1,flight.elapsed/1.2,flight.remaining/1.3);
+      const target=9*blend*blend*(3-2*blend);
+      p.y+=(target-p.y)*(1-Math.exp(-dt*12));p.vy=0;p.grounded=false;
+    }else{
       if (!p.grounded || p.y > 0) {
         p.y += p.vy * dt - GRAVITY * dt * dt / 2;
         p.vy -= GRAVITY * dt;
@@ -393,7 +402,8 @@ export class RunnerGame {
       e.previousZ = e.z;
       const oldX = e.x;
       if(!e.stopped){if(e.type==='crossTraffic'){e.z=this.distance-e.anchor;e.x+=e.crossSpeed*dt;}else e.z=HAZARDS.has(e.type)?e.nextZ:e.z+movement*e.approachFactor;}
-      if (COLLECTIBLES.has(e.type) && this.powers.magnetRadius > 0 && e.z > -this.powers.magnetRadius && e.z < 1) {
+      const pullRadius=this.powers.has('jetpack')?12:this.powers.magnetRadius;
+      if (COLLECTIBLES.has(e.type) && pullRadius > 0 && e.z > -pullRadius && e.z < 1) {
         e.magnetic = true;
         e.x += (p.x - e.x) * Math.min(1, dt * 13);
         e.y += (p.y + .8 - e.y) * Math.min(1, dt * 13);
@@ -441,7 +451,7 @@ export class RunnerGame {
   _pickup(entity) {
     entity.active = false; entity.hit = true;
     const kind = entity.type;
-    if (kind === 'coin') { this.coins++; this.score += 10 * this.powers.scoreMultiplier; }
+    if (kind === 'coin') { const count=this.powers.has('doublechips')?2:1;this.coins+=count; this.score += 10 * count * this.powers.scoreMultiplier; }
     else this.powers.activate(kind);
     this.emit('pickup', { kind, id: entity.id, x: entity.x, y: entity.y, chips: this.chips, coins: this.coins });
   }
@@ -453,6 +463,7 @@ export class RunnerGame {
       this.emit('smash', { kind: entity.type, x: entity.x }); return;
     }
     if (this.shieldGrace > 0) { entity.active = false; return; }
+    if(this.powers.has('shield')){this.powers.remove('shield','collision');entity.active=false;this.shieldGrace=1.1;this.emit('shieldbreak',{kind:entity.type});return;}
     if (this.powers.has('moped')) {
       this.powers.remove('moped', 'collision'); entity.active = false;
       this.shieldGrace = 1.1; this.player.hit = 0;

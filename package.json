@@ -5,9 +5,10 @@
   "type": "module",
   "description": "A continuous Hong Kong chase through connected PS1-style districts.",
   "scripts": {
-    "start": "python3 -m http.server 4173 --directory dist",
+    "start": "node server.mjs",
     "test": "node --test tests/*.test.mjs",
-    "dev": "python3 -m http.server 4173 --directory dist",
-    "export": "node scripts/export-game.mjs dist release/18Bro-Snack-Heist.html"
+    "dev": "node server.mjs",
+    "export": "node scripts/export-game.mjs dist release/18Bro-Snack-Heist.html",
+    "verify": "npm test && npm run export"
   }
 }

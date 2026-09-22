@@ -8,14 +8,20 @@ The renderer uses a roughly 320×240 pixel budget at the viewport's aspect ratio
 
 ## Run locally
 
-Install Node.js for npm/test commands and Python 3 for the static server. No npm dependencies or API keys are needed; Three.js and the font are included.
+No dependency installation or build step is needed. The game files and browser dependencies are included in `dist/`. Node.js and npm are needed only to run the local server.
 
-```sh
-npm start
-# or: python3 -m http.server 4173 --directory dist
-```
+1. Open a terminal in this project folder. On Windows, you can run `cd "C:\Users\taras\Desktop\codex-projects\18bro-web-game"` in PowerShell.
+2. Start the local server with `npm start`. This serves JavaScript modules with the MIME type browsers require.
+3. Keep the terminal open and visit `http://localhost:4173/` in a WebGL-capable browser such as Chrome. Select **LET'S RUN** or press Enter. Press Enter again to skip the opening sequence.
+4. Stop the server with Ctrl+C when finished.
+
+Use arrows or WASD to dodge, jump, and slide. Space jumps; Esc or P pauses; M mutes sound effects. Phones support swipes and on-screen buttons. Do not double-click `dist/index.html`: its JavaScript modules need the local server.
 
 Open http://localhost:4173/. `npm run dev` is an alias. Use a local server for the modular source, or export a standalone HTML file with `npm run export` and open `release/18Bro-Snack-Heist.html` directly.
+
+## Development workflow
+
+Agent and contributor context lives in [`llm-corner/`](llm-corner/README.md). Start there for the project contracts, architecture map, quality gate, active plans, decisions, and handoffs. Run `npm run verify` before committing; visible game changes also require the browser smoke flow in [`llm-corner/docs/conventions/audit-gate.md`](llm-corner/docs/conventions/audit-gate.md).
 
 ## Controls and gameplay
 

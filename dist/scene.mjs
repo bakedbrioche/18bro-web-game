@@ -1,13 +1,18 @@
 import * as THREE from './vendor/three.module.js';
+import { clone as cloneSkeleton } from './vendor/addons/utils/SkeletonUtils.js';
 import { sidewalkPose, CROWD_COUNT } from './crowd.mjs?v=street-28';
 import { INTRO_DURATION, CAPTURE_DURATION, STORE, introPose, capturePose, smooth, slidePose } from './choreography.mjs?v=street-28';
 import { applyMaterialAssets } from './material-assets.mjs?v=street-28';
-import { BARRIERS } from './core.mjs?v=street-28';
+import { BARRIERS } from './core.mjs?v=graphics2-1';
 import { ROUTE, BRANCHES, getRouteProfile, routeCenter, branchOffset } from './route.mjs?v=street-28';
 import { DistrictScene } from './district-scene.mjs?v=street-28';
 import { FURS } from './customization.mjs?v=street-28';
+import { MODEL_MANIFEST } from './model-manifest.mjs';
+import { createCharacterAssetStore } from './character-assets.mjs';
+import { HERO_CLIPS, selectHeroAnimation } from './character-animation.mjs';
 
 const TAU = Math.PI * 2;
+const POWER_TYPES=Object.freeze(['magnet','moon','moped','shield','doublechips','jetpack','speedburst']);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const seeded=(n)=>{let s=n>>>0;return ()=>((s=(s*1664525+1013904223)>>>0)/4294967296)};
 
@@ -52,6 +57,7 @@ export class GameScene {
   for(let i=0;i<7;i++){const chunk=this.makeChunk(i);chunk.root.position.z=-i*30;this.world.add(chunk.root);this.chunks.push(chunk);}
   this.skyline=this.makeSkyline();this.scene.add(this.skyline);
   this.cat=this.makeCat('18bro');this.scene.add(this.cat.root);this.skin='18bro';
+  this.modelSetPreference='original';this.effectiveModelSet='original';this.modelSetStatus='original';this.modelSetReason='';this._modelGeneration=0;
   this.cops=[this.makeCop(),this.makeCop()];this.cops.forEach(c=>this.scene.add(c.root));
   this.chaseZ=2.825;
   this.entities=new Map();this.lastTheme=-1;this.clock=0;this.lastDistance=0;this.lastState='';this.stateTime=0;this.target=new THREE.Vector3();this.cameraTarget=new THREE.Vector3(0,1,-10);
@@ -59,6 +65,166 @@ export class GameScene {
   this.district=new DistrictScene(this);this.scene.add(this.district.root);
   this.extraCops=[this.makeCop(),this.makeCop()];this.extraCops.forEach(c=>{c.root.visible=false;this.scene.add(c.root);});
   this.resize(canvas.clientWidth||1280,canvas.clientHeight||720);
+ }
+ // The procedural rig remains authoritative for root placement, choreography and
+ // gameplay attachments. The optional authored rig only supplies a visible skin.
+ async setModelSetPreference(value){
+  const preference=value==='refreshed'?'refreshed':'original';
+  if(this._modelDisposed)return 'original';
+  if(preference===this.modelSetPreference&&this.modelSetStatus==='loading')return this._modelLoad;
+  if(preference===this.modelSetPreference&&this.modelSetStatus==='ready')return this.effectiveModelSet;
+  this.modelSetPreference=preference;const generation=this._modelGeneration=(this._modelGeneration||0)+1;
+  if(preference==='original'){
+   this.restoreOriginalHero();if(this.authoredHero)this.authoredHero.root.visible=false;
+   this.applyHumanModelSet('original');this.effectiveModelSet='original';this.modelSetStatus='original';this.modelSetReason='';return 'original';
+  }
+  if(this.authoredHero&&this.authoredHumanTemplate&&this.authoredPowerupTemplate){this.applyHumanModelSet('refreshed');this.effectiveModelSet='refreshed';this.modelSetStatus='ready';this.modelSetReason='';return 'refreshed';}
+  this.modelSetStatus='loading';this.modelSetReason='loading';this.effectiveModelSet='original';
+  this.characterAssets??=createCharacterAssetStore({manifest:MODEL_MANIFEST,embeddedModels:globalThis.__18BRO_EMBEDDED_MODELS__||{}});
+  const pending=this._modelLoad=(async()=>{
+    let asset,humanAsset,powerupAsset;
+    try{
+     [asset,humanAsset,powerupAsset]=await Promise.all([this.characterAssets.instantiate('18bro-v1'),this.characterAssets.instantiate('human-v1'),this.characterAssets.instantiate('powerups-v1')]);
+     if(this._modelDisposed||generation!==this._modelGeneration){asset.dispose();humanAsset.dispose();powerupAsset.dispose();return this.effectiveModelSet;}
+     this.authoredHumanAsset=humanAsset;this.authoredHumanTemplate=this.prepareAuthoredHuman(humanAsset);
+     this.authoredPowerupAsset=powerupAsset;this.authoredPowerupTemplate=this.prepareAuthoredPowerups(powerupAsset);
+     this.authoredHero=this.prepareAuthoredHero(asset);this.scene.add(this.authoredHero.root);for(const person of this.humanRigs||[])this.attachAuthoredHuman(person);this.applyHumanModelSet('refreshed');
+    this.effectiveModelSet='refreshed';this.modelSetStatus='ready';this.modelSetReason='';return 'refreshed';
+   }catch(error){
+     asset?.dispose();humanAsset?.dispose();powerupAsset?.dispose();this.authoredHumanAsset=null;this.authoredHumanTemplate=null;this.authoredPowerupAsset=null;this.authoredPowerupTemplate=null;
+    if(!this._modelDisposed&&generation===this._modelGeneration){
+     this.restoreOriginalHero();this.applyHumanModelSet('original');this.effectiveModelSet='original';this.modelSetStatus='fallback';this.modelSetReason='load-failed';
+     this.modelSetError=error instanceof Error?error.message:String(error);
+    }
+    return 'original';
+   }
+  })();
+  return pending;
+ }
+ prepareAuthoredPowerups(asset){
+  const roots=new Map();
+  for(const type of POWER_TYPES){const root=asset.scene.getObjectByName(`powerup_${type}`);if(!root)throw new Error(`Authored power-up is missing powerup_${type}`);roots.set(type,root);}
+  const wearableNames=['wearable_magnet','wearable_moon_L','wearable_moon_R'],wearables=new Map();
+  for(const name of wearableNames){const wearable=asset.scene.getObjectByName(name);if(!wearable)throw new Error(`Authored power-up is missing ${name}`);wearables.set(name,wearable);}
+  return {roots,wearables};
+ }
+ makeAuthoredPowerup(type){
+  const source=this.authoredPowerupTemplate?.roots.get(type);if(!source)return null;
+  const group=new THREE.Group();group.name=`powerup_refreshed_${type}`;const model=source.clone(true);model.position.set(0,0,0);model.rotation.set(0,0,0);group.add(model);return this.decoratePowerup(group,type);
+ }
+ prepareAuthoredHuman(asset){
+  const required=['idle','walk','run','chase','alert','clerk','panic','ride','carry','carry_left','carry_right','crouch'],clips=new Map(asset.animations.map(clip=>[clip.name,clip]));
+  const roles=['role_police','role_cashier','role_rider'];
+  if(required.some(name=>!clips.has(name))||roles.some(name=>!asset.scene.getObjectByName(name)))throw new Error('Authored human is missing required clips or role meshes');
+  const min=asset.definition.bounds?.min?.[1]||0,max=asset.definition.bounds?.max?.[1]||2.293;
+  return {scene:asset.scene,clips,scale:1,min,roles};
+ }
+ attachAuthoredHuman(person){
+  if(person.authored||!this.authoredHumanTemplate)return person.authored||null;
+  const template=this.authoredHumanTemplate,scene=cloneSkeleton(template.scene);scene.name=`human_refreshed_${person.role}_${person.index}`;scene.scale.setScalar(template.scale);scene.position.y=-template.min*template.scale;
+  const clothes=['#d98373','#d6b85a','#6ca7a1','#778bc7','#b978a0','#8ba55c'],skins=['#c9916e','#d4a27d','#b67f60','#dfb28c'],materialClones=new Map();
+  scene.traverse(object=>{
+   if(object.isSkinnedMesh)object.frustumCulled=false;
+   if(object.isMesh&&object.material){
+    const cloneMaterial=material=>{if(!materialClones.has(material))materialClones.set(material,material.clone());return materialClones.get(material);};
+    object.material=Array.isArray(object.material)?object.material.map(cloneMaterial):cloneMaterial(object.material);
+    for(const material of Array.isArray(object.material)?object.material:[object.material]){
+     if(material.name==='clothes')material.color.set(person.role==='police'?'#bfdce7':person.role==='cashier'?'#fff3dc':clothes[person.index%clothes.length]);
+     if(material.name==='skin')material.color.set(skins[person.index%skins.length]);
+    }
+   }
+  });
+  for(const role of template.roles){const group=scene.getObjectByName(role);group.visible=role===`role_${person.role}`;}
+  const shortHair=scene.getObjectByName('hair_short'),bobHair=scene.getObjectByName('hair_bob');
+  const covered=person.role==='police'||person.role==='rider';
+  if(shortHair)shortHair.visible=!covered&&(person.role==='cashier'||person.index%2!==0);if(bobHair)bobHair.visible=!covered&&person.role==='pedestrian'&&person.index%2===0;
+  const mixer=new THREE.AnimationMixer(scene),actions=Object.fromEntries([...template.clips].map(([name,clip])=>[name,mixer.clipAction(clip)]));
+  person.root.add(scene);person.authored={scene,mixer,actions,materials:[...materialClones.values()],clip:null};this.applyHumanRigModelSet(person,this.effectiveModelSet||'original');
+  return person.authored;
+ }
+ updateAuthoredHuman(person,clip='idle',phase=0,frozen=false){
+  const rig=person.authored;if(!rig||this.effectiveModelSet!=='refreshed')return;
+  const action=rig.actions[clip]||rig.actions.idle;
+  if(rig.clip!==clip){rig.mixer.stopAllAction();action.reset().setLoop(THREE.LoopRepeat,Infinity).play();rig.clip=clip;}
+  const duration=action.getClip().duration||1,normal=((phase%TAU)+TAU)%TAU/TAU;action.time=normal*duration;rig.mixer.update(0);rig.scene.visible=!frozen||rig.scene.visible;
+ }
+ prepareAuthoredHero(asset){
+  const hand=asset.scene.getObjectByName('socket_carry_R'),leftHand=asset.scene.getObjectByName('socket_carry_L'),leftFoot=asset.scene.getObjectByName('foot_L'),rightFoot=asset.scene.getObjectByName('foot_R'),hat=asset.scene.getObjectByName('18bro_hat'),hatSocket=asset.scene.getObjectByName('socket_hat'),backSocket=asset.scene.getObjectByName('socket_back'),hips=asset.scene.getObjectByName('hips');
+  const clips=new Map(asset.animations.map(clip=>[clip.name,clip]));
+  if(HERO_CLIPS.some(name=>!clips.has(name))||!hand||!leftHand||!leftFoot||!rightFoot||!hat||!hatSocket||!backSocket||!hips)throw new Error('Authored hero is missing required clips, mesh or sockets');
+  const root=new THREE.Group();root.name='18bro_refreshed';root.visible=false;root.add(asset.scene);
+  // Match the original 2.4-unit silhouette using the exported glTF Y-up bounds.
+  const min=asset.definition.bounds?.min?.[1]||0,max=asset.definition.bounds?.max?.[1]||2.736;
+  const scale=2.4/(max-min);asset.scene.scale.setScalar(scale);asset.scene.position.y=-min*scale;
+  const mixer=new THREE.AnimationMixer(asset.scene),actions=Object.fromEntries(HERO_CLIPS.map(name=>[name,mixer.clipAction(clips.get(name))])),furMaterials=[];
+  asset.scene.traverse(object=>{
+   // Skinned bounds can differ between clips; this one small hero is always relevant.
+   if(object.isSkinnedMesh)object.frustumCulled=false;
+   for(const material of Array.isArray(object.material)?object.material:object.material?[object.material]:[]){
+    if(material.name==='fur')furMaterials.push({material,map:material.map});
+   }
+  });
+  const hats=new Map();for(const kind of ['beanie','sombrero','bucket','crown']){const accessory=this.makeHat(kind);accessory.position.set(0,0,0);accessory.scale.setScalar(1/scale);accessory.visible=false;hatSocket.add(accessory);hats.set(kind,accessory);}
+  // These attachments outlive procedural cat rebuilds, so they must own their
+  // geometry instead of cloning references that cosmetic changes later dispose.
+  const jetpack=this.makeJetpack();jetpack.position.set(0,0,0);jetpack.rotation.set(0,0,0);jetpack.scale.setScalar(.8/scale);backSocket.add(jetpack);const jetFlames=jetpack.getObjectByName('jet_flames');
+  const shield=this.makeShield();shield.position.y=1.05;root.add(shield);
+  asset.scene.updateMatrixWorld(true);
+  const cloneWearable=(name,parent,rotationZ=0)=>{const source=this.authoredPowerupTemplate?.wearables.get(name);if(!source)throw new Error(`Authored hero cannot attach ${name}`);const wearable=source.clone(true);wearable.name=`18bro_${name}`;wearable.position.set(0,0,0);wearable.scale.setScalar(1);const sceneQ=new THREE.Quaternion(),parentQ=new THREE.Quaternion();asset.scene.getWorldQuaternion(sceneQ);parent.getWorldQuaternion(parentQ);wearable.quaternion.copy(sceneQ.invert().multiply(parentQ).invert());if(rotationZ)wearable.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1),rotationZ));wearable.visible=false;parent.add(wearable);return wearable;};
+  const magnet=cloneWearable('wearable_magnet',leftHand,.9),moonBootL=cloneWearable('wearable_moon_L',leftFoot),moonBootR=cloneWearable('wearable_moon_R',rightFoot);
+  return {root,asset,mixer,actions,hand,leftHand,leftFoot,rightFoot,hat,hatSocket,backSocket,hats,jetpack,jetFlames,shield,magnet,moonBoots:[moonBootL,moonBootR],hips,furMaterials,assetScale:scale,clip:null,packet:null,packetSource:null,look:null};
+ }
+ restoreOriginalHero(){
+  if(this._hiddenHeroMeshes){for(const [object,visible] of this._hiddenHeroMeshes)object.visible=visible;this._hiddenHeroMeshes=null;}
+ }
+ updateAuthoredHero(game,dt,{skin='18bro',fur='black',hat='cap',menu=false,reducedMotion=false}={}){
+  this.restoreOriginalHero();
+  const hero=this.authoredHero,state=game.state||'MAIN_MENU',paused=state==='PAUSED';
+  const poseState=menu?'MAIN_MENU':paused?(game._beforePause||this._modelLastState):state;
+  if(!paused)this._modelLastState=poseState;
+  if(hero)hero.root.visible=false;
+  this.effectiveModelSet='original';
+  if(this.modelSetPreference!=='refreshed'||!hero)return;
+  this.modelSetReason='';this.effectiveModelSet='refreshed';hero.root.visible=true;
+  hero.root.position.copy(this.cat.root.position);hero.root.quaternion.copy(this.cat.root.quaternion);hero.root.scale.copy(this.cat.root.scale);
+  if(poseState==='CAUGHT'||poseState==='GAME_OVER'){hero.root.position.y+=this.cat.body.position.y;hero.root.rotateX(this.cat.body.rotation.x);}
+  const look=`${fur}:${hat}`;
+  if(hero.look!==look){
+   const coat=FURS.find(item=>item.id===fur)||FURS[0];
+   for(const {material,map} of hero.furMaterials){
+    const nextMap=fur==='black'||!coat?map:null;
+    if(material.map!==nextMap){material.map=nextMap;material.needsUpdate=true;}
+    material.color.set(nextMap?0xffffff:coat.color);
+   }
+   hero.hat.visible=hat==='cap';for(const [kind,accessory] of hero.hats)accessory.visible=hat===kind;hero.look=look;
+  }
+  const selection=selectHeroAnimation(game,{menu,previousState:this._modelLastState,reducedMotion});
+  const clip=selection.clip;
+  if(hero.clip!==clip){
+   const previous=hero.clip?hero.actions[hero.clip]:null,next=hero.actions[clip];
+   next.reset().setLoop(selection.loop?THREE.LoopRepeat:THREE.LoopOnce,selection.loop?Infinity:1);next.clampWhenFinished=!selection.loop;next.setEffectiveWeight(1).play();
+   if(previous&&previous!==next)next.crossFadeFrom(previous,selection.blend,false);hero.clip=clip;
+  }
+  const action=hero.actions[clip];action.setEffectiveTimeScale(selection.rate);
+  if(selection.sample!==null){hero.mixer.update(selection.frozen?0:Math.max(0,Math.min(dt,.05)));action.time=selection.sample*action.getClip().duration;hero.mixer.update(0);}
+  else hero.mixer.update(selection.frozen?0:Math.max(0,Math.min(dt,.05)));
+  if(hero.packetSource!==this.cat.bag){
+   hero.packet?.removeFromParent();hero.packet=this.cat.bag.clone(true);hero.packet.name='18bro_refreshed_packet';
+   hero.hand.add(hero.packet);hero.packet.position.set(0,0,0);hero.packet.rotation.set(0,0,-.12);hero.packet.scale.setScalar(1/hero.assetScale);hero.packetSource=this.cat.bag;
+  }
+  hero.packet.visible=this.cat.bag.visible;
+  hero.jetpack.visible=this.cat.jetpack.visible;if(hero.jetFlames){hero.jetFlames.visible=hero.jetpack.visible;hero.jetFlames.scale.copy(this.cat.jetpack.userData.flames.scale);hero.jetFlames.children.forEach((plume,index)=>plume.rotation.copy(this.cat.jetpack.userData.flames.children[index]?.rotation||new THREE.Euler()));}hero.shield.visible=this.cat.shield.visible;hero.magnet.visible=this.cat.magnet.visible;hero.moonBoots.forEach(boot=>boot.visible=this.cat.moonBoots.some(item=>item.visible));
+  this._hiddenHeroMeshes=[];
+  this.cat.root.traverse(object=>{if(object.isMesh){this._hiddenHeroMeshes.push([object,object.visible]);object.visible=false;}});
+ }
+ disposeCharacterModels(){
+  this._modelDisposed=true;this._modelGeneration=(this._modelGeneration||0)+1;this.restoreOriginalHero();
+  const hero=this.authoredHero;
+  if(hero){hero.mixer.stopAllAction();hero.mixer.uncacheRoot(hero.asset.scene);hero.root.removeFromParent();hero.asset.dispose();this.authoredHero=null;}
+  for(const person of this.humanRigs||[]){const rig=person.authored;if(!rig)continue;rig.mixer.stopAllAction();rig.mixer.uncacheRoot(rig.scene);for(const material of rig.materials||[])material.dispose();rig.scene.removeFromParent();person.authored=null;}
+  this.authoredHumanAsset?.dispose();this.authoredHumanAsset=null;this.authoredHumanTemplate=null;
+  this.authoredPowerupAsset?.dispose();this.authoredPowerupAsset=null;this.authoredPowerupTemplate=null;
+  this.characterAssets?.dispose();for(const material of this._refreshedHumanMaterials?.values()||[])material.dispose();this._refreshedHumanMaterials?.clear();this.effectiveModelSet='original';
  }
  mat(color,extra={}){
   const m=new THREE.MeshLambertMaterial({color,flatShading:true,...extra});
@@ -259,10 +425,24 @@ export class GameScene {
   for(const side of [-1,1]){const leg=new THREE.Group();leg.position.set(side*.24,.4,0);body.add(leg);this.ellipsoid(leg,coat,0,-.13,0,.3,.48,.34);this.ellipsoid(leg,skin==='astronaut'?m.white:coat,0,-.31,.11,.36,.21,.48);legs.push(leg);const arm=new THREE.Group();arm.position.set(side*.45,.96,0);body.add(arm);this.ellipsoid(arm,suit,0,-.2,0,.31,.55,.34);this.ellipsoid(arm,coat,0,-.43,.035,.32,.3,.33);arm.rotation.z=side*.12;arms.push(arm);}
   const tail=new THREE.Mesh(new THREE.CylinderGeometry(.07,.11,.8,10),coat);tail.position.set(.14,.66,-.53);tail.rotation.x=-.75;body.add(tail);
   const bag=new THREE.Group();this.makePacket(bag);bag.position.set(0,-.42,.09);bag.rotation.z=-.12;arms[1].add(bag);
+  const magnet=new THREE.Group();magnet.name='magnet_wearable';magnet.position.set(-.03,-.55,.09);magnet.rotation.set(.08,0,.25);arms[0].add(magnet);const magnetArc=new THREE.Mesh(new THREE.TorusGeometry(.22,.07,8,18,Math.PI),m.red);magnetArc.rotation.z=Math.PI/2;magnet.add(magnetArc);for(const side of [-1,1])this.boxMesh(magnet,side<0?m.red:m.cyan,side*.22,.01,0,.13,.16,.14);magnet.visible=false;
+  const moonBoots=legs.map((leg,index)=>{const boot=new THREE.Group();boot.name=`moon_boot_${index?'R':'L'}`;boot.position.set(0,-.34,.14);leg.add(boot);this.roundedMesh(boot,m.blue,0,0,0,.48,.3,.56,.08);this.boxMesh(boot,m.cyan,0,.1,.18,.4,.08,.12);this.ellipsoid(boot,m.lamp,0,-.11,.21,.28,.06,.13);boot.visible=false;return boot;});
   const jetpack=this.makeJetpack();jetpack.position.set(0,.85,-.46);jetpack.scale.setScalar(.8);body.add(jetpack);jetpack.visible=false;
-  const shield=new THREE.Group();root.add(shield);shield.position.y=1.05;
-  for(const angle of [0,Math.PI/2]){const ring=new THREE.Mesh(new THREE.TorusGeometry(1.02,.025,6,32),m.cyan);ring.rotation.y=angle;shield.add(ring);}shield.visible=false;
-  return {root,body,head,legs,arms,tail,bag,jetpack,shield};
+  const shield=this.makeShield();root.add(shield);shield.position.y=1.05;
+  shield.visible=false;
+  return {root,body,head,legs,arms,tail,bag,magnet,moonBoots,jetpack,shield};
+ }
+ makeShield(){
+  const m=this.m,shield=new THREE.Group();shield.name='shield_aura';
+  const shieldGlass=this.materials?this.mat(0x51dff1,{transparent:true,opacity:.105,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending}):m.cyan.clone();
+  shieldGlass.transparent=true;shieldGlass.opacity=.105;shieldGlass.depthWrite=false;shieldGlass.side=THREE.DoubleSide;shieldGlass.blending=THREE.AdditiveBlending;
+  const bubble=new THREE.Mesh(new THREE.SphereGeometry(1.02,16,11),shieldGlass);bubble.name='shield_bubble';bubble.scale.set(1,.98,.78);shield.add(bubble);
+  for(let i=0;i<6;i++){const regionMaterial=this.materials?this.mat(i%2?0x7cecff:0x6e8cff,{transparent:true,opacity:.08,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending}):m.cyan.clone();regionMaterial.color.setHex(i%2?0x7cecff:0x6e8cff);regionMaterial.transparent=true;regionMaterial.opacity=.08;regionMaterial.depthWrite=false;regionMaterial.side=THREE.DoubleSide;regionMaterial.blending=THREE.AdditiveBlending;const region=new THREE.Mesh(new THREE.SphereGeometry(1.035,14,9,i*TAU/6,.82,.25+(i%3)*.62,.55),regionMaterial);region.name=`shield_region_${i}`;region.scale.set(1,.98,.78);region.rotation.z=i*.47;shield.add(region);}
+  const heartShape=new THREE.Shape();heartShape.moveTo(0,-.12);heartShape.bezierCurveTo(-.31,-.31,-.45,.03,-.24,.18);heartShape.bezierCurveTo(-.1,.29,0,.18,0,.1);heartShape.bezierCurveTo(0,.18,.1,.29,.24,.18);heartShape.bezierCurveTo(.45,.03,.31,-.31,0,-.12);heartShape.closePath();
+  const heartGeo=new THREE.ExtrudeGeometry(heartShape,{depth:.035,steps:1,bevelEnabled:true,bevelSegments:1,bevelSize:.018,bevelThickness:.012,curveSegments:5});const heartOrbit=new THREE.Group();heartOrbit.name='shield_heart_orbit';shield.add(heartOrbit);
+  for(let i=0;i<9;i++){const a=i*TAU/9,heart=new THREE.Group();heart.name=`shield_heart_${i}`;heart.position.set(Math.cos(a)*1.08,Math.sin(a)*.96,Math.sin(a*2)*.13);heart.rotation.y=-a;heart.rotation.z=-a+Math.PI/2;heart.scale.setScalar(.39);heart.add(new THREE.Mesh(heartGeo,m.red));this.ellipsoid(heart,m.white,0,.015,.052,.095,.07,.025);for(let toe=0;toe<4;toe++){const ta=-.72+toe*.48;this.ellipsoid(heart,m.white,Math.sin(ta)*.115,.105+Math.cos(ta)*.05,.052,.038,.045,.021);}heartOrbit.add(heart);}
+  shield.visible=false;
+  return shield;
  }
  makeHat(kind){
   const g=new THREE.Group(),m=this.m;g.position.set(0,.63,-.04);
@@ -274,10 +454,47 @@ export class GameScene {
   g.userData.hat=kind;return g;
  }
  makeJetpack(){
-  const g=new THREE.Group(),m=this.m;this.boxMesh(g,m.metal,0,0,0,.56,.65,.22);
-  const flames=new THREE.Group();g.add(flames);g.userData.flames=flames;flames.visible=false;
-  for(const side of [-1,1]){const tank=new THREE.Mesh(new THREE.CylinderGeometry(.17,.17,.66,10),m.blue);tank.position.set(side*.3,0,0);g.add(tank);this.ellipsoid(g,m.cyan,side*.3,.34,0,.31,.14,.31);this.boxMesh(g,m.orange,side*.3,-.38,0,.18,.18,.18);const flame=new THREE.Mesh(new THREE.ConeGeometry(.12,.55,6),m.cyan);flame.rotation.z=Math.PI;flame.position.set(side*.3,-.68,0);flames.add(flame);}
+  const g=new THREE.Group(),m=this.m;g.name='jetpack';this.boxMesh(g,m.metal,0,0,0,.56,.65,.22);
+  const flames=new THREE.Group();flames.name='jet_flames';g.add(flames);g.userData.flames=flames;flames.visible=false;
+  for(const side of [-1,1]){const tank=new THREE.Mesh(new THREE.CylinderGeometry(.17,.17,.66,10),m.blue);tank.position.set(side*.3,0,0);g.add(tank);this.ellipsoid(g,m.cyan,side*.3,.34,0,.31,.14,.31);this.boxMesh(g,m.orange,side*.3,-.38,0,.18,.18,.18);const plume=new THREE.Group();plume.name=`jet_plume_${side<0?'L':'R'}`;plume.position.set(side*.3,-.49,0);flames.add(plume);const outer=new THREE.Mesh(new THREE.ConeGeometry(.16,.82,8),m.orange);outer.name='jet_flame_outer';outer.rotation.z=Math.PI;outer.position.y=-.39;plume.add(outer);const inner=new THREE.Mesh(new THREE.ConeGeometry(.095,.58,8),m.lamp);inner.name='jet_flame_inner';inner.rotation.z=Math.PI;inner.position.y=-.29;plume.add(inner);for(let i=0;i<3;i++){const ring=new THREE.Mesh(new THREE.TorusGeometry(.08+i*.025,.018,5,16),i===0?m.white:m.cyan);ring.name=`jet_exhaust_ring_${i}`;ring.rotation.x=Math.PI/2;ring.position.y=-.62-i*.18;plume.add(ring);}}
   return g;
+ }
+ animateShield(shield,time,reducedMotion=false){
+  if(!shield?.visible)return;
+  const pulse=reducedMotion?1:1+Math.sin(time*3.2)*.018;shield.scale.setScalar(pulse);
+  const bubble=shield.getObjectByName('shield_bubble');if(bubble){bubble.rotation.y=-time*.18;bubble.material.opacity=reducedMotion?.085:.075+Math.sin(time*2.4)*.025;}
+  for(let i=0;i<6;i++){const region=shield.getObjectByName(`shield_region_${i}`);if(region){region.rotation.y=time*(i%2?.11:-.08);region.material.opacity=reducedMotion?.07:.04+(Math.sin(time*(1.7+i*.09)+i*1.8)+1)*.045;}}
+  const hearts=shield.getObjectByName('shield_heart_orbit');if(hearts){hearts.rotation.set(.48+Math.sin(time*.31)*.18,time*(reducedMotion?.16:.42),-.25+Math.cos(time*.27)*.2);}
+ }
+ decoratePowerup(group,type){
+  const colors={magnet:0x6cf0ca,moon:0xd8eb58,moped:0xff7541,shield:0x62ddff,doublechips:0xffc846,jetpack:0xff6952,speedburst:0x55bfff},color=colors[type]||0x6cf0ca;
+  const material=this.materials?this.mat(color,{transparent:true,opacity:.72,depthWrite:false,blending:THREE.AdditiveBlending}):this.m.cyan.clone();
+  material.color.setHex(color);material.transparent=true;material.opacity=.72;material.depthWrite=false;material.blending=THREE.AdditiveBlending;group.userData.powerupType=type;
+  const aura=new THREE.Group();aura.name='powerup_aura';group.add(aura);
+  const ringA=new THREE.Mesh(new THREE.TorusGeometry(.67,.018,5,28),material);ringA.name='powerup_ring_a';ringA.rotation.x=Math.PI/2;aura.add(ringA);
+  const ringB=new THREE.Mesh(new THREE.TorusGeometry(.52,.012,5,24),material);ringB.name='powerup_ring_b';ringB.rotation.y=Math.PI/2;aura.add(ringB);
+  for(let i=0;i<4;i++){const spark=new THREE.Mesh(new THREE.OctahedronGeometry(.045,0),material);spark.name=`powerup_spark_${i}`;spark.userData.phase=i*TAU/4;aura.add(spark);}
+  if(type==='moon')for(let i=0;i<3;i++){const rise=new THREE.Mesh(new THREE.ConeGeometry(.08,.22,4),material);rise.name=`powerup_rise_${i}`;rise.position.x=(i-1)*.28;aura.add(rise);}
+  if(type==='moped')for(let i=0;i<3;i++){const dash=new THREE.Mesh(new THREE.BoxGeometry(.18,.035,.035),material);dash.name=`powerup_dash_${i}`;dash.position.set((i-1)*.24,-.22,-.65-i*.16);aura.add(dash);}
+  if(type==='shield')for(let i=0;i<2;i++){const shell=new THREE.Mesh(new THREE.TorusGeometry(.74+i*.09,.012,5,30),material);shell.name=`powerup_shell_${i}`;shell.rotation.x=Math.PI/2;aura.add(shell);}
+  if(type==='doublechips')for(let i=0;i<2;i++){const orbit=new THREE.Mesh(new THREE.TorusGeometry(.46+i*.14,.014,5,28),material);orbit.name=`powerup_orbit_${i}`;orbit.rotation.set(Math.PI/2,i*.7,i);aura.add(orbit);}
+  if(type==='jetpack')for(let i=0;i<2;i++){const exhaust=new THREE.Mesh(new THREE.ConeGeometry(.095,.42,6),material);exhaust.name=`powerup_exhaust_${i}`;exhaust.position.set((i?1:-1)*.29,-.65,0);exhaust.rotation.z=Math.PI;aura.add(exhaust);}
+  if(type==='speedburst')for(let i=0;i<4;i++){const streak=new THREE.Mesh(new THREE.ConeGeometry(.045,.62+i*.09,5),material);streak.name=`powerup_streak_${i}`;streak.rotation.x=Math.PI/2;streak.position.set((i-1.5)*.17,.08-Math.abs(i-1.5)*.06,-.5-i*.12);aura.add(streak);}
+  return group;
+ }
+ animatePowerup(group,type,time,id=0,reducedMotion=false){
+  if(!group)return;const phase=time*(type==='moped'?.9:1.25)+id*.73,bob=reducedMotion?0:Math.sin(phase*2.1)*.12;
+  group.position.y=bob;group.rotation.y=phase*(type==='shield'?1.2:type==='doublechips'?.82:.65);
+  const aura=group.getObjectByName('powerup_aura');if(!aura)return;aura.rotation.x=Math.sin(phase)*.22;aura.rotation.z=-phase*.47;
+  const ringA=group.getObjectByName('powerup_ring_a'),ringB=group.getObjectByName('powerup_ring_b');if(ringA)ringA.scale.setScalar(1+Math.sin(phase*3)*.09);if(ringB)ringB.scale.setScalar(1+Math.cos(phase*2.6)*.12);
+  for(let i=0;i<4;i++){const spark=group.getObjectByName(`powerup_spark_${i}`);if(!spark)continue;const a=(spark.userData.phase||0)+phase*(i%2?-.9:1);spark.position.set(Math.cos(a)*.76,Math.sin(a*1.7)*.42,Math.sin(a)*.58);}
+  if(type==='magnet'){if(ringA)ringA.rotation.z=phase*1.4;if(ringB)ringB.rotation.x=-phase*1.7;}
+  if(type==='moon')for(let i=0;i<3;i++){const rise=group.getObjectByName(`powerup_rise_${i}`);if(rise)rise.position.y=-.55+((phase*.45+i*.31)%1)*1.2;}
+  if(type==='moped')for(let i=0;i<3;i++){const dash=group.getObjectByName(`powerup_dash_${i}`);if(dash){dash.position.z=-.55-((phase*.7+i*.28)%1)*.8;dash.scale.x=.65+Math.sin(phase*4+i)*.25;}}
+  if(type==='shield')for(let i=0;i<2;i++){const shell=group.getObjectByName(`powerup_shell_${i}`);if(shell)shell.scale.setScalar(.92+((Math.sin(phase*2+i)+1)*.5)*.18);}
+  if(type==='doublechips')for(let i=0;i<2;i++){const orbit=group.getObjectByName(`powerup_orbit_${i}`);if(orbit){orbit.rotation.y=phase*(i?-.9:1.1);orbit.rotation.z=phase*(i?.55:-.7);}}
+  if(type==='jetpack')for(let i=0;i<2;i++){const exhaust=group.getObjectByName(`powerup_exhaust_${i}`);if(exhaust)exhaust.scale.y=.75+Math.sin(phase*7+i)*.25;}
+  if(type==='speedburst')for(let i=0;i<4;i++){const streak=group.getObjectByName(`powerup_streak_${i}`);if(streak){streak.position.z=-.35-((phase*1.25+i*.21)%1)*1.05;streak.scale.y=.7+Math.sin(phase*8+i)*.28;}}
  }
  humanProfile(parent,material,rings,segments=20){
   // Multiple anatomical cross-sections keep the silhouette angular but articulated.
@@ -309,7 +526,7 @@ export class GameScene {
   const thumb=this.ellipsoid(hand,skin,-side*.072,-.015,.035,.054,.105,.05);thumb.rotation.z=-side*.45;
   this.batchStatic(hand);return hand;
  }
- makePerson(index=0,police=false){
+ makePerson(index=0,police=false,role=police?'police':'pedestrian'){
   const root=new THREE.Group(),body=new THREE.Group(),m=this.m;root.add(body);
   const female=!police&&index%4<2,skirt=female&&index%3===0;
   const skin=m.complexions[index%4],shirt=police?m.police:m.shirt[index%6],pants=police?m.policeDark:m.pants[index%3];
@@ -356,18 +573,35 @@ export class GameScene {
   if(police){baton=new THREE.Group();baton.position.set(0,-.49,.055);baton.rotation.x=-.25;elbows[1].add(baton);baton.add(new THREE.Mesh(new THREE.CylinderGeometry(.031,.039,.7,12),m.black));this.ellipsoid(baton,m.metal,0,.18,0,.105,.04,.105);}
   this.batchStatic(body);for(const limb of [...legs,...arms,...knees,...elbows])this.batchStatic(limb);
   root.userData.humanRig='shared-police-build';
-  return {root,body,legs,arms,knees,elbows,feet,baton,female,skirt};
+  const person={root,body,legs,arms,knees,elbows,feet,baton,female,skirt,index,role,police};this.registerHumanRig(person);return person;
  }
+ registerHumanRig(person){
+  this.humanRigs??=new Set();this._refreshedHumanMaterials??=new Map();person.modelMaterials=[];
+  person.root.traverse(object=>{
+   if(!object.isMesh||!object.material)return;
+   const original=object.material;let refreshed=this._refreshedHumanMaterials.get(original);
+   if(!refreshed){refreshed=original.clone();refreshed.flatShading=false;refreshed.onBeforeCompile=original.onBeforeCompile;refreshed.customProgramCacheKey=original.customProgramCacheKey;refreshed.needsUpdate=true;this._refreshedHumanMaterials.set(original,refreshed);}
+   person.modelMaterials.push({object,original,refreshed});
+  });
+  this.humanRigs.add(person);this.attachAuthoredHuman(person);this.applyHumanRigModelSet(person,this.effectiveModelSet||'original');
+ }
+ applyHumanRigModelSet(person,modelSet){
+  const refreshed=modelSet==='refreshed'&&!!person.authored;
+  for(const style of person.modelMaterials||[])style.object.material=refreshed?style.refreshed:style.original;
+  person.body.visible=!refreshed;if(person.authored)person.authored.scene.visible=refreshed;person.root.userData.modelSet=refreshed?'refreshed':'original';
+ }
+ applyHumanModelSet(modelSet){for(const person of this.humanRigs||[])this.applyHumanRigModelSet(person,modelSet);}
  makeCop(){const c=this.makePerson(1,true);c.root.scale.setScalar(1.12);return c;}
  makePedestrians(){
   this.people=Array.from({length:CROWD_COUNT},(_,i)=>{const p=this.makePerson(i);p.root.scale.setScalar(1.12);this.scene.add(p.root);return p;});
  }
  animateHumanWalk(person,phase,stride=1){
+  if(person.authored&&this.effectiveModelSet==='refreshed'){this.updateAuthoredHuman(person,stride>.08?'walk':'idle',phase);return;}
   const s=Math.sin(phase);person.body.position.y=(1-Math.cos(phase*2))*.013*stride;person.body.rotation.z=s*.018*stride;person.body.rotation.y=s*.04*stride;
   person.legs.forEach((leg,i)=>{const wave=s*(i?1:-1)*stride;leg.rotation.x=wave*.34;person.knees[i].rotation.x=Math.max(0,-wave)*.4;});
   person.arms.forEach((arm,i)=>{arm.rotation.x=s*(i?-1:1)*.24*stride;person.elbows[i].rotation.x=-.15-Math.max(0,s*(i?1:-1))*.13*stride;});
  }
- updatePeople(dist,time,inside=false){for(let i=0;i<this.people.length;i++){const p=this.people[i],pose=sidewalkPose(i,dist,time),s=Math.sin(pose.phase);p.root.position.set(pose.x,.11,pose.z);p.root.rotation.y=pose.yaw;p.root.visible=pose.z>-100&&!(inside&&pose.x<0&&Math.abs(pose.z+2)<6);p.body.position.y=pose.bob;p.body.rotation.z=Math.sin(pose.phase)*.018;p.body.rotation.y=Math.sin(pose.phase)*.04;p.legs.forEach((l,j)=>{const wave=s*(j?1:-1);l.rotation.x=wave*.34;p.knees[j].rotation.x=Math.max(0,-wave)*.4;});p.arms.forEach((a,j)=>{a.rotation.x=s*(j?-1:1)*.24;p.elbows[j].rotation.x=-.15-Math.max(0,s*(j?1:-1))*.13;});}}
+ updatePeople(dist,time,inside=false){for(let i=0;i<this.people.length;i++){const p=this.people[i],pose=sidewalkPose(i,dist,time),s=Math.sin(pose.phase);p.root.position.set(pose.x,.11,pose.z);p.root.rotation.y=pose.yaw;p.root.visible=pose.z>-100&&!(inside&&pose.x<0&&Math.abs(pose.z+2)<6);p.body.position.y=pose.bob;p.body.rotation.z=Math.sin(pose.phase)*.018;p.body.rotation.y=Math.sin(pose.phase)*.04;p.legs.forEach((l,j)=>{const wave=s*(j?1:-1);l.rotation.x=wave*.34;p.knees[j].rotation.x=Math.max(0,-wave)*.4;});p.arms.forEach((a,j)=>{a.rotation.x=s*(j?-1:1)*.24;p.elbows[j].rotation.x=-.15-Math.max(0,s*(j?1:-1))*.13;});this.updateAuthoredHuman(p,'walk',pose.phase);}}
  roundedMesh(parent,mat,x,y,z,w,h,d,r=.09){
   const shape=new THREE.Shape();shape.moveTo(-w/2+r,-h/2+r);shape.lineTo(w/2-r,-h/2+r);shape.lineTo(w/2-r,h/2-r);shape.lineTo(-w/2+r,h/2-r);shape.closePath();
   const geometry=new THREE.ExtrudeGeometry(shape,{depth:Math.max(.01,d-2*r),steps:1,bevelEnabled:true,bevelSegments:3,bevelSize:r,bevelThickness:r,curveSegments:6});geometry.translate(0,0,-d/2+r);
@@ -414,7 +648,7 @@ export class GameScene {
   this.ellipsoid(g,col,0,1.26,.55,.68,.32,.3);this.ellipsoid(g,m.lamp,0,1.28,.7,.31,.17,.035);
   this.boxMesh(g,m.metal,0,1.31,.44,.9,.05,.06);for(const side of [-1,1]){this.boxMesh(g,m.black,side*.4,1.31,.45,.15,.08,.08);const mirror=this.boxMesh(g,m.metal,side*.34,1.49,.48,.025,.32,.025);mirror.rotation.z=-side*.16;this.ellipsoid(g,m.glass,side*.38,1.65,.48,.18,.11,.07);}
   this.ellipsoid(g,m.siren,0,.59,-.74,.24,.095,.035);this.boxMesh(g,m.yellow,0,.4,-.73,.24,.15,.02);
-  if(rider){const person=this.makePerson(id);person.root.scale.setScalar(.91);person.root.position.set(0,.12,-.18);person.legs.forEach(l=>l.rotation.x=-1.17);person.knees.forEach(k=>k.rotation.x=1.65);person.arms.forEach(a=>a.rotation.x=-.68);person.elbows.forEach(e=>e.rotation.x=-.62);g.add(person.root);this.ellipsoid(person.body,id%2?m.orange:m.white,0,2.16,-.04,.43,.25,.4);g.userData.rider=person;}
+  if(rider){const person=this.makePerson(id,false,'rider');person.root.scale.setScalar(.91);person.root.position.set(0,.12,-.18);person.legs.forEach(l=>l.rotation.x=-1.17);person.knees.forEach(k=>k.rotation.x=1.65);person.arms.forEach(a=>a.rotation.x=-.68);person.elbows.forEach(e=>e.rotation.x=-.62);g.add(person.root);this.ellipsoid(person.body,id%2?m.orange:m.white,0,2.16,-.04,.43,.25,.4);g.userData.rider=person;}
   this.batchStatic(g);return g;
  }
  makeDizzyStars(){
@@ -423,6 +657,7 @@ export class GameScene {
  }
  makeEntity(type,id=0){
   const g=new THREE.Group(),m=this.m,bx=(mat,x,y,z,sx,sy,sz,rz=0)=>this.boxMesh(g,mat,x,y,z,sx,sy,sz,rz);
+  if(this.effectiveModelSet==='refreshed'&&POWER_TYPES.includes(type))return this.makeAuthoredPowerup(type)||g;
   if(type==='coin'){const crisp=this.makeCrisp();crisp.rotation.set(.15,0,-.3);g.add(crisp);}
   else if(type==='crossTraffic')return this.makeRouteVehicle(id%4);
   else if(type==='traffic')return this.makeCar(id);
@@ -431,8 +666,10 @@ export class GameScene {
   else if(type==='jetpack')g.add(this.makeJetpack());
   else if(type==='shield'){const shape=new THREE.Shape();shape.moveTo(-.42,.4);shape.lineTo(.42,.4);shape.lineTo(.36,-.12);shape.lineTo(0,-.46);shape.lineTo(-.36,-.12);shape.closePath();g.add(new THREE.Mesh(new THREE.ExtrudeGeometry(shape,{depth:.1,bevelEnabled:false}),m.cyan));bx(m.white,0,0,.12,.08,.5,.03);bx(m.white,0,.12,.12,.38,.08,.03);}
   else if(type==='doublechips'){for(const side of [-1,1]){const chip=this.makeCrisp();chip.position.x=side*.23;chip.scale.setScalar(.7);g.add(chip);}this.blockLetters(g,'2',0,.52,.15,.09,m.gold);}
+  else if(type==='speedburst'){const gem=new THREE.Mesh(new THREE.OctahedronGeometry(.48,1),m.cyan);gem.scale.set(.75,1.15,.38);gem.rotation.z=-.28;g.add(gem);for(let i=0;i<3;i++){const streak=this.boxMesh(g,i?m.blue:m.white,-.38-i*.18,-.1-i*.12,-.1,.42-i*.06,.065,.08);streak.rotation.z=-.5;}}
   else if(BARRIERS[type])return this.makeBarrier(type);
   else{const ring=new THREE.Mesh(new THREE.TorusGeometry(.46,.055,8,24),type==='moon'?m.gold:m.cyan);g.add(ring);if(type==='moon')this.ellipsoid(g,m.gold,0,0,0,.54,.54,.3);else{bx(m.red,-.16,0,0,.14,.4,.15);bx(m.red,.16,0,0,.14,.4,.15);bx(m.red,0,-.16,0,.35,.12,.15);bx(m.white,-.16,.17,0,.14,.11,.16);bx(m.white,.16,.17,0,.14,.11,.16);}}
+  if(POWER_TYPES.includes(type))this.decoratePowerup(g,type);
   return g;
  }
  makeRouteVehicle(kind=0){
@@ -586,7 +823,7 @@ export class GameScene {
     else if(row===1){bx(colMat,x,y,-9.60,.16,.13,.08);bx(m.white,x,y,-9.551,.12,.035,.012);}
     else for(const dx of [-.043,.043]){bx(m.black,x+dx,y,-9.60,.057,.21,.06);bx(m.gold,x+dx,y+.08,-9.56,.059,.055,.022);}
   }
-  this.clerk=this.makePerson(9);this.clerk.root.scale.setScalar(1.12);this.clerk.root.position.set(-2.2,0,-9.05);this.store.add(this.clerk.root);
+  this.clerk=this.makePerson(9,false,'cashier');this.clerk.root.scale.setScalar(1.12);this.clerk.root.position.set(-2.2,0,-9.05);this.store.add(this.clerk.root);
   this.boxMesh(this.clerk.body,m.green,0,1.31,.25,.52,.67,.035);
   this.boxMesh(this.clerk.body,m.orange,0,1.55,.276,.52,.065,.02);
   this.boxMesh(this.clerk.body,m.white,-.14,1.48,.28,.15,.085,.025);
@@ -694,6 +931,10 @@ export class GameScene {
   for(let i=0;i<count;i++){const e=this.effects[this.effectCursor++%this.effects.length],a=Math.random()*TAU;
     Object.assign(e,{x,y,z,vx:Math.cos(a)*speed*(.3+Math.random()),vy:1+Math.random()*speed,vz:Math.sin(a)*speed,life:.4+Math.random()*.55,maxLife:1,size,color});}
  }
+ emitJetThrust(x,y,z,reducedMotion=false){
+  const count=reducedMotion?1:3;
+  for(const side of [-1,1])for(let i=0;i<count;i++){const e=this.effects[this.effectCursor++%this.effects.length];Object.assign(e,{x:x+side*.23+(Math.random()-.5)*.05,y:y+.31,z:z+.31+(Math.random()-.5)*.05,vx:(Math.random()-.5)*.22,vy:-2.4-Math.random()*1.5,vz:(Math.random()-.5)*.28,life:.28+Math.random()*.28,maxLife:.56,size:.035+Math.random()*.025,color:i%2?0xff8a2c:0x7defff});}
+ }
  handleEvent(e){
   if(e.type==='state'&&e.state==='STARTING'){this.effects.forEach(p=>p.life=0);this.lastIntroTime=0;this.chaseZ=2.825;this.lastState='';}
   if(e.type==='state'&&e.state==='CAUGHT')this.captureStarts=null;
@@ -709,15 +950,20 @@ export class GameScene {
   if(!freeze){
     this.effectClock+=dt;
 
-    // Steam curls above selected food carts, anchored to their scrolling city block.
-    if(this.clock-(this.lastSteam||0)>.28&&active){this.lastSteam=this.clock;for(const chunk of this.chunks){if(chunk.root.position.z< -38||chunk.root.position.z>8)continue;this.burst(5.95,1.65,chunk.root.position.z-11.4,2,0xe8ddd0,.13,.06);}}
+    // Ambient road particles stay disabled. Bursts are reserved for player
+    // actions, pickups and damaged props so distant white pixels carry meaning.
   }
   let count=0;const dummy=this.particleDummy;
   for(const e of this.effects){if(e.life<=0)continue;if(!freeze){e.life-=dt;e.x+=e.vx*dt;e.y+=e.vy*dt;e.z+=(e.vz+moving)*dt;e.vy-=3*dt;}if(e.life<=0)continue;
     const size=e.size*Math.min(1,e.life*3);dummy.position.set(e.x,e.y,e.z);dummy.rotation.set(e.life*4,e.x,e.z);dummy.scale.setScalar(size);dummy.updateMatrix();this.particleMesh.setMatrixAt(count,dummy.matrix);this.particleMesh.setColorAt(count,new THREE.Color(e.color));count++;}
   this.particleMesh.count=count;this.particleMesh.instanceMatrix.needsUpdate=true;if(this.particleMesh.instanceColor)this.particleMesh.instanceColor.needsUpdate=true;
  }
- resize(width,height,{quality='retro'}={}){const ratio=Math.max(.35,width/Math.max(1,height)),pixels=quality==='low'?256*192:320*240;const h=Math.max(120,Math.round(Math.sqrt(pixels/ratio))),w=Math.round(h*ratio);this.renderer.setSize(w,h,false);this.camera.aspect=ratio;this.camera.updateProjectionMatrix();this.snapUniform.value.set(w,h);this.width=width;this.height=height;this.canvas.style.imageRendering='pixelated';this.canvas.dataset.renderResolution=w+'x'+h;}
+ resize(width,height,{quality='clear'}={}){
+  const ratio=Math.max(.35,width/Math.max(1,height)),clear=quality==='clear';let w,h;
+  if(clear){const pixelRatio=Math.min(1.5,Math.max(1,globalThis.devicePixelRatio||1));this.renderer.setPixelRatio(pixelRatio);w=Math.max(1,Math.round(width));h=Math.max(1,Math.round(height));this.renderer.setSize(w,h,false);this.snapUniform.value.set(w*pixelRatio,h*pixelRatio);this.wobbleUniform.value=0;this.canvas.style.imageRendering='auto';}
+  else {this.renderer.setPixelRatio(1);const pixels=quality==='low'?256*192:320*240;h=Math.max(120,Math.round(Math.sqrt(pixels/ratio)));w=Math.round(h*ratio);this.renderer.setSize(w,h,false);this.snapUniform.value.set(w,h);this.wobbleUniform.value=1;this.canvas.style.imageRendering='pixelated';}
+  this.camera.aspect=ratio;this.camera.updateProjectionMatrix();this.width=width;this.height=height;this.canvas.dataset.renderResolution=(clear?'clear:':'')+w+'x'+h;
+ }
  animateCat(cat,time,mode,player={},reducedMotion=false){
   const s=Math.sin(time*17),run=mode==='run',slide=slidePose(player.slide||0),stumble=(player.hit||0)>.3;
   cat.body.rotation.set(-slide+(stumble?.32:0)*(1-slide),0,stumble?Math.sin(time*25)*.09:0);cat.body.position.set(0,-.55*slide+(1-slide)*(stumble?-.2*Math.sin(clamp((1.15-(player.hit||0))/1.15,0,1)*Math.PI):run&&!reducedMotion?(1-Math.cos(time*34))*.018:0),0);
@@ -732,7 +978,8 @@ export class GameScene {
   }
   // The chip bag inherits every arm transform from the wrist attachment.
  }
- animateCop(c,t,strength=1,carrying=false){
+ animateCop(c,t,strength=1,carrying=false,carrySide=0){
+  if(c.authored&&this.effectiveModelSet==='refreshed'){this.updateAuthoredHuman(c,carrying?(carrySide<0?'carry_left':carrySide>0?'carry_right':'carry'):strength>.15?'chase':'alert',t*12);return;}
   if(c.baton){const parent=carrying?c.body:c.elbows[1];if(c.baton.parent!==parent)parent.add(c.baton);c.baton.position.set(carrying?.38:0,carrying?.87:-.49,carrying?-.13:.055);c.baton.rotation.set(carrying?0:-.25,0,carrying?-.12:0);}
   c.feet.forEach(f=>f.quaternion.identity());
   const s=Math.sin(t*12);c.legs.forEach((l,i)=>{const w=s*(i?1:-1);l.rotation.set(w*.59*strength,0,0);c.knees[i].rotation.set(Math.max(0,-w)*.85*strength,0,0);});c.arms.forEach((a,i)=>{a.rotation.set(s*(i?-1:1)*.65*strength,0,0);c.elbows[i].rotation.set(-.65*strength,0,0);});c.body.position.y=(1-Math.cos(t*24))*.017*strength;}
@@ -814,7 +1061,7 @@ export class GameScene {
     const turnWeight=Math.sin(Math.PI*turn),carryWeight=smooth((progress-.67)/.04);
     const walking=Math.max(approachWeight,turnWeight*.55,carryWeight);
     const gait=approachDistance*4.2+phase+i*.35;
-    this.animateCop(cop,gait/12,walking*.35,true);
+    this.animateCop(cop,gait/12,walking*.35,true,i?1:-1);
     const crouch=.79*smooth((progress-.19)/.14)*(1-lift);
     cop.body.position.y=-crouch+bob;cop.body.rotation.set(0,0,0);
     // Plant/lift alternating feet throughout the squat, lift, pivot and carry.
@@ -833,11 +1080,18 @@ export class GameScene {
   });
   return {carriedX:px,carriedZ,lift,carry};
  }
+ replaceCat(skin,look={},lookKey=[skin,look.fur,look.hat].join(':')){
+  const old=this.cat;this.scene.remove(old.root);
+  old.root.traverse(object=>{if(object.geometry&&![this.box,this.sphere,this.cylinder,this.plane].includes(object.geometry))object.geometry.dispose();});
+  this.cat=this.makeCat(skin,look);this.scene.add(this.cat.root);this.skin=skin;this.lookKey=lookKey;
+  return this.cat;
+ }
  render(game={},dt=1/60,{skin='18bro',fur,hat,menu=false,reducedMotion=false}={}){
+  this.restoreOriginalHero();
   const state=game.state||'MAIN_MENU',isMenu=menu||state==='MAIN_MENU',isOver=state==='GAME_OVER',isPaused=state==='PAUSED',isStarting=state==='STARTING'||isPaused&&game._beforePause==='STARTING',isCaught=state==='CAUGHT'||isPaused&&game._beforePause==='CAUGHT';
   dt=Math.min(dt,.05);if(!isPaused)this.clock+=dt;if(state!==this.lastState){if(!(state==='PAUSED'||this.lastState==='PAUSED'))this.stateTime=0;this.lastState=state;}if(!isPaused)this.stateTime+=dt;
-  const lookKey=[skin,fur,hat].join(':');if(lookKey!==this.lookKey){const old=this.cat;this.scene.remove(old.root);old.root.traverse(o=>{if(o.geometry&&![this.box,this.sphere,this.cylinder,this.plane].includes(o.geometry))o.geometry.dispose();});this.cat=this.makeCat(skin,{fur,hat});this.scene.add(this.cat.root);this.skin=skin;this.lookKey=lookKey;}
-  const p=game.player||{},dist=isStarting?introPose(game.introProgress*INTRO_DURATION).distance:game.distance||0,t=Math.floor(this.clock*12)/12,moon=game.powers?.has('moon'),riding=game.powers?.has('moped')&&!isCaught&&!isOver;
+  const lookKey=[skin,fur,hat].join(':');if(lookKey!==this.lookKey)this.replaceCat(skin,{fur,hat},lookKey);
+  const p=game.player||{},dist=isStarting?introPose(game.introProgress*INTRO_DURATION).distance:game.distance||0,t=Math.floor(this.clock*12)/12,moon=game.powers?.has('moon'),speedburst=game.powers?.has('speedburst'),riding=game.powers?.has('moped')&&!isCaught&&!isOver;
   const route=game.route||getRouteProfile(dist),newStreet=dist>=230&&!isMenu&&!isStarting;
   const worldCurve=routeCenter(dist),offsetX=route.offsetX||0,offsetY=route.offsetY||0;
   const branch=BRANCHES.find(b=>b.id===route.branch),branchEase=branch?Math.min(1,Math.abs(offsetX)/(Math.abs(branch.offset)||10)):(route.arcade||0),lateralScale=1-branchEase*.68;
@@ -860,9 +1114,10 @@ export class GameScene {
   for(const person of this.people){const s=dist-person.root.position.z;person.root.visible=person.root.visible&&s<230;person.root.position.x+=routeCenter(s)-worldCurve;}
   this.store.visible=isMenu||isStarting||dist<55;this.store.position.z=STORE.z+dist;this.menuProps.visible=false;if(this.storeInfill)this.storeInfill.visible=dist>=55;
   this.cat.root.visible=true;this.cat.root.scale.setScalar(.776);this.cat.bag.visible=!isMenu&&(!isStarting||it>=.95);
+  this.cat.magnet.visible=!!game.powers?.has('magnet')&&!isCaught&&!isOver;this.cat.moonBoots.forEach(boot=>boot.visible=!!moon&&!isCaught&&!isOver);
   this.cat.jetpack.visible=!!game.powers?.has('jetpack')&&!isCaught&&!isOver;this.cat.shield.visible=!!game.powers?.has('shield')&&!isCaught&&!isOver;
-  this.cat.jetpack.userData.flames.visible=this.cat.jetpack.visible;this.cat.jetpack.userData.flames.scale.y=.85+Math.sin(t*23)*.15;
-  this.cat.shield.rotation.y=t*.7;
+  this.cat.jetpack.userData.flames.visible=this.cat.jetpack.visible;this.cat.jetpack.userData.flames.scale.y=1.12+Math.sin(t*29)*.24;for(const plume of this.cat.jetpack.userData.flames.children)plume.rotation.z=Math.sin(t*23+plume.position.x*8)*.045;
+  this.animateShield(this.cat.shield,t,reducedMotion);if(this.authoredHero)this.animateShield(this.authoredHero.shield,t,reducedMotion);
   this.moped.visible=!!riding;this.stars.visible=(isCaught||isOver)&&!!game.crash;this.shelfBag.visible=isMenu||isStarting&&it<.95;
   let goalFov=65;
   if(isMenu||isStarting){
@@ -891,7 +1146,7 @@ export class GameScene {
     goalFov=67-c*2+pose.burst*7;
     if(!reducedMotion){this.target.y+=Math.sin(it*52)*.08*pose.burst;this.target.x+=Math.sin(it*39)*.05*pose.burst;}
     this.clerk.arms.forEach((arm,i)=>{arm.rotation.x=-2.45*pose.clerk;arm.rotation.z=(i?1:-1)*(.12+.28*pose.clerk);this.clerk.elbows[i].rotation.x=-.85*pose.clerk;});
-    this.clerk.body.rotation.z=Math.sin(it*21)*.035*pose.clerk;
+    this.clerk.body.rotation.z=Math.sin(it*21)*.035*pose.clerk;this.updateAuthoredHuman(this.clerk,pose.clerk>.05?'panic':'clerk',it*4);
     this.cops.forEach((cop,i)=>{const pos=pose.officers[i];cop.root.visible=!isMenu;cop.root.position.set(pos.x,0,pos.z);cop.root.rotation.y=Math.PI;this.animateCop(cop,this.clock+i*.19,it>3.5?1:.14);});this.chaseZ=2.825;
     if(!isPaused&&isStarting){if(this.lastIntroTime<.95&&it>=.95)this.burst(-11.9,1.1,-3.4,14,0xffdc7b,1.2,.045);if(this.lastIntroTime<3.02&&it>=3.02){this.burst(-6.75,.45,STORE.z+dist,48,0xf3e3be,3.1,.06);for(const side of [-1,1])this.burst(-6.6,1.5,STORE.z+dist+side*1.4,16,0xffffd2,2.6,.035);}this.lastIntroTime=it;}
   }else if(isCaught||isOver){
@@ -934,22 +1189,24 @@ export class GameScene {
   for(const e of game.entities||[]){
     if(!e.active||isMenu||e.z < -170)continue;
     let slot=this.entities.get(e.id);if(!slot){slot={group:new THREE.Group(),variants:new Map(),type:''};this.scene.add(slot.group);this.entities.set(e.id,slot);}
-    const type=e.type,variantKey=type==='crossTraffic'?`${type}-${e.vehicleKind||e.variant||0}`:type;
+    const type=e.type,isPower=POWER_TYPES.includes(type),variantKey=type==='crossTraffic'?`${type}-${e.vehicleKind||e.variant||0}`:isPower?`${type}-${this.effectiveModelSet}`:type;
     if(!slot.variants.has(variantKey)){const mesh=type==='crossTraffic'?(e.vehicleKind==='scooter'?this.makeMoped(e.id,true):this.makeRouteVehicle(e.vehicleKind==='bus'?2:e.vehicleKind==='van'?1:e.vehicleKind==='police'?3:0)):this.makeEntity(type,e.id);slot.group.add(mesh);slot.variants.set(variantKey,mesh);}
     if(slot.type!==variantKey){for(const [key,mesh] of slot.variants)mesh.visible=key===variantKey;slot.type=variantKey;}
     const visualZ=e.z+(isStarting?dist:0),s=dist-visualZ,entityBranch=e.routeBranch||null,branchPose=entityBranch?branchOffset(entityBranch,s):{x:e.finale?getRouteProfile(s).offsetX:0,y:0};
     const sameBranch=!!entityBranch&&entityBranch===route.branch,scale=sameBranch?lateralScale:1;
     slot.group.visible=!(type==='crossTraffic'&&e.x>20.7);slot.group.scale.set(scale,1,1);
     slot.group.position.set(e.x*scale+routeCenter(s)-worldCurve+(branchPose.x||0),(e.y||0)+(branchPose.y||0),visualZ);
-    slot.group.rotation.set(0,e.yaw??(['coin','magnet','moon','moped','shield','jetpack','doublechips'].includes(type)?t*2:0),0);
-    const mesh=slot.variants.get(variantKey);if(!freeze)mesh.userData.wheels?.forEach(w=>w.rotation.x+=dt*(game.speed||0)*Math.max(0,(e.actualApproach??e.approachFactor)-1)*3.3);
+    slot.group.rotation.set(0,e.yaw??(type==='coin'?t*2:0),0);
+    const mesh=slot.variants.get(variantKey);if(!freeze)mesh.userData.wheels?.forEach(w=>w.rotation.x+=dt*(game.speed||0)*Math.max(0,(e.actualApproach??e.approachFactor)-1)*3.3);if(mesh.userData.rider)this.updateAuthoredHuman(mesh.userData.rider,'ride',this.clock*5,freeze);if(isPower)this.animatePowerup(mesh,type,t,e.id,reducedMotion);
   }
   if(!isPaused){this.camera.position.lerp(this.target,isMenu?1:1-Math.exp(-dt*(isStarting?8:9)));this.camera.lookAt(this.cameraTarget);this.camera.fov+=(goalFov-this.camera.fov)*(1-Math.exp(-dt*9));this.camera.updateProjectionMatrix();}
-  if((moon||riding)&&!freeze&&this.clock-(this.lastBoost||0)>.05){this.lastBoost=this.clock;this.burst(p.x||0,.4,1.1,reducedMotion?2:5,moon?0xffd44f:0x71f9ed,2,.05);}
+  if((moon||riding||speedburst)&&!freeze&&this.clock-(this.lastBoost||0)>.05){this.lastBoost=this.clock;this.burst(this.cat.root.position.x,this.cat.root.position.y+.4,.9,reducedMotion?2:5,speedburst?0x59c9ff:moon?0xffd44f:0x71f9ed,speedburst?3.1:2,.05);}
+  if(this.cat.jetpack.visible&&!freeze&&this.clock-(this.lastJetThrust||0)>.035){this.lastJetThrust=this.clock;this.emitJetThrust(this.cat.root.position.x,this.cat.root.position.y,this.cat.root.position.z,reducedMotion);}
   this.updateEffects(game,isPaused?0:dt,isPaused||isOver,reducedMotion);
+  this.updateAuthoredHero(game,dt,{skin,fur,hat,menu,reducedMotion});
   this.updateDebug(game,isMenu||isOver||isStarting);this.renderer.render(this.scene,this.camera);
  }
  updateDebug(game,hide){const show=game.debug?.showColliders&&!hide;this.debugBoxes.visible=!!show;if(!show)return;const es=game.entities.filter(e=>e.active&&['traffic','blocker','jump','slide'].includes(e.type));for(let i=0;i<=es.length;i++){if(!this.debugPool[i]){const mesh=new THREE.LineSegments(new THREE.EdgesGeometry(this.box),new THREE.LineBasicMaterial({color:0x76f55a,depthTest:false}));mesh.renderOrder=100;this.debugBoxes.add(mesh);this.debugPool.push(mesh);}const m=this.debugPool[i];m.visible=true;if(i===0){const p=game.player; m.position.set(p.x,p.y+(p.slide>0?.32:.85),0);m.scale.set(.6,p.slide>0?.64:1.7,.5);}else{const e=es[i-1];m.position.set(e.x,e.type==='slide'?2:e.type==='jump'?.5:1.2,e.z);m.scale.set(e.width,e.type==='slide'?.96:e.type==='jump'?1:2.4,e.depth);}}for(let i=es.length+1;i<this.debugPool.length;i++)this.debugPool[i].visible=false;}
  get stats(){return {drawCalls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,geometries:this.renderer.info.memory.geometries,textures:this.renderer.info.memory.textures,chunks:this.chunks.length};}
- dispose(){this.renderer.dispose();this.scene.traverse(o=>o.geometry?.dispose());this.materials.forEach(m=>{m.map?.dispose();m.dispose()});}
+ dispose(){this.disposeCharacterModels();this.renderer.dispose();this.scene.traverse(o=>o.geometry?.dispose());this.materials.forEach(m=>{m.map?.dispose();m.dispose()});}
 }

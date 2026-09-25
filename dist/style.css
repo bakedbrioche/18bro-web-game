@@ -31,3 +31,38 @@
 
 /* Route end remains in the live doorway; controls never cover it with a title card. */
 .arcade-actions{position:absolute;bottom:25px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:6}.arcade-actions button{background:#111923e6;border:1px solid #b4bf83;padding:9px 18px;font-size:20px;color:#e0e6c9}.game-shell.playing .crt{opacity:.12}.game-shell.playing .vignette{background:linear-gradient(0deg,#09091635,transparent 20%,transparent 85%,#09091622)}
+
+/* Readable native-resolution presentation and original 18Bro-inspired sticker type. */
+body[data-picture="clear"] .crt,body[data-picture="clear"] .game-shell.playing .crt{opacity:.018}
+body.font-sticker,body.font-sticker button,body.font-sticker select,body.font-sticker input,body.font-sticker .menu-dialog,body.font-sticker kbd,body.font-sticker .clerk-caption{font-family:"Arial Rounded MT Bold","Trebuchet MS","Microsoft JhengHei","Noto Sans TC",system-ui,sans-serif;font-weight:800}
+body.font-sticker .screen-top,body.font-sticker .screen-bottom,body.font-sticker .footer,body.font-sticker .hud,body.font-sticker .menu-nav,body.font-sticker .tagline,body.font-sticker .start-button,body.font-sticker .character-caption,body.font-sticker .menu-dialog,body.font-sticker .center-overlay,body.font-sticker .toast,body.font-sticker .run-banner{letter-spacing:.02em;text-shadow:1px 2px 0 #07110c,-1px -1px 0 #07110c}
+body.font-sticker .menu-dialog h2,body.font-sticker .retro-panel h2{color:#f47722;-webkit-text-stroke:1px #f8f3db;text-shadow:3px 3px 0 #08251e,5px 5px 0 #06906f;transform:rotate(-1deg);transform-origin:left center}
+body.font-sticker .menu-nav button,body.font-sticker .start-button,body.font-sticker .primary-button{border-radius:13px;text-transform:none}
+body.font-sticker .settings-row>span,body.font-sticker .mission-title,body.font-sticker .how-item b{color:#f4f1dc;-webkit-text-stroke:.35px #17362b;text-shadow:2px 2px 0 #087e66}
+.menu-dialog{overflow:auto}
+
+/* Power-ups use their authored object renders in the HUD and on pickup. */
+.active-powers{gap:9px;width:188px}
+.power-pill{--power-accent:#73efd2;display:flex;align-items:center;gap:8px;min-height:52px;padding:4px 9px 5px 5px;background:linear-gradient(90deg,#10231ff2,#10151ddd);border:1px solid color-mix(in srgb,var(--power-accent) 55%,#27332f);border-left:3px solid var(--power-accent);box-shadow:3px 3px 0 #0508088f;color:#eef4dc}
+.power-pill img{width:42px;height:42px;object-fit:contain;filter:drop-shadow(0 3px 2px #0009)}
+.power-pill>span{display:grid;grid-template-columns:1fr auto;align-items:end;gap:1px 7px;min-width:0;flex:1}
+.power-pill b{font-size:15px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:400}
+.power-pill small{font-size:13px;color:var(--power-accent)}
+.power-meter{grid-column:1/-1;height:4px;background:#080d10;overflow:hidden}
+.power-meter i{display:block;height:100%;background:var(--power-accent);box-shadow:0 0 8px var(--power-accent)}
+.power-moon{--power-accent:#d7ec57}.power-speedburst{--power-accent:#55bfff}.power-moped{--power-accent:#ff7b43}.power-shield{--power-accent:#69e4ff}.power-doublechips{--power-accent:#ffc64b}.power-jetpack{--power-accent:#ff7054}
+
+.power-pickup{--pickup-accent:#73efd2;position:absolute;z-index:12;left:50%;top:17%;display:flex;align-items:center;gap:13px;min-width:260px;padding:7px 22px 8px 8px;transform:translate(-50%,-14px) rotate(-1.5deg) scale(.82);opacity:0;background:linear-gradient(100deg,#f5edce 0 24%,#11231ff2 24%);border:2px solid #f7f1d0;box-shadow:5px 6px 0 #08100d,0 0 26px color-mix(in srgb,var(--pickup-accent) 45%,transparent);pointer-events:none}
+.power-pickup[hidden]{display:none}.power-pickup.show{animation:power-card 2.1s cubic-bezier(.18,.9,.25,1) both}
+.power-pickup img{position:relative;width:76px;height:76px;object-fit:contain;filter:drop-shadow(0 4px 2px #0007)}
+.power-pickup>span:not(.power-pickup-glow){display:flex;flex-direction:column;line-height:1}.power-pickup small{font-size:13px;letter-spacing:2px;color:var(--pickup-accent)}.power-pickup b{font-size:27px;color:#fff6db;font-weight:400;white-space:nowrap}
+.power-pickup-glow{position:absolute;left:8px;width:76px;height:76px;border-radius:50%;background:var(--pickup-accent);filter:blur(16px);opacity:.44}
+.power-pickup[data-power="moon"]{--pickup-accent:#d7ec57}.power-pickup[data-power="speedburst"]{--pickup-accent:#55bfff}.power-pickup[data-power="moped"]{--pickup-accent:#ff7b43}.power-pickup[data-power="shield"]{--pickup-accent:#69e4ff}.power-pickup[data-power="doublechips"]{--pickup-accent:#ffc64b}.power-pickup[data-power="jetpack"]{--pickup-accent:#ff7054}
+@keyframes power-card{0%{opacity:0;transform:translate(-50%,-20px) rotate(-5deg) scale(.72)}12%,72%{opacity:1;transform:translate(-50%,0) rotate(-1.5deg) scale(1)}100%{opacity:0;transform:translate(-50%,-8px) rotate(1deg) scale(.96)}}
+
+/* A tactile arcade control with a large hit target and readable state. */
+.pause-button{position:relative;display:flex;align-items:center;justify-content:center;gap:5px;width:56px;height:52px;padding:7px 8px 17px;border:2px solid #efe6b9;border-radius:12px;background:linear-gradient(145deg,#ff7b37,#d64b25);box-shadow:0 4px 0 #6c2418,0 0 0 3px #17241d,0 7px 16px #0008;transform:rotate(1.5deg);transition:transform .12s,filter .12s}
+.pause-button>span{display:block;width:7px;height:21px;border-radius:2px;background:#fff4cd;box-shadow:1px 1px 0 #80311e}
+.pause-button small{position:absolute;left:0;right:0;bottom:2px;font:10px VT323,monospace;letter-spacing:1px;color:#fff6dd;text-shadow:1px 1px #5a1d14}
+.pause-button:hover,.pause-button:focus-visible{filter:brightness(1.14);transform:translateY(-1px) rotate(-1deg);outline:2px solid #a8ef6c;outline-offset:3px}.pause-button:active{transform:translateY(3px);box-shadow:0 1px 0 #6c2418,0 0 0 3px #17241d}
+@media(max-width:800px){.active-powers{top:82px;width:150px}.power-pill{min-height:43px}.power-pill img{width:34px;height:34px}.power-pill b{font-size:12px}.power-pickup{top:20%;min-width:230px}.power-pickup img,.power-pickup-glow{width:62px;height:62px}.power-pickup b{font-size:22px}.pause-button{width:47px;height:45px;padding-bottom:14px}.pause-button>span{height:17px;width:6px}}

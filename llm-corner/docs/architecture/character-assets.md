@@ -1,0 +1,43 @@
+# Character assets
+
+## Current implementation
+
+The renderer has two independent concepts:
+
+- picture quality controls framebuffer treatment;
+- model set controls Original or Refreshed character presentation.
+
+The saved `settings.modelSet` value is normalized by `dist/model-config.mjs`. Original is the safe default. `GameScene.setModelSetPreference()` loads the authored hero lazily and exposes requested, effective, loading, ready and fallback state without changing simulation data.
+
+Original remains the authoritative simulation proxy for collision-independent root placement and opening/capture world choreography. Refreshed copies only the world transform and uses its own in-place Blender clips. It never writes player position, collision bounds, score, chase or route state.
+
+Refreshed keeps the authored 18Bro visible for every runtime state. Complete authored clips cover store snack/celebration, locomotion, jump/fall, a tucked roll, impact, jetpack, capture/carry, and separate scooter mount, ride, stunt-jump and left/right low-dodge poses. `AnimationMixer` exclusively owns every imported bone; runtime code must never multiply procedural rotations into the imported skeleton. Every fur color tints the authored fur material. All hats follow the authored hat socket, the packet follows the carry socket, and jetpack/shield visuals live on the authored model/root.
+
+The character-family switch also applies to police, cashier, scooter riders and both crowd systems through `human-v1.glb`. Police, cashier, rider and pedestrian role meshes share one 24-joint skeleton and role-specific clips. Mouth and brow joints give the cashier a readable angry scream while every other clip resets the face and comic mark. Existing controllers still own world placement and bounded district pooling; each visible imported actor has an independent skeleton.
+
+`powerups-v1.glb` adds seven static authored pickups: magnet, moon boots, scooter, shield, double chips, jetpack and speed burst. It also carries independently cloneable `wearable_magnet`, `wearable_moon_L` and `wearable_moon_R` attachment roots. The Refreshed family loads cat, human and power-up templates atomically. Each pickup keeps a deterministic simulation type while the renderer clones its named `powerup_<type>` root, adds a bounded individual aura and uses the matching transparent icon in the pickup card and timer HUD. The active magnet follows the left carry socket and the boots follow their animated foot bones. Original appears only when explicitly selected or when any required asset fails to load.
+
+## Asset lifecycle
+
+`dist/character-assets.mjs` preflights each GLB before parsing. It rejects malformed headers, external buffers/images and unsupported required extensions. The deeper Node validator enforces mesh, hierarchy, skin, animation, bounds, socket, budget and manifest contracts.
+
+Templates are cached once. Instances clone skeletons and mutable materials while sharing immutable geometry and textures. Instance disposal releases its materials and skeleton; shared resources remain alive until the store is disposed and every instance has been released.
+
+Modular builds fetch the three GLBs in `dist/assets/models/`. Standalone builds embed exact GLB bytes in `globalThis.__18BRO_EMBEDDED_MODELS__` plus all seven pickup icons in `globalThis.__18BRO_POWER_ICONS__`; the same runtime parses them without a network request.
+
+## Authored character family
+
+- Source: `art/characters/18bro/18bro.blend`
+- Builder: `scripts/blender/create_18bro.py`
+- Runtime asset: `dist/assets/models/18bro-v1.glb`
+- Blender: 5.2.2 LTS
+- Budget: 3,972 triangles, 20 skin joints, three materials/draw calls, 868,816 bytes; rig version 4
+- Texture: one embedded 512×512 palette atlas
+- Clips: `idle`, `run`, `walk`, `jump`, `fall`, `slide`, `roll`, `stumble`, `ride`, `moped_mount`, `moped_jump`, `moped_slide_L`, `moped_slide_R`, `jetpack`, `snack`, `celebrate`, `caught`, `carry`
+- Sockets: hat, bag, back and left/right carry
+
+The human family lives in `art/characters/human/human.blend`, builds through `scripts/blender/create_human.py`, and exports police, cashier, rider and pedestrian roles in `dist/assets/models/human-v1.glb`. It has 2,526 triangles, 24 joints, 777,208 bytes and clips for idle/walk/run/chase/alert/clerk/panic/ride/crouch plus shared and side-specific carry poses. The extra facial joints drive angry panic brows while the cashier-only comic anger mark remains hidden in neutral clips.
+
+Power-up source lives in `art/powerups/powerups.blend`, builds through `scripts/blender/create_powerups.py`, and exports one texture-free 633,768-byte GLB with 12,323 triangles: 9,127 across seven independently cloneable pickup roots and 3,196 across three wearable roots. The same builder renders seven 256x256 transparent icons. `scripts/blender/validate-powerups.mjs` checks the exact hash, root names, wearable pivots/dimensions, triangle counts, identity transforms, vertex colors and icon bytes.
+
+`art/manifest.json` and `dist/model-manifest.mjs` record both hashes, exported Y-up bounds and provenance. Rebuilds must update both manifests only after validation and visual review.

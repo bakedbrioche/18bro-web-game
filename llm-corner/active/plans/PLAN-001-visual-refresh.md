@@ -1,6 +1,6 @@
 # PLAN-001 — 24-hour visual and release refresh
 
-**Status:** DRAFT — awaiting operator direction
+**Status:** ACTIVE — graphics-v2 model/power/UI pivot implemented and validated; localization remains
 **Owner:** chief agent
 **Commit cadence:** one reviewed commit per phase; no push/publish without explicit authorization
 
@@ -25,34 +25,87 @@ Make 18Bro recognizable and appealing, restore readable distant graphics, and al
 - Files: `dist/app.mjs`, `dist/scene.mjs`, `dist/preview.html`, relevant tests.
 - Verify: matched near/far screenshots, desktop/mobile performance, browser smoke, full gate.
 
-### Phase B — hero cat
+### Phase B — model-set switch and safe fallback
+
+Implementation status: the saved selector, atomic cat/human GLB loading, load-failure fallback and offline standalone embedding are complete. Refreshed remains active for every hero pose and all 36 fur/hat combinations. Police, cashier, riders and both crowd systems use the authored human family. Mixer-only bone ownership and frame-zero/full-track validation cover the reported twitch and broken-reset defect.
+
+- Add one saved `Models` preference with `Original` and `Refreshed` choices.
+- Keep model selection independent from the `Clear Retro`, `Classic Pixel`, and `Performance` picture-quality choices.
+- Apply a model change at the main menu or after a run rather than rebuilding live scene pools mid-run.
+- Preserve the current procedural set as the guaranteed fallback. A failed refreshed-model load must leave controls, saves, and the run loop usable and must not overwrite the player's saved choice.
+- Switch the whole visible cast together: cat, police, clerk, pedestrians, riders, and vehicles. Per-model overrides are developer-preview tools only.
+- Mark `Refreshed` as a preview until its assets pass the model release gate. Promote it to the default only for new players after that gate passes; preserve every explicit `Original` choice.
+- Likely files: `dist/app.mjs`, a new DOM-free `dist/model-config.mjs`, `dist/scene.mjs`, `dist/district-scene.mjs`, `dist/preview.html`, and relevant tests.
+
+Acceptance:
+
+- the selector is saved without changing progression or cosmetic data;
+- rapid switching cannot apply a stale asynchronous load;
+- swaps leave no stale pooled actors and renderer memory plateaus after repeated changes;
+- all 36 fur/hat combinations and gameplay attachments remain aligned;
+- the standalone export remains fully offline;
+- keyboard, touch, pause, capture, and restart flows still pass.
+
+### Phase C — hero cat — complete
 
 - Replace the overlapping head/body primitives with purpose-shaped low-poly ring meshes and smooth normals.
 - Prioritize broad cheeks, ear rims, pear torso, short limbs, curled tail, cap silhouette, brows, and rear gameplay view.
 - Files: primarily `dist/scene.mjs` and model tests.
 
-### Phase C — reusable human family
+### Phase D — reusable human family — complete
 
 - Simplify tiny invisible details and strengthen connected torso/limb/head silhouettes.
 - Smooth-shade skin/cloth volumes; reserve hard edges for clothing, hair, shoes, and accessories.
 - Produce one strong police/clerk base, then derive pedestrians.
 
-### Phase D — brand UI
+### Phase E — brand UI
 
 - Create an original 18Bro wordmark treatment inspired by the references rather than claiming an exact proprietary font.
 - Use chunky rounded display lettering, layered white/dark outlines, offset shadows, slight rotations, sticker panels, and orange/green/cream/charcoal.
 - Keep small controls readable and support required Chinese glyphs.
+- Add reviewed English, Traditional Chinese and Cantonese dictionaries with a saved language selector; do not reuse one Chinese translation as Cantonese.
 
-### Phase E — release gate
+### Phase F — release gate
 
 - Full tests/export, browser flows, representative phone/desktop review, performance checks, save migration, standalone refresh, and release notes.
 
-## 3. Scope guard
+### Phase G — movement and power-up polish — complete
 
-Defer a bespoke Blender/GLB pipeline, fur rendering, city-wide remodeling, and extensive new animation. The deadline supports one polished hero cat, one reusable human family, one clear graphics preset, and one coherent UI pass.
+- Added authored roll, scooter mount, scooter stunt-jump, and randomized left/right scooter dodge clips.
+- Restored cashier panic with a dedicated mouth joint and full-track reset-safe animation.
+- Added Blender-authored models and transparent rendered icons for the original six power-ups, plus per-type auras, pickup cards and icon timers; Phase H adds Speed Burst as the seventh.
+- Made side vehicle contacts recoverable, car-roof landings safe, slide/jump/slide chaining responsive, magnet acquisition debt persistent, and jetpack chip trails airborne and deterministic.
+- Removed ambient white road particles; effects now correspond to actions, pickups, powers or damaged props.
 
-## 4. Open decisions for operator
+### Phase H — visible equipment and power identity — complete
 
-1. Confirm Clear Retro as the new default and current pixel mode as optional.
-2. Confirm whether the official-style wordmark may be an original traced-by-eye vector treatment, subject to brand permission.
-3. Choose desktop/mobile performance targets and the exact release channel.
+- Added Blender-authored magnet and Moon Boot wearables that follow the Refreshed cat's animated paw/feet, with coherent procedural equivalents for Original.
+- Separated Moon Boots into a high-jump power and introduced a distinct blue Speed Burst pickup, icon, aura, HUD timer and deterministic speed effect.
+- Replaced incremental Jetpack chip spawning with a complete connected ten-second sky route whose final chip ends flight; added layered tube thrust.
+- Rebuilt the Shield as a flickering energy sphere with nine rotating paw hearts and removed its white particle trail.
+- Lowered authored scooter dodges below the 1.6-unit rail and replaced the cashier's party-like motion with a planted angry panic loop.
+
+## 3. Model and animation contract
+
+- The simulation owns position, facing, collision, capture logic, and root motion. Imported animation clips are in-place visual motion.
+- A controller owns a character's bones. Procedural animation and an imported animation mixer must never write to the same bones in the same frame.
+- Runtime model instances expose a root, stable attachment sockets, look customization, pose sampling, visibility, and explicit disposal.
+- The model library prepares one generation atomically, creates cat/human/vehicle instances, and releases only resources it owns. Shared GLB geometry and materials use reference-safe disposal.
+- Hats and gameplay props attach through named sockets rather than shape-specific offsets.
+- `llm-corner/active/plans/PLAN-002-blender-model-pipeline.md` owns the asset-production details.
+
+## 4. Scope guard
+
+Defer fur rendering, city-wide remodeling, compression infrastructure, and an extensive animation library. The deadline supports one polished hero cat, one reusable human family, one safe model selector, one clear graphics preset, and one coherent UI pass. The Blender pipeline may progress in parallel, but interactive Blender control is not a release blocker.
+
+## 5. Confirmed direction
+
+1. Clear Retro is the intended readable default; the current pixel-heavy treatment remains available as Classic Pixel.
+2. Original and Refreshed models are selectable independently from picture quality.
+3. A checked-in Blender-to-GLB pipeline and deterministic validation are part of the development plan.
+
+## 6. Remaining operator decisions
+
+1. Confirm whether the official-style wordmark may be an original traced-by-eye vector treatment, subject to brand permission.
+2. Choose desktop/mobile performance targets and the exact release channel.
+3. Confirm the crypto-project public name and destination before release copy is finalized. The community relationship, `18bro.fun` TBU status, and “Run for your chips” tag are confirmed.

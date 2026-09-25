@@ -7,8 +7,9 @@
   "scripts": {
     "start": "node server.mjs",
     "test": "node --test tests/*.test.mjs",
+    "validate:assets": "node scripts/validate-assets.mjs dist/assets/models/18bro-v1.glb --manifest art/characters/18bro/manifest.json && node scripts/validate-assets.mjs dist/assets/models/human-v1.glb --manifest art/characters/human/manifest-entry.json && node scripts/blender/validate-human-runtime.mjs && node scripts/blender/validate-powerups.mjs",
     "dev": "node server.mjs",
     "export": "node scripts/export-game.mjs dist release/18Bro-Snack-Heist.html",
-    "verify": "npm test && npm run export"
+    "verify": "npm test && npm run validate:assets && npm run export"
   }
 }

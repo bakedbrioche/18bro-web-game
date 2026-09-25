@@ -1,0 +1,412 @@
+{
+  "schemaVersion": 2,
+  "assetId": "powerups-v1",
+  "revision": 2,
+  "blenderVersion": "5.2.2 LTS",
+  "source": "art/powerups/powerups.blend",
+  "output": "dist/assets/models/powerups-v1.glb",
+  "sha256": "4d70447876492bdb09b23923337bf9b94ac8a41caa64a9880e702145ba1372ce",
+  "bytes": 633768,
+  "materials": 1,
+  "materialNames": [
+    "powerup_palette"
+  ],
+  "coordinates": "glTF Y-up; forward +Z; pickup roots: centered, max dimension 1.4; wearable roots: paw/ankle pivot, authored meter scale",
+  "meshPolicy": "one mesh per named root; static geometry; one shared vertex-color material; no external resources",
+  "provenance": "Original geometry authored in repository Python with Blender. No external media, fonts or source artwork.",
+  "assets": {
+    "magnet": {
+      "root": "powerup_magnet",
+      "mesh": "mesh_magnet",
+      "triangles": 696,
+      "vertices": 368,
+      "bounds": {
+        "min": [
+          -0.699999988079071,
+          -0.4693182110786438,
+          -0.14278410375118256
+        ],
+        "max": [
+          0.699999988079071,
+          0.4693182110786438,
+          0.14278410375118256
+        ]
+      },
+      "icon": {
+        "path": "dist/assets/icons/powerup-magnet.png",
+        "width": 256,
+        "height": 256,
+        "bytes": 44285,
+        "sha256": "9cacfc91dcd96ba8508cc50a7057d1366641e11873747300ddec9cca5c5b50a4",
+        "alphaBoundsBottomOrigin": [
+          41,
+          64,
+          214,
+          202
+        ],
+        "opaquePixels": 10551
+      },
+      "effects": {
+        "label": "Chip Magnet",
+        "color": "#ed593a",
+        "secondary": "#59d9ed",
+        "aura": "two counter-rotating magnetic arcs; inward chip sparks",
+        "bobAmplitude": 0.075,
+        "bobHz": 1.1,
+        "spinHz": 0.16
+      }
+    },
+    "moon": {
+      "root": "powerup_moon",
+      "mesh": "mesh_moon",
+      "triangles": 1552,
+      "vertices": 844,
+      "bounds": {
+        "min": [
+          -0.699999988079071,
+          -0.5584732294082642,
+          -0.4945840835571289
+        ],
+        "max": [
+          0.699999988079071,
+          0.5584732294082642,
+          0.4945840835571289
+        ]
+      },
+      "icon": {
+        "path": "dist/assets/icons/powerup-moon.png",
+        "width": 256,
+        "height": 256,
+        "bytes": 61277,
+        "sha256": "eb762eb2623980634c6e15cd26ccfc58beb2802d1b0145805a8fd45c781cf82e",
+        "alphaBoundsBottomOrigin": [
+          40,
+          26,
+          223,
+          209
+        ],
+        "opaquePixels": 17601
+      },
+      "effects": {
+        "label": "Moon Paws",
+        "color": "#b3ec59",
+        "secondary": "#f7c343",
+        "aura": "upward chevrons and rising star motes",
+        "bobAmplitude": 0.12,
+        "bobHz": 1.25,
+        "spinHz": 0.12
+      }
+    },
+    "moped": {
+      "root": "powerup_moped",
+      "mesh": "mesh_moped",
+      "triangles": 2432,
+      "vertices": 1266,
+      "bounds": {
+        "min": [
+          -0.4033510684967041,
+          -0.6096248030662537,
+          -0.699999988079071
+        ],
+        "max": [
+          0.4033510684967041,
+          0.6096248030662537,
+          0.699999988079071
+        ]
+      },
+      "icon": {
+        "path": "dist/assets/icons/powerup-moped.png",
+        "width": 256,
+        "height": 256,
+        "bytes": 49536,
+        "sha256": "62417f28b7dd09fbc10f1e03f0ed6f7e353f198052314c17c85fa42c8e636e51",
+        "alphaBoundsBottomOrigin": [
+          52,
+          27,
+          192,
+          192
+        ],
+        "opaquePixels": 13110
+      },
+      "effects": {
+        "label": "Snack Scooter",
+        "color": "#70ead0",
+        "secondary": "#ff8b29",
+        "aura": "tilted speed hoop with two trailing dashes",
+        "bobAmplitude": 0.065,
+        "bobHz": 0.9,
+        "spinHz": 0.1
+      }
+    },
+    "shield": {
+      "root": "powerup_shield",
+      "mesh": "mesh_shield",
+      "triangles": 808,
+      "vertices": 426,
+      "bounds": {
+        "min": [
+          -0.6048000454902649,
+          -0.699999988079071,
+          -0.26022401452064514
+        ],
+        "max": [
+          0.6048000454902649,
+          0.699999988079071,
+          0.26022404432296753
+        ]
+      },
+      "icon": {
+        "path": "dist/assets/icons/powerup-shield.png",
+        "width": 256,
+        "height": 256,
+        "bytes": 60710,
+        "sha256": "f0469139347b8bba0b8a3bb787014b5556e8dbbaabd790d5861bf3c0b1414ae6",
+        "alphaBoundsBottomOrigin": [
+          57,
+          42,
+          215,
+          241
+        ],
+        "opaquePixels": 21072
+      },
+      "effects": {
+        "label": "Snack Guard",
+        "color": "#59d9ed",
+        "secondary": "#fff2ce",
+        "aura": "three slow curved shell arcs and breathing paw glints",
+        "bobAmplitude": 0.07,
+        "bobHz": 0.85,
+        "spinHz": 0.13
+      }
+    },
+    "doublechips": {
+      "root": "powerup_doublechips",
+      "mesh": "mesh_doublechips",
+      "triangles": 1868,
+      "vertices": 1016,
+      "bounds": {
+        "min": [
+          -0.5987451076507568,
+          -0.7000000476837158,
+          -0.27832546830177307
+        ],
+        "max": [
+          0.5987451076507568,
+          0.7000000476837158,
+          0.27832546830177307
+        ]
+      },
+      "icon": {
+        "path": "dist/assets/icons/powerup-doublechips.png",
+        "width": 256,
+        "height": 256,
+        "bytes": 59846,
+        "sha256": "3a6f95bdbf4307d19083cd759ef8bf6824a70c178dd71e3023c84604323c36ee",
+        "alphaBoundsBottomOrigin": [
+          62,
+          26,
+          205,
+          231
+        ],
+        "opaquePixels": 22267
+      },
+      "effects": {
+        "label": "Double Crunch",
+        "color": "#f7c343",
+        "secondary": "#ed593a",
+        "aura": "twin golden orbits and tiny four-point sparkles",
+        "bobAmplitude": 0.09,
+        "bobHz": 1.0,
+        "spinHz": 0.14
+      }
+    },
+    "jetpack": {
+      "root": "powerup_jetpack",
+      "mesh": "mesh_jetpack",
+      "triangles": 1416,
+      "vertices": 754,
+      "bounds": {
+        "min": [
+          -0.699999988079071,
+          -0.6406545042991638,
+          -0.2607850134372711
+        ],
+        "max": [
+          0.699999988079071,
+          0.6406545042991638,
+          0.2607850134372711
+        ]
+      },
+      "icon": {
+        "path": "dist/assets/icons/powerup-jetpack.png",
+        "width": 256,
+        "height": 256,
+        "bytes": 54019,
+        "sha256": "589df5a313c5482104d2d4ba448791aeb692015fc14665249a0e31c0ce1f50ff",
+        "alphaBoundsBottomOrigin": [
+          45,
+          40,
+          220,
+          218
+        ],
+        "opaquePixels": 16871
+      },
+      "effects": {
+        "label": "Chip Jet",
+        "color": "#59d9ed",
+        "secondary": "#ff8b29",
+        "aura": "two soft downward exhaust ribbons and rising cyan flecks",
+        "bobAmplitude": 0.1,
+        "bobHz": 1.2,
+        "spinHz": 0.12
+      }
+    },
+    "speedburst": {
+      "root": "powerup_speedburst",
+      "mesh": "mesh_speedburst",
+      "triangles": 355,
+      "vertices": 213,
+      "bounds": {
+        "min": [
+          -0.699999988079071,
+          -0.6209039092063904,
+          -0.1771751493215561
+        ],
+        "max": [
+          0.699999988079071,
+          0.6209039092063904,
+          0.1771751493215561
+        ]
+      },
+      "icon": {
+        "path": "dist/assets/icons/powerup-speedburst.png",
+        "width": 256,
+        "height": 256,
+        "bytes": 46947,
+        "sha256": "e7634bbc76fd3a15d3f33de54a5cba0efade1bdd63a55f1c8ff8bb13e5ff0615",
+        "alphaBoundsBottomOrigin": [
+          48,
+          62,
+          215,
+          201
+        ],
+        "opaquePixels": 10258
+      },
+      "effects": {
+        "label": "Energy Burst",
+        "color": "#59d9ed",
+        "secondary": "#1578dc",
+        "aura": "three swept cyan energy tails and pulsing diamond flashes",
+        "bobAmplitude": 0.1,
+        "bobHz": 1.4,
+        "spinHz": 0.16
+      }
+    }
+  },
+  "wearables": {
+    "magnet": {
+      "root": "wearable_magnet",
+      "mesh": "mesh_wearable_magnet",
+      "triangles": 1008,
+      "vertices": 530,
+      "bounds": {
+        "min": [
+          -0.26649999618530273,
+          -0.03999999910593033,
+          -0.06199999898672104
+        ],
+        "max": [
+          0.26649999618530273,
+          0.4894999861717224,
+          0.19099999964237213
+        ]
+      },
+      "dimensions": [
+        0.5329999923706055,
+        0.5294999852776527,
+        0.25299999862909317
+      ],
+      "attachTo": "socket_carry_L",
+      "origin": "center of paw grip on lower bridge",
+      "orientation": "neutral glTF Y-up, pole tips +Y, front +Z",
+        "recommendedScale": 1,
+        "restOffset": [
+          0,
+          0,
+          0
+        ],
+        "recommendedEulerXYZ": [
+          0,
+          0,
+          0.9
+        ]
+    },
+    "moon_L": {
+      "root": "wearable_moon_L",
+      "mesh": "mesh_wearable_moon_L",
+      "triangles": 1094,
+      "vertices": 598,
+      "bounds": {
+        "min": [
+          -0.25164711475372314,
+          -0.11999999731779099,
+          -0.23539751768112183
+        ],
+        "max": [
+          0.19099999964237213,
+          0.2669999897480011,
+          0.34700000286102295
+        ]
+      },
+      "dimensions": [
+        0.4426471143960953,
+        0.3869999870657921,
+        0.5823975205421448
+      ],
+      "attachTo": "foot_L",
+      "origin": "ankle pivot; sole is Y=-0.12",
+      "orientation": "neutral glTF Y-up, toe +Z; apply inverse bone REST rotation when attaching",
+      "recommendedScale": 1,
+      "restOffset": [
+        0,
+        0,
+        0
+      ]
+    },
+    "moon_R": {
+      "root": "wearable_moon_R",
+      "mesh": "mesh_wearable_moon_R",
+      "triangles": 1094,
+      "vertices": 598,
+      "bounds": {
+        "min": [
+          -0.19099999964237213,
+          -0.11999999731779099,
+          -0.23539751768112183
+        ],
+        "max": [
+          0.25164711475372314,
+          0.2669999897480011,
+          0.34700000286102295
+        ]
+      },
+      "dimensions": [
+        0.4426471143960953,
+        0.3869999870657921,
+        0.5823975205421448
+      ],
+      "attachTo": "foot_R",
+      "origin": "ankle pivot; sole is Y=-0.12",
+      "orientation": "neutral glTF Y-up, toe +Z; apply inverse bone REST rotation when attaching",
+      "recommendedScale": 1,
+      "restOffset": [
+        0,
+        0,
+        0
+      ]
+    }
+  },
+  "pickupTriangles": 9127,
+  "wearableTriangles": 3196,
+  "triangles": 12323
+}

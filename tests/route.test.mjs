@@ -68,10 +68,10 @@ test('every later intersection generates crossing traffic at its own physical lo
  assert.ok(seen>8);
 });
 
-test('lateral traffic is a real collision and leaves the intersection after passing',()=>{
+test('lateral traffic causes a recoverable bump and leaves the intersection after passing',()=>{
  const g=new RunnerGame();g.seekArea(768);empty(g);
  const car=g.spawnEntity('crossTraffic',1,0,{x:0,anchor:768,crossSpeed:10,width:3.55,depth:1.96,height:1.9});
- tick(g,.02);assert.equal(g.state,'CAUGHT');assert.equal(car.stopped,true);
+ tick(g,.02);assert.equal(g.state,'RUNNING');assert.equal(g.mistakes,1);assert.ok(g.player.hit>0);assert.equal(car.stopped,false);
  const h=new RunnerGame();h.seekArea(768);empty(h);h.debug.invincible=true;
  const past=h.spawnEntity('crossTraffic',1,0,{x:43,anchor:768,crossSpeed:10});tick(h,.02);assert.equal(past.active,false);
 });

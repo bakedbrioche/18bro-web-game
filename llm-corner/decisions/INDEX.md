@@ -4,5 +4,12 @@ Decision records preserve why a non-obvious choice was made. Numbers are sequent
 
 | ID | Title | Date | Status |
 |---|---|---|---|
+| DEC-009 | Visible power identity and complete sky routes (`DEC-009-visible-power-identity.md`) | 2026-09-25 | ACCEPTED |
+| DEC-008 | Responsive move chaining and authored power-up presentation (`DEC-008-responsive-moves-and-authored-powerups.md`) | 2026-09-25 | ACCEPTED |
+| DEC-007 | Authored rigs exclusively own their bones (`DEC-007-authored-rigs-own-bones.md`) | 2026-09-24 | ACCEPTED |
+| DEC-006 | Keep Refreshed presentation continuous (`DEC-006-continuous-refreshed-presentation.md`) | 2026-09-23 | SUPERSEDED |
+| DEC-005 | Keep analytics consent-aware and disabled by default (`DEC-005-consent-aware-analytics.md`) | 2026-09-23 | ACCEPTED |
+| DEC-004 | Use Blender source with validated GLB runtime assets (`DEC-004-blender-glb-pipeline.md`) | 2026-09-22 | ACCEPTED |
+| DEC-003 | Separate model sets from picture quality (`DEC-003-separate-model-and-picture-modes.md`) | 2026-09-22 | ACCEPTED |
 | DEC-002 | Use the Node static server for local modules (`DEC-002-node-local-server.md`) | 2026-09-22 | ACCEPTED |
 | DEC-001 | Adopt the llm-corner workflow (`DEC-001-llm-corner-workflow.md`) | 2026-09-22 | ACCEPTED |

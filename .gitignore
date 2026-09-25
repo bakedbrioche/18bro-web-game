@@ -4,3 +4,9 @@
 
 release/
 node_modules/
+
+# Blender scratch and automatic backups. Authored .blend sources are tracked.
+*.blend1
+*.blend2
+art/build/
+__pycache__/

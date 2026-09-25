@@ -1,0 +1,289 @@
+{
+    "schemaVersion":  1,
+    "assets":  [
+                   {
+                       "assetId":  "18bro-v1",
+                       "rigVersion":  4,
+                       "source":  "art/characters/18bro/18bro.blend",
+                       "output":  "dist/assets/models/18bro-v1.glb",
+                       "sha256":  "6cfe638385e4365ceb98886ab4357a308fce834e287d6d3ce6dea36e60076ce7",
+                       "blenderVersion":  "5.2.2 LTS",
+                       "exportPreset":  "18bro-blender-5.2-v4",
+                       "bytes":  868816,
+                       "bounds":  {
+                                      "min":  [
+                                                  -0.9662122130393982,
+                                                  0.003000006079673767,
+                                                  -0.4952065646648407
+                                              ],
+                                      "max":  [
+                                                  0.7856764793395996,
+                                                  2.7360000610351562,
+                                                  0.6499999761581421
+                                              ]
+                                  },
+                       "boundsBlenderZUp":  {
+                                                "min":  [
+                                                            -0.9662122130393982,
+                                                            -0.6499999761581421,
+                                                            0.003000006079673767
+                                                        ],
+                                                "max":  [
+                                                            0.7856764793395996,
+                                                            0.4952065646648407,
+                                                            2.7360000610351562
+                                                        ]
+                                            },
+                       "triangles":  3972,
+                       "materials":  3,
+                       "bones":  20,
+                       "clips":  [
+                                     "carry",
+                                     "caught",
+                                     "celebrate",
+                                     "fall",
+                                     "idle",
+                                     "jetpack",
+                                     "jump",
+                                     "moped_jump",
+                                     "moped_mount",
+                                     "moped_slide_L",
+                                     "moped_slide_R",
+                                     "ride",
+                                     "roll",
+                                     "run",
+                                     "slide",
+                                     "snack",
+                                     "stumble",
+                                     "walk"
+                                 ],
+                       "clipMetadata":  {
+                                            "idle":  {
+                                                         "duration":  2.0,
+                                                         "loop":  true
+                                                     },
+                                            "run":  {
+                                                        "duration":  0.6666666666666666,
+                                                        "loop":  true
+                                                    },
+                                            "walk":  {
+                                                         "duration":  1.0,
+                                                         "loop":  true
+                                                     },
+                                            "jump":  {
+                                                         "duration":  0.8333333333333334,
+                                                         "loop":  false
+                                                     },
+                                            "slide":  {
+                                                          "duration":  0.75,
+                                                          "loop":  false
+                                                      },
+                                            "ride":  {
+                                                         "duration":  1.0,
+                                                         "loop":  true
+                                                     },
+                                            "stumble":  {
+                                                            "duration":  0.5833333333333334,
+                                                            "loop":  false
+                                                        },
+                                            "caught":  {
+                                                           "duration":  0.6666666666666666,
+                                                           "loop":  false
+                                                       },
+                                            "carry":  {
+                                                          "duration":  1.3333333333333333,
+                                                          "loop":  true
+                                                      },
+                                            "fall":  {
+                                                         "duration":  0.75,
+                                                         "loop":  false
+                                                     },
+                                            "celebrate":  {
+                                                              "duration":  1.3333333333333333,
+                                                              "loop":  true
+                                                          },
+                                            "snack":  {
+                                                          "duration":  1.5,
+                                                          "loop":  true
+                                                      },
+                                            "jetpack":  {
+                                                            "duration":  1.0,
+                                                            "loop":  true
+                                                        },
+                                            "roll":  {
+                                                         "duration":  0.75,
+                                                         "loop":  false
+                                                     },
+                                            "moped_mount":  {
+                                                                "duration":  0.625,
+                                                                "loop":  false
+                                                            },
+                                            "moped_jump":  {
+                                                               "duration":  0.8333333333333334,
+                                                               "loop":  false
+                                                           },
+                                            "moped_slide_L":  {
+                                                                  "duration":  0.75,
+                                                                  "loop":  false
+                                                              },
+                                            "moped_slide_R":  {
+                                                                  "duration":  0.75,
+                                                                  "loop":  false
+                                                              }
+                                        },
+                       "sockets":  [
+                                       "socket_hat",
+                                       "socket_bag",
+                                       "socket_back",
+                                       "socket_carry_L",
+                                       "socket_carry_R"
+                                   ],
+                       "provenance":  "Original procedural Blender asset and authored animation for the 18Bro community game; no imported model, texture, logo, or animation."
+                   },
+                   {
+                       "assetId":  "human-v1",
+                       "rigVersion":  3,
+                       "source":  "art/characters/human/human.blend",
+                       "output":  "dist/assets/models/human-v1.glb",
+                       "sha256":  "a69e3d757624ae48fb832514350de13b605fd729f87278acefb1338bc59afbbf",
+                       "blenderVersion":  "5.2.2 LTS",
+                       "exportPreset":  "18bro-blender-5.2-human-v3",
+                       "bytes":  777208,
+                       "bounds":  {
+                                      "min":  [
+                                                  -0.4659999907016754,
+                                                  0.014000000432133675,
+                                                  -0.18561238050460815
+                                              ],
+                                      "max":  [
+                                                  0.4659999907016754,
+                                                  2.2929999828338623,
+                                                  0.2849999964237213
+                                              ]
+                                  },
+                       "boundsBlenderZUp":  {
+                                                "min":  [
+                                                            -0.4659999907016754,
+                                                            -0.2849999964237213,
+                                                            0.014000000432133675
+                                                        ],
+                                                "max":  [
+                                                            0.4659999907016754,
+                                                            0.18561238050460815,
+                                                            2.2929999828338623
+                                                        ]
+                                            },
+                       "triangles":  2526,
+                       "materials":  3,
+                       "bones":  24,
+                       "clips":  [
+                                     "alert",
+                                     "carry",
+                                     "carry_left",
+                                     "carry_right",
+                                     "chase",
+                                     "clerk",
+                                     "crouch",
+                                     "idle",
+                                     "panic",
+                                     "ride",
+                                     "run",
+                                     "walk"
+                                 ],
+                       "sockets":  [
+                                       "socket_hat",
+                                       "socket_bag",
+                                       "socket_back",
+                                       "socket_carry_L",
+                                       "socket_carry_R"
+                                   ],
+                       "clipMetadata":  {
+                                            "idle":  {
+                                                         "duration":  2.0,
+                                                         "loop":  true
+                                                     },
+                                            "walk":  {
+                                                         "duration":  1.3333333333333333,
+                                                         "loop":  true
+                                                     },
+                                            "run":  {
+                                                        "duration":  0.8333333333333334,
+                                                        "loop":  true
+                                                    },
+                                            "chase":  {
+                                                          "duration":  0.8333333333333334,
+                                                          "loop":  true
+                                                      },
+                                            "alert":  {
+                                                          "duration":  1.6666666666666667,
+                                                          "loop":  true
+                                                      },
+                                            "clerk":  {
+                                                          "duration":  2.0,
+                                                          "loop":  true
+                                                      },
+                                            "ride":  {
+                                                         "duration":  2.0,
+                                                         "loop":  true
+                                                     },
+                                            "carry":  {
+                                                          "duration":  1.5,
+                                                          "loop":  true
+                                                      },
+                                            "carry_left":  {
+                                                               "duration":  1.5,
+                                                               "loop":  true
+                                                           },
+                                            "carry_right":  {
+                                                                "duration":  1.5,
+                                                                "loop":  true
+                                                            },
+                                            "crouch":  {
+                                                           "duration":  1.0,
+                                                           "loop":  true
+                                                       },
+                                            "panic":  {
+                                                          "duration":  1.3333333333333333,
+                                                          "loop":  true
+                                                      }
+                                        },
+                       "provenance":  "Original authored Blender human family generated for the 18Bro community game; no imported models, textures, logos or animations."
+                   },
+                   {
+                       "assetId":  "powerups-v1",
+                       "rigVersion":  0,
+                       "source":  "art/powerups/powerups.blend",
+                       "output":  "dist/assets/models/powerups-v1.glb",
+                       "sha256":  "4d70447876492bdb09b23923337bf9b94ac8a41caa64a9880e702145ba1372ce",
+                       "blenderVersion":  "5.2.2 LTS",
+                       "exportPreset":  "18bro-blender-5.2-powerups-v2",
+                       "bytes":  633768,
+                       "triangles":  12323,
+                       "pickupTriangles":  9127,
+                       "wearableTriangles":  3196,
+                       "materials":  1,
+                       "bones":  0,
+                       "clips":  [
+
+                                 ],
+                       "sockets":  [
+
+                                   ],
+                       "roots":  [
+                                     "powerup_magnet",
+                                     "powerup_moon",
+                                     "powerup_moped",
+                                     "powerup_shield",
+                                     "powerup_doublechips",
+                                     "powerup_jetpack",
+                                     "powerup_speedburst"
+                                 ],
+                       "wearables":  [
+                                         "wearable_magnet",
+                                         "wearable_moon_L",
+                                         "wearable_moon_R"
+                                     ],
+                       "provenance":  "Original geometry authored in repository Python with Blender. No external media, fonts or source artwork."
+                   }
+               ]
+}

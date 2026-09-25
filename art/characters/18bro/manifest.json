@@ -1,0 +1,139 @@
+{
+  "assetId": "18bro-v1",
+  "rigVersion": 4,
+  "source": "art/characters/18bro/18bro.blend",
+  "output": "dist/assets/models/18bro-v1.glb",
+  "sha256": "6cfe638385e4365ceb98886ab4357a308fce834e287d6d3ce6dea36e60076ce7",
+  "blenderVersion": "5.2.2 LTS",
+  "exportPreset": "18bro-blender-5.2-v4",
+  "bytes": 868816,
+  "bounds": {
+    "min": [
+      -0.9662122130393982,
+      0.003000006079673767,
+      -0.4952065646648407
+    ],
+    "max": [
+      0.7856764793395996,
+      2.7360000610351562,
+      0.6499999761581421
+    ]
+  },
+  "boundsBlenderZUp": {
+    "min": [
+      -0.9662122130393982,
+      -0.6499999761581421,
+      0.003000006079673767
+    ],
+    "max": [
+      0.7856764793395996,
+      0.4952065646648407,
+      2.7360000610351562
+    ]
+  },
+  "triangles": 3972,
+  "materials": 3,
+  "bones": 20,
+  "clips": [
+    "carry",
+    "caught",
+    "celebrate",
+    "fall",
+    "idle",
+    "jetpack",
+    "jump",
+    "moped_jump",
+    "moped_mount",
+    "moped_slide_L",
+    "moped_slide_R",
+    "ride",
+    "roll",
+    "run",
+    "slide",
+    "snack",
+    "stumble",
+    "walk"
+  ],
+  "clipMetadata": {
+    "idle": {
+      "duration": 2.0,
+      "loop": true
+    },
+    "run": {
+      "duration": 0.6666666666666666,
+      "loop": true
+    },
+    "walk": {
+      "duration": 1.0,
+      "loop": true
+    },
+    "jump": {
+      "duration": 0.8333333333333334,
+      "loop": false
+    },
+    "slide": {
+      "duration": 0.75,
+      "loop": false
+    },
+    "ride": {
+      "duration": 1.0,
+      "loop": true
+    },
+    "stumble": {
+      "duration": 0.5833333333333334,
+      "loop": false
+    },
+    "caught": {
+      "duration": 0.6666666666666666,
+      "loop": false
+    },
+    "carry": {
+      "duration": 1.3333333333333333,
+      "loop": true
+    },
+    "fall": {
+      "duration": 0.75,
+      "loop": false
+    },
+    "celebrate": {
+      "duration": 1.3333333333333333,
+      "loop": true
+    },
+    "snack": {
+      "duration": 1.5,
+      "loop": true
+    },
+    "jetpack": {
+      "duration": 1.0,
+      "loop": true
+    },
+    "roll": {
+      "duration": 0.75,
+      "loop": false
+    },
+    "moped_mount": {
+      "duration": 0.625,
+      "loop": false
+    },
+    "moped_jump": {
+      "duration": 0.8333333333333334,
+      "loop": false
+    },
+    "moped_slide_L": {
+      "duration": 0.75,
+      "loop": false
+    },
+    "moped_slide_R": {
+      "duration": 0.75,
+      "loop": false
+    }
+  },
+  "sockets": [
+    "socket_hat",
+    "socket_bag",
+    "socket_back",
+    "socket_carry_L",
+    "socket_carry_R"
+  ],
+  "provenance": "Original procedural Blender asset and authored animation for the 18Bro community game; no imported model, texture, logo, or animation."
+}

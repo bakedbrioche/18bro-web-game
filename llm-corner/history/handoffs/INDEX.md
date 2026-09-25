@@ -2,4 +2,10 @@
 
 Newest first; the top entry is the next session’s entry point.
 
+- **`2026-09-25-graphics-v2-pivot.md`** — Graphics-v2 collaboration branch, visible equipment, separate Moon Boots/Speed Burst, complete Jetpack sky route, shield/thrust effects, deeper scooter dodges and angry cashier; 127 green tests and strict v4/v3/v2 asset validation.
+
+- **`2026-09-25-movement-powerup-polish.md`** — Responsive roll/jump chaining, scooter clips, cashier panic, safe car roofs, magnet/jetpack fixes, six authored power-ups/icons, 123 green tests and strict asset validation.
+- **`2026-09-24-authored-character-family.md`** — Full authored cat/human GLBs, complete frame-zero clips, mixer-only bone ownership, 118 tests and successful Chrome menu-to-retry/customization review.
+- **`2026-09-23-continuous-refreshed.md`** — Refreshed remains continuous across all hero states/cosmetics and the whole character cast; Clear Retro and 18Bro Sticker are saved Settings options; 114 tests green, manual browser review still required.
+- **`2026-09-23-blender-hero-preview.md`** — Uncommitted Original/Refreshed selector, first authored Blender hero, validated GLB/standalone pipeline, product memory, localization requirements and dormant analytics boundary; 111 tests green, browser attachment still required for visual smoke.
 - **`2026-09-22-workflow-bootstrap.md`** — Current entry point. The repository is synchronized with GitHub, uses the Node local server, has a green 88-test/export/browser baseline, and now routes agent work through llm-corner. PLAN-001 is the draft 24-hour visual refresh.

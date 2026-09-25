@@ -1,0 +1,36 @@
+# Authored pickups
+
+`powerups.blend` is the editable original art. `scripts/blender/create_powerups.py`
+rebuilds the scene, the seven-pickup/three-wearable GLB, the seven transparent
+256px icons and this
+folder's machine-readable `manifest.json`. No external artwork or fonts are used.
+
+```powershell
+& 'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe' --background --factory-startup --disable-autoexec --python-exit-code 1 --python scripts/blender/create_powerups.py
+node scripts/blender/validate-powerups.mjs
+```
+
+The saved Blender scene opens with the magnet visible. The other named meshes
+remain hidden in the outliner so each can be edited at the shared origin. All
+runtime roots have identity transforms. The generator renders a separate seven-prop
+contact sheet under ignored `release/powerup-review/`.
+
+The GLB exports seven independently cloneable pickup meshes: `powerup_magnet`,
+`powerup_moon`, `powerup_moped`, `powerup_shield`, `powerup_doublechips`, and
+`powerup_jetpack`, plus `powerup_speedburst`. It also exports attachable
+`wearable_magnet`, `wearable_moon_L`, and `wearable_moon_R` roots. Every prop uses
+visual-center origin, Y-up and +Z forward after
+glTF conversion, with a maximum dimension of 1.4 game units. The one shared
+`powerup_palette` material uses vertex colors; retain vertex colors when adapting
+the material to the game's lighting. There are no textures, skins, or animations.
+
+`manifest.json` records bounds, triangle counts, source/output hashes, PNG hashes,
+alpha coverage and effects hints. The simulation owns pickup position. Runtime
+presentation can add the per-type bob, orbit/aura and glints listed in the manifest;
+these effects are deliberately absent from the collision shape and icon alpha.
+
+Designs are original: coral horseshoe magnet, lime winged moon boots, mint delivery
+scooter, cat-ear paw shield, twin golden chips in an orange packet, cream/teal
+twin-tank jetpack, and a cyan diamond/lightning Speed Burst. The matching UI
+pictures are rendered directly from these models from one consistent three-quarter
+studio camera.

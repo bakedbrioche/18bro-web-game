@@ -4,12 +4,14 @@ import { ROUTE, BRANCHES, getRouteProfile, branchOffset, getTrafficPhase, crossS
 export { INTRO_DURATION, CAPTURE_DURATION } from './choreography.mjs?v=street-28';
 export const LANES = Object.freeze([-2.5, 0, 2.5]);
 export const THEMES = Object.freeze(['HONG KONG']);
-export const POWER_DURATIONS = Object.freeze({ magnet: 8, moon: 5, moped: 10, shield:12, doublechips:12, jetpack:7 });
-export const MOTION = Object.freeze({ laneDuration: .16, jumpDuration: .82, jumpHeight: 2.65, slideDuration: .72, jumpBuffer: .1, coyoteTime: .08 });
+export const POWER_DURATIONS = Object.freeze({ magnet: 8, moon: 5, speedburst: 8, moped: 10, shield:12, doublechips:12, jetpack:10 });
+export const MOTION = Object.freeze({ laneDuration: .16, jumpDuration: .82, jumpHeight: 2.65, moonJumpDuration: 1.16, moonJumpHeight: 6.1, slideDuration: .72, jumpBuffer: .1, coyoteTime: .08 });
 export const BARRIERS = Object.freeze({ jump: { height: 1.9, width: 2.35, depth: 1.0 }, blocker: { opening: 1.55, height: 4.55, width: 2.38, depth: 1.65 }, slide: { height: 4.05, width: 2.38, depth: .9 } });
 export const VEHICLES = Object.freeze({ traffic: { approach: 2.05, height: 1.89, width: 1.94, depth: 3.56 }, scooter: { approach: 1.9, height: 2.26, width: 1.04, depth: 2.0 } });
 const GRAVITY = 8 * MOTION.jumpHeight / MOTION.jumpDuration ** 2;
 const JUMP_VELOCITY = GRAVITY * MOTION.jumpDuration / 2;
+const MOON_GRAVITY = 8 * MOTION.moonJumpHeight / MOTION.moonJumpDuration ** 2;
+const MOON_JUMP_VELOCITY = MOON_GRAVITY * MOTION.moonJumpDuration / 2;
 const HAZARDS = new Set(['blocker', 'jump', 'slide', 'traffic', 'scooter', 'crossTraffic']);
 const COLLECTIBLES = new Set(['coin']);
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
@@ -57,10 +59,11 @@ export function obstacleSpacing(speed, tier = 1) {
 const POWER_DEFINITIONS = {
   magnet: { activate() {}, update() {}, end() {} },
   moon: { activate() {}, update() {}, end() {} },
+  speedburst: { activate() {}, update() {}, end() {} },
   shield: { activate() {}, update() {}, end() {} },
   doublechips: { activate() {}, update() {}, end() {} },
-  jetpack: { activate(game) {game.powers.remove('moped');game.player.vy=0;game.player.slide=0;}, update() {}, end(game) {game.shieldGrace=Math.max(game.shieldGrace,1.4);} },
-  moped: { activate(game) { game.powers.remove('jetpack');game.policeDistance=18;game._hitAge=100; }, update(game) { game.policeDistance=18; }, end() {} },
+  jetpack: { refreshActivation: true, activate(game) {game.powers.remove('moped');game.player.vy=0;game.player.slide=0;game._createFlightTrail();}, update() {}, end(game) {game._clearFlightTrail();game.shieldGrace=Math.max(game.shieldGrace,1.4);} },
+  moped: { activate(game) { game.powers.remove('jetpack');game.policeDistance=18;game._hitAge=100;game.player.mopedMount=.625;game.player.mopedSlideSide=0; }, update(game) { game.policeDistance=18; }, end(game) { game.player.mopedMount=0;game.player.mopedSlideSide=0; } },
 };
 
 /** Active powers are a Map<string, {type, duration, remaining, elapsed}>. */
@@ -88,15 +91,21 @@ export class PowerUpManager {
     for (const [type, power] of this.active) {
       const activeDt = Math.min(dt, power.remaining);
       POWER_DEFINITIONS[type].update(this.game, activeDt);
-      power.elapsed += activeDt;
-      power.remaining -= dt;
-      if (power.remaining <= 1e-8) this.remove(type);
+      power.elapsed += type === 'jetpack' ? dt : activeDt;
+      power.remaining = Math.max(0, power.remaining - dt);
+      // A coin already caught by the magnet remains owed to the player. Keep the
+      // visual power alive while it completes its trip, but do not tag new coins.
+      const magnetDebt = type === 'magnet' && this.game.entities.some(e => e.active && e.magnetLatched);
+      // The flight ends with its final chip. An overdue or missed chip has a
+      // short grace period, so an abandoned run cannot retain flight forever.
+      const flightDebt = type === 'jetpack' && this.game._jetpackFinalChip?.active && power.elapsed < power.duration + 2;
+      if (power.remaining <= 1e-8 && !magnetDebt && !flightDebt) this.remove(type);
     }
   }
-  get speedMultiplier() { return this.has('moped') ? 1.5 : this.has('moon') ? 1.5 : 1; }
-  get scoreMultiplier() { return this.has('moon') ? 5 : 1; }
-  get magnetRadius() { return this.has('magnet') ? 10 : 0; }
-  get invulnerable() { return this.has('moon')||this.has('jetpack'); }
+  get speedMultiplier() { return Math.max(this.has('moped') ? 1.5 : 1, this.has('speedburst') ? 1.6 : 1); }
+  get scoreMultiplier() { return 1; }
+  get magnetRadius() { return (this.active.get('magnet')?.remaining || 0) > 0 ? 10 : 0; }
+  get invulnerable() { return this.has('jetpack'); }
 }
 
 export class RunnerGame {
@@ -116,13 +125,15 @@ export class RunnerGame {
   _routeProfile(s){return getRouteProfile(s,this.routeSeed);}
   _reset() {
     this.routeSeed=Math.floor(this._random()*4294967295);
-    this.player = { x: 0, lane: 1, y: 0, vy: 0, slide: 0, hit: 0, grounded: true, anim: 'idle', laneFrom: 0, laneElapsed: MOTION.laneDuration, jumpBuffer: 0, coyote: MOTION.coyoteTime };
+    this.player = { x: 0, lane: 1, y: 0, vy: 0, jumpApex: MOTION.jumpHeight, jumpGravity: GRAVITY, slide: 0, hit: 0, grounded: true, anim: 'idle', laneFrom: 0, laneElapsed: MOTION.laneDuration, jumpBuffer: 0, coyote: MOTION.coyoteTime,
+      mopedMount: 0, mopedSlideSide: 0, roofEntityId: null };
     this.distance = 0; this.time = 0; this.speed = 10.4; this.score = 0; this.chips = 0; this.coins = 0;
     this.chipMeter = 0; this.policeDistance = 1.5; this.themeIndex = 0; this.theme = THEMES[0];
     this.tier = 1; this.tiers = 1; this.dodgeStreak = 0; this.perfectDodges = 0;
     this.introRemaining = INTRO_DURATION; this.introProgress = 0; this._hitAge = 100; this._slowRemaining = 0;
     this.mistakes = 0; this.shieldGrace = 0; this.captureRemaining = 0; this.captureDuration = CAPTURE_DURATION; this.captureProgress = 0; this.crash = null;
     this._spawnCursor = 30; this._rowId = 0; this._poolCursor = 0; this._lastSafeLane = 1;
+    this._jetpackTrailId = 0; this._jetpackFinalChip = null;
     this.patternHistory = []; this.powers.clear();
     this.route=this._routeProfile(0);this.routeTraffic=getTrafficPhase(0);this._branch=null;this._branchEntries=new Set();this._crossWave=-1;this._crossReleased=false;this._routeComplete=false;this._routeWaiting=false;
     for (const entity of this.entities) entity.active = false;
@@ -197,8 +208,8 @@ export class RunnerGame {
       return true;
     }
     if (action === 'jump') {
-      // Early slide deliberately rejects jump; held/repeated input cannot bypass that gate.
-      if (p.slide > MOTION.slideDuration / 2) return false;
+      // A ground roll can turn into a jump immediately. An airborne roll still
+      // obeys the normal coyote/buffer rule; it never grants a second jump.
       p.jumpBuffer = MOTION.jumpBuffer;
       if ((p.grounded || p.coyote > 0) && p.vy <= 0) this._jump();
       return true;
@@ -207,13 +218,19 @@ export class RunnerGame {
       if (p.slide > 0) return false;
       p.slide = MOTION.slideDuration; p.jumpBuffer = 0;
       if (!p.grounded) p.vy = Math.min(p.vy, -15);
-      p.anim = 'slide'; this.emit('slide'); return true;
+      if (this.powers.has('moped')) { p.mopedMount = 0; p.mopedSlideSide = this._random() < .5 ? -1 : 1; }
+      p.anim = 'roll'; this.emit('slide'); return true;
     }
     return false;
   }
   _jump() {
     const p = this.player;
-    p.vy = JUMP_VELOCITY; p.grounded = false; p.coyote = 0; p.slide = 0; p.jumpBuffer = 0;
+    const moon = this.powers.has('moon');
+    p.jumpApex = moon ? MOTION.moonJumpHeight : MOTION.jumpHeight;
+    p.jumpGravity = moon ? MOON_GRAVITY : GRAVITY;
+    p.vy = moon ? MOON_JUMP_VELOCITY : JUMP_VELOCITY;
+    p.grounded = false; p.coyote = 0; p.slide = 0; p.jumpBuffer = 0; p.roofEntityId = null;
+    if (this.powers.has('moped')) p.mopedMount = 0;
     p.anim = 'jump'; this.emit('jump');
   }
   activatePower(type) { return this.powers.activate(type); }
@@ -233,7 +250,7 @@ export class RunnerGame {
     Object.assign(entity, { active: true, type, lane, x: LANES[lane], y: isHazard ? 0 : 1.0, z,
       previousZ: z, approachFactor, width: dimensions?.width || .75,
       depth: dimensions?.depth || .72, height: dimensions?.height || 1.02, stopped: false, blocked: false, actualApproach: approachFactor,
-      variant: 0, hit: false, passed: false, magnetic: false, age: 0, rowId: -1,
+      variant: 0, hit: false, passed: false, magnetic: false, magnetLatched: false, flightTrail: false, flightTrailId: 0, trailIndex: -1, trailFinal: false, age: 0, rowId: -1,
       routeBranch:null,finale:false,anchor:null,yaw:null,crossSpeed:0,vehicleKind:null,
       safeLane: -1, fromLane: lane, toLane: lane, spawnDistance: this.distance - z, ...extra });
     return entity;
@@ -302,9 +319,11 @@ export class RunnerGame {
         this.spawnEntity('coin', jumpLane, z + this.speed * offset, { rowId, y: .7 + MOTION.jumpHeight * (1 - (2 * offset / MOTION.jumpDuration) ** 2), jumpArc: true });
       }
     }
-    if (rowId > 0 && rowId % 8 === 3) {
-      const kinds=['moped','magnet','shield','doublechips','jetpack','moon'];
-      const kind = kinds[Math.floor(rowId / 8) % kinds.length];
+    // A visible power choice roughly every five encounter rows keeps short runs
+    // varied without stacking a new pickup on every obstacle.
+    if (rowId > 0 && rowId % 5 === 2) {
+      const kinds=['moped','magnet','shield','doublechips','jetpack','moon','speedburst'];
+      const kind = kinds[Math.floor(rowId / 5) % kinds.length];
       this.spawnEntity(kind, pattern.safeLane, z + 8, { rowId, y: 1.2 });
     }
     const spacing = obstacleSpacing(this.speed, this.tier)*(spawnDistance>ROUTE.start?1.5-this._routeProfile(spawnDistance).trafficIntensity*.55:1);
@@ -315,6 +334,46 @@ export class RunnerGame {
   _fillAhead() {
     const ahead = Math.max(160, this.speed * 6);
     while (this._spawnCursor < this.distance + ahead) this._spawnCursor += this._spawnPattern(this._spawnCursor);
+  }
+  _projectSpeed() {
+    const base = this.debug.speedOverride != null ? clamp(Number(this.debug.speedOverride) || 10.4, 2, 120) : Math.min(26, 10.4 + this.time * .12);
+    const multiplier = this.powers.speedMultiplier;
+    let speed = base * multiplier * (this._slowRemaining > 0 ? .7 : 1);
+    if (this.distance >= ROUTE.start && this.debug.speedOverride == null) speed = Math.min(speed, this._routeProfile(this.distance).speedLimit * multiplier);
+    return speed;
+  }
+  _clearFlightTrail() {
+    for (const e of this.entities) if (e.active && e.flightTrail && e.flightTrailId === this._jetpackTrailId) e.active = false;
+    this._jetpackFinalChip = null;
+  }
+  _createFlightTrail() {
+    this._clearFlightTrail();
+    const flight = this.powers.active.get('jetpack');
+    if (!flight) return;
+    const trailId = ++this._jetpackTrailId;
+    // The whole line exists at pickup. Integrate the current speed plus its
+    // gentle normal-run acceleration to make its far end roughly ten seconds
+    // away; cap the count to preserve the fixed entity pool in endless runs.
+    const speed = Math.max(this._projectSpeed(), 2);
+    const acceleration = this.debug.speedOverride == null && this._slowRemaining <= 0 && speed < 26 * this.powers.speedMultiplier ? .12 * this.powers.speedMultiplier : 0;
+    const routeLength = speed * flight.duration + .5 * acceleration * flight.duration ** 2;
+    const firstDistance = Math.max(3.5, speed * .3);
+    const available = Math.max(0, this.entities.reduce((count, e) => count + !e.active, 0) - 20);
+    const count = Math.min(100, available, Math.max(2, Math.ceil((routeLength - firstDistance) / 3) + 1));
+    if (count < 2) return;
+    const spacing = (routeLength - firstDistance) / (count - 1);
+    for (let i = 0; i < count; i++) {
+      const distance = firstDistance + i * spacing;
+      const arrival = acceleration > 0 ? (Math.sqrt(speed * speed + 2 * acceleration * distance) - speed) / acceleration : distance / speed;
+      const blend = clamp(Math.min(arrival / 1.2, (flight.duration - arrival) / 1.3), 0, 1);
+      const eased = blend * blend * (3 - 2 * blend);
+      const coin = this.spawnEntity('coin', this.player.lane, -distance, {
+        y: .85 + 9 * eased, flightTrail: true, flightTrailId: trailId,
+        trailIndex: i, trailFinal: i === count - 1,
+      });
+      if (!coin) break;
+      if (coin.trailFinal) this._jetpackFinalChip = coin;
+    }
   }
   update(dt) {
     if (!Number.isFinite(dt) || dt <= 0 || this.state === 'ARCADE' || this.state === 'PAUSED' || this.state === 'MAIN_MENU' || (this.state === 'GAME_OVER' && !this.captureRemaining)) return;
@@ -343,29 +402,40 @@ export class RunnerGame {
     this._hitAge += dt; this._slowRemaining = Math.max(0, this._slowRemaining - dt);
     this.shieldGrace = Math.max(0, this.shieldGrace - dt);
     p.hit = Math.max(0, p.hit - dt);
+    p.mopedMount = Math.max(0, p.mopedMount - dt);
     p.laneElapsed = Math.min(MOTION.laneDuration, p.laneElapsed + dt);
     const ease = 1 - (1 - p.laneElapsed / MOTION.laneDuration) ** 3;
     p.x = mix(p.laneFrom, LANES[p.lane], ease);
     p.slide = Math.max(0, p.slide - dt);
+    if (!p.slide) p.mopedSlideSide = 0;
     p.jumpBuffer = Math.max(0, p.jumpBuffer - dt);
     this.powers.update(dt);
+    const roof = p.roofEntityId == null ? null : this.entities[p.roofEntityId];
+    const roofSupported = !!roof?.active && !this.powers.has('jetpack') &&
+      Math.abs(p.x - roof.x) < roof.width / 2 + .3 &&
+      roof.z >= -roof.depth / 2 - .25 && roof.z <= roof.depth / 2 + .25;
+    if (!roofSupported && p.roofEntityId != null) {
+      p.roofEntityId = null; p.grounded = false; p.coyote = MOTION.coyoteTime;
+    }
     if(this.powers.has('jetpack')){
-      const flight=this.powers.active.get('jetpack'),blend=Math.min(1,flight.elapsed/1.2,flight.remaining/1.3);
+      const flight=this.powers.active.get('jetpack'),landingTime=flight.remaining || (this._jetpackFinalChip?.active ? 1.3 : 0);
+      const blend=Math.min(1,flight.elapsed/1.2,landingTime/1.3);
       const target=9*blend*blend*(3-2*blend);
       p.y+=(target-p.y)*(1-Math.exp(-dt*12));p.vy=0;p.grounded=false;
+    }else if (roofSupported) {
+      p.y = roof.height; p.vy = 0; p.grounded = true; p.coyote = MOTION.coyoteTime;
     }else{
       if (!p.grounded || p.y > 0) {
-        p.y += p.vy * dt - GRAVITY * dt * dt / 2;
-        p.vy -= GRAVITY * dt;
+        if (p.y > 0) p.grounded = false;
+        p.y += p.vy * dt - p.jumpGravity * dt * dt / 2;
+        p.vy -= p.jumpGravity * dt;
         p.coyote = Math.max(0, p.coyote - dt);
-        if (p.y <= 0) { p.y = 0; p.vy = 0; p.grounded = true; p.coyote = MOTION.coyoteTime; this.emit('land', {x:p.x}); }
+        if (p.y <= 0) { p.y = 0; p.vy = 0; p.jumpApex = MOTION.jumpHeight; p.jumpGravity = GRAVITY; p.grounded = true; p.coyote = MOTION.coyoteTime; this.emit('land', {x:p.x}); }
       } else p.coyote = MOTION.coyoteTime;
-      if (p.grounded && p.jumpBuffer > 0 && p.slide <= MOTION.slideDuration / 2) this._jump();
+      if (p.grounded && p.jumpBuffer > 0) this._jump();
     }
-    p.anim = p.hit > .65 ? 'hit' : p.slide > 0 ? 'slide' : p.y > .01 ? p.vy >= 0 ? 'jump' : 'fall' : 'run';
-    const baseSpeed = this.debug.speedOverride != null ? clamp(Number(this.debug.speedOverride) || 10.4, 2, 120) : Math.min(26, 10.4 + this.time * .12);
-    this.speed = baseSpeed * this.powers.speedMultiplier * (this._slowRemaining > 0 ? .7 : 1);
-    if(this.distance>=ROUTE.start&&this.debug.speedOverride==null)this.speed=Math.min(this.speed,this._routeProfile(this.distance).speedLimit*this.powers.speedMultiplier);
+    p.anim = p.hit > .65 ? 'hit' : p.slide > 0 ? 'roll' : p.y > .01 ? p.vy >= 0 ? 'jump' : 'fall' : 'run';
+    this.speed = this._projectSpeed();
     const phase=getTrafficPhase(this.time),beforeDistance=this.distance;
     this._routeWaiting=false;
     const movement=this.speed*dt;
@@ -402,8 +472,9 @@ export class RunnerGame {
       e.previousZ = e.z;
       const oldX = e.x;
       if(!e.stopped){if(e.type==='crossTraffic'){e.z=this.distance-e.anchor;e.x+=e.crossSpeed*dt;}else e.z=HAZARDS.has(e.type)?e.nextZ:e.z+movement*e.approachFactor;}
-      const pullRadius=this.powers.has('jetpack')?12:this.powers.magnetRadius;
-      if (COLLECTIBLES.has(e.type) && pullRadius > 0 && e.z > -pullRadius && e.z < 1) {
+      const pullRadius=this.powers.has('jetpack')?(e.flightTrail?5:12):this.powers.magnetRadius;
+      if (COLLECTIBLES.has(e.type) && (e.magnetLatched || (pullRadius > 0 && e.z > -pullRadius && e.z < 1))) {
+        if (this.powers.magnetRadius > 0 && e.z > -this.powers.magnetRadius && e.z < 1) e.magnetLatched = true;
         e.magnetic = true;
         e.x += (p.x - e.x) * Math.min(1, dt * 13);
         e.y += (p.y + .8 - e.y) * Math.min(1, dt * 13);
@@ -422,13 +493,25 @@ export class RunnerGame {
         const ep=e.routeBranch?branchOffset(e.routeBranch,this.distance-e.z):{x:e.finale?this._routeProfile(this.distance-e.z).offsetX:0};
         const entityX = mix(oldX, e.x, crossing)*(e.routeBranch===this.route.branch&&e.routeBranch?lateralScale:1)+(ep.x||0);
         const sameFloor=(!e.routeBranch||e.routeBranch===this.route.branch)&&!(e.type==='crossTraffic'&&this.route.branch==='corner-shop');
-        const xOverlap = sameFloor&&Math.abs(playerX - entityX) < (hazard ? e.width / 2*(e.routeBranch?lateralScale:1) + .3 : .72);
+        const xOverlap = (sameFloor || e.magnetLatched) &&
+          (e.magnetic || Math.abs(playerX - entityX) < (hazard ? e.width / 2*(e.routeBranch?lateralScale:1) + .3 : .72));
         if (xOverlap) {
           if (hazard) {
+            const vehicle = !!VEHICLES[e.type] || e.type === 'crossTraffic';
+            const landsOnRoof = vehicle && !p.grounded && p.vy <= 0 &&
+              previousY >= e.height - .05 && playerY <= e.height + .18 &&
+              p.roofEntityId == null;
+            if (landsOnRoof) {
+              p.y = e.height; p.vy = 0; p.grounded = true; p.coyote = MOTION.coyoteTime;
+              p.roofEntityId = e.id; e.hit = true;
+              this.emit('roofland', { kind: e.type, x: p.x });
+              continue;
+            }
             const collides = (e.type === 'slide'||e.type === 'blocker') ? playerY < e.height && (p.slide <= 0 || playerY > .2) : playerY < e.height;
             if (collides) {
-              const sideImpact = !!VEHICLES[e.type] && (Math.abs(playerX - entityX) > e.width * .39 || (e.previousZ > -halfDepth + .12 && Math.abs(p.x - previousX) > .001));
-              const edgeNick = !!VEHICLES[e.type] && e.height <= MOTION.jumpHeight && !p.grounded && p.vy > 0 && playerY >= e.height-.32;
+              const sideImpact = vehicle && (Math.abs(playerX - entityX) > e.width * .39 ||
+                (e.previousZ > -halfDepth + .12 && (Math.abs(p.x - previousX) > .001 || Math.abs(e.x - oldX) > .001)));
+              const edgeNick = vehicle && e.height <= MOTION.jumpHeight && !p.grounded && p.vy > 0 && playerY >= e.height-.32;
               this._hit(e, edgeNick ? 'edge' : sideImpact ? 'side' : 'front');
             }
           } else if (Math.abs(playerY + .85 - e.y) < .95 || e.magnetic) this._pickup(e);
@@ -454,6 +537,7 @@ export class RunnerGame {
     if (kind === 'coin') { const count=this.powers.has('doublechips')?2:1;this.coins+=count; this.score += 10 * count * this.powers.scoreMultiplier; }
     else this.powers.activate(kind);
     this.emit('pickup', { kind, id: entity.id, x: entity.x, y: entity.y, chips: this.chips, coins: this.coins });
+    if (kind === 'coin' && entity.flightTrail && entity.trailFinal && entity.flightTrailId === this._jetpackTrailId) this.powers.remove('jetpack', 'trail-complete');
   }
   _hit(entity, impact = 'front') {
     entity.hit = true;

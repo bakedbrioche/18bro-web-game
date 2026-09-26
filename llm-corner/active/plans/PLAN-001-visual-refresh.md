@@ -104,6 +104,12 @@ Acceptance:
 - Kept Moon Boots and Jetpack camera pitch constant by lifting the camera position and look target together.
 - Smoothed the BUSTED letter wave so adjacent glyphs flow together and spun the model-rendered result chip with reduced-motion fallbacks.
 
+### Phase K — smooth result motion — complete
+
+- Replaced the CSS-flipped still chip with a Blender-rendered 36-frame, 30 fps transparent APNG turntable and retained the still for Reduced Motion and decode fallback.
+- Accelerated the BUSTED traversal from roughly 1.60 seconds to 0.84 seconds, added closer letter overlap and kept the motion on compositor transforms.
+- Extended deterministic asset validation and standalone embedding coverage for the animated PNG.
+
 ## 3. Model and animation contract
 
 - The simulation owns position, facing, collision, capture logic, and root motion. Imported animation clips are in-place visual motion.

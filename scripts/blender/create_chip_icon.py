@@ -1,6 +1,6 @@
-"""Build and render the result-screen chip icon from reproducible 3D geometry.
+"""Build the static and animated result-screen chip renders from 3D geometry.
 
-Run with Blender 5.2:
+Run with Blender 5.2 (FFmpeg must be on PATH):
   blender --background --factory-startup --disable-autoexec --python-exit-code 1 \
           --python scripts/blender/create_chip_icon.py
 """
@@ -8,6 +8,8 @@ from pathlib import Path
 import hashlib
 import json
 import math
+import shutil
+import subprocess
 
 import bpy
 from mathutils import Vector
@@ -17,7 +19,10 @@ ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / 'art/ui/chip-icon.blend'
 MANIFEST = ROOT / 'art/ui/chip-icon.manifest.json'
 OUTPUT = ROOT / 'dist/assets/icons/chip.png'
+ANIMATION = ROOT / 'dist/assets/icons/chip-turntable.png'
 REVIEW = ROOT / 'release/ui-review/chip-icon.png'
+ANIMATION_REVIEW = ROOT / 'release/ui-review/chip-turntable.png'
+FRAME_DIR = ROOT / 'release/ui-review/chip-turntable-frames'
 for directory in (SOURCE.parent, OUTPUT.parent, REVIEW.parent):
     directory.mkdir(parents=True, exist_ok=True)
 
@@ -41,12 +46,15 @@ def material(name, color, roughness=.58, metallic=.02):
 
 gold = material('chip_gold', (0.78, .49, .10), .67)
 highlight = material('chip_ridge', (1.0, .75, .24), .48)
+turntable = bpy.data.objects.new('chip_turntable', None)
+scene.collection.objects.link(turntable)
 
 # The gameplay chip is a thin saddle-shaped potato slice. A deformed UV sphere
-# gives the icon real thickness and a continuous rounded rim without a texture.
+# gives the render real thickness and a continuous rounded rim without a texture.
 bpy.ops.mesh.primitive_uv_sphere_add(segments=32, ring_count=16, location=(0, 0, 0))
 chip = bpy.context.object
 chip.name = 'ui_chip_token'
+chip.parent = turntable
 for vertex in chip.data.vertices:
     x, depth, z = vertex.co
     vertex.co = (x * .62,
@@ -56,10 +64,10 @@ chip.data.materials.append(gold)
 for polygon in chip.data.polygons:
     polygon.use_smooth = True
 chip['provenance'] = 'Original procedural 3D chip for the 18Bro community game'
-chip['render_use'] = 'game-over chips-banked icon'
+chip['render_use'] = 'game-over chips-banked static and APNG turntable'
 
-# Seven raised baked ridges follow the same saddle surface as the chip. Curves
-# are geometry, so the result remains legible at 20-28 CSS pixels.
+# Seven raised ridges follow the same saddle surface as the chip. Curves are
+# geometry, so the result remains legible at its 20-28 CSS-pixel display size.
 for index, z in enumerate([-.49, -.33, -.165, 0, .165, .33, .49]):
     width = .52 * math.sqrt(max(.08, 1 - (z / .82) ** 2))
     curve_data = bpy.data.curves.new('chip_ridge_curve', 'CURVE')
@@ -77,6 +85,7 @@ for index, z in enumerate([-.49, -.33, -.165, 0, .165, .33, .49]):
         point.co = (x, depth, z, 1)
     ridge = bpy.data.objects.new('chip_ridge', curve_data)
     scene.collection.objects.link(ridge)
+    ridge.parent = turntable
     curve_data.materials.append(highlight)
 
 # Transparent three-light product studio, shared visually with the booster icons.
@@ -122,17 +131,46 @@ camera_data.ortho_scale = 2.05
 camera.location = (2.45, -5.8, 2.65)
 aim(camera)
 
+# Keep a high-resolution still for Reduced Motion and failure fallback.
+turntable.rotation_euler.z = 0
 scene.render.filepath = str(OUTPUT)
 bpy.ops.render.render(write_still=True)
 bpy.ops.wm.save_as_mainfile(filepath=str(SOURCE))
 REVIEW.write_bytes(OUTPUT.read_bytes())
 
+# Render a complete real-geometry turn at 30 fps. APNG retains full alpha and
+# product-lighting detail at a much smaller footprint than a palette GIF.
+frames = 36
+fps = 30
+if FRAME_DIR.exists():
+    shutil.rmtree(FRAME_DIR)
+FRAME_DIR.mkdir(parents=True)
+scene.render.resolution_x = 128
+scene.render.resolution_y = 128
+for frame in range(frames):
+    turntable.rotation_euler.z = math.tau * frame / frames
+    scene.render.filepath = str(FRAME_DIR / f'chip-{frame:03d}.png')
+    bpy.ops.render.render(write_still=True)
+turntable.rotation_euler.z = 0
+
+ffmpeg = shutil.which('ffmpeg')
+if not ffmpeg:
+    raise RuntimeError('FFmpeg is required on PATH to encode chip-turntable.png')
+subprocess.run([
+    ffmpeg, '-y', '-loglevel', 'error', '-framerate', str(fps),
+    '-start_number', '0', '-i', str(FRAME_DIR / 'chip-%03d.png'),
+    '-frames:v', str(frames), '-plays', '0', '-f', 'apng', str(ANIMATION),
+], check=True)
+ANIMATION_REVIEW.write_bytes(ANIMATION.read_bytes())
+
 png = OUTPUT.read_bytes()
+animated = ANIMATION.read_bytes()
 assert png[:8] == b'\x89PNG\r\n\x1a\n'
+assert animated[:8] == b'\x89PNG\r\n\x1a\n'
 manifest = {
-    'schemaVersion': 1,
+    'schemaVersion': 2,
     'assetId': 'ui-chip-icon',
-    'revision': 1,
+    'revision': 2,
     'blenderVersion': bpy.app.version_string,
     'source': 'art/ui/chip-icon.blend',
     'output': 'dist/assets/icons/chip.png',
@@ -140,6 +178,17 @@ manifest = {
     'height': 256,
     'bytes': len(png),
     'sha256': hashlib.sha256(png).hexdigest(),
+    'animation': {
+        'format': 'APNG',
+        'output': 'dist/assets/icons/chip-turntable.png',
+        'width': 128,
+        'height': 128,
+        'frames': frames,
+        'fps': fps,
+        'loops': 0,
+        'bytes': len(animated),
+        'sha256': hashlib.sha256(animated).hexdigest(),
+    },
     'geometry': 'one deformed rounded chip shell plus seven raised curve ridges',
     'provenance': 'Original geometry and render authored in repository Python with Blender; no external art.',
 }

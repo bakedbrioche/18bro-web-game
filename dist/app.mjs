@@ -12,7 +12,7 @@ const skinDefs=[{id:'18bro',name:'18BRO',price:0,color:'#85cd59'},{id:'business'
 const powerNames={magnet:'CHIP MAGNET',moon:'MOON BOOTS',speedburst:'SPEED BURST',moped:'CHIP SCOOTER',shield:'THREE-PAW GUARD',doublechips:'DOUBLE CHIPS',jetpack:'JETPACK'};
 const powerGlyphs={magnet:'∩',moon:'↟',speedburst:'»',moped:'➤',shield:'◇',doublechips:'2×',jetpack:'↑'};
 const powerIcons=Object.freeze(globalThis.__18BRO_POWER_ICONS__||Object.fromEntries(Object.keys(powerNames).map(type=>[type,`assets/icons/powerup-${type}.png`])));
-const uiImages=Object.freeze(globalThis.__18BRO_UI_IMAGES__||{chip:'assets/icons/chip.png'});
+const uiImages=Object.freeze(globalThis.__18BRO_UI_IMAGES__||{chip:'assets/icons/chip.png','chip-turntable':'assets/icons/chip-turntable.png'});
 const RESULT_WAVE_ENABLED=true;
 const RESULT_COUNT_MS=3000;
 const RESULT_ROW_START_MS=900;
@@ -92,7 +92,8 @@ function updateResultSequence(now){
 }
 function beginResultSequence(bank){
  const panel=$('gameover-panel'),chipIcon=$('result-chip-icon'),reduced=prefersReducedMotion(),start=performance.now();
- chipIcon.src=uiImages.chip;chipIcon.onerror=()=>{chipIcon.hidden=true;};chipIcon.onload=()=>{chipIcon.hidden=false;};
+ const animatedChip=uiImages['chip-turntable']||uiImages.chip;let triedStatic=reduced||animatedChip===uiImages.chip;
+ chipIcon.onerror=()=>{if(!triedStatic){triedStatic=true;chipIcon.src=uiImages.chip;return;}chipIcon.hidden=true;};chipIcon.onload=()=>{chipIcon.hidden=false;};chipIcon.src=reduced?uiImages.chip:animatedChip;
  const fields=[
   {node:$('result-score'),target:Math.floor(game.score),delay:RESULT_ROW_START_MS},
   {node:$('result-best'),target:save.highScore,delay:RESULT_ROW_START_MS+RESULT_ROW_STEP_MS},

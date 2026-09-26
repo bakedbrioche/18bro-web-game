@@ -35,6 +35,7 @@ test('coin arcs fit the real jump and all five can be collected while clearing a
   const g=emptyGame();g._makePattern=()=>({slots:[null,'jump',null],safeLane:0});g._spawnPattern(4.1);
   const arc=g.entities.filter(e=>e.active&&e.jumpArc);assert.equal(arc.length,5);
   assert.equal(Math.max(...arc.map(e=>e.y)),MOTION.jumpHeight+.7);
+  g.entities.filter(e=>e.active&&e.ordinaryCoin).forEach(e=>e.active=false);
   g.input('jump');tick(g,.85);assert.equal(g.mistakes,0);assert.equal(g.coins,5);
   assert.ok(BARRIERS.jump.height>1.5&&BARRIERS.jump.height<MOTION.jumpHeight);
 });

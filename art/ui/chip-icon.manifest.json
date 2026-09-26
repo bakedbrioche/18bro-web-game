@@ -1,14 +1,25 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "assetId": "ui-chip-icon",
-  "revision": 1,
+  "revision": 2,
   "blenderVersion": "5.2.2 LTS",
   "source": "art/ui/chip-icon.blend",
   "output": "dist/assets/icons/chip.png",
   "width": 256,
   "height": 256,
   "bytes": 50044,
-  "sha256": "ce060a29c0090682a60075203d49467678cae596399e40573608bb50133ef2bb",
+  "sha256": "7e73ba9e85a5f75f82789c0281554d35337bc1704b6efc390b25c260d5a124dd",
+  "animation": {
+    "format": "APNG",
+    "output": "dist/assets/icons/chip-turntable.png",
+    "width": 128,
+    "height": 128,
+    "frames": 36,
+    "fps": 30,
+    "loops": 0,
+    "bytes": 300480,
+    "sha256": "08606f945d5fdac4dccff4909c62b0702b25fb36d3013122ef33230bff63597a"
+  },
   "geometry": "one deformed rounded chip shell plus seven raised curve ridges",
   "provenance": "Original geometry and render authored in repository Python with Blender; no external art."
 }

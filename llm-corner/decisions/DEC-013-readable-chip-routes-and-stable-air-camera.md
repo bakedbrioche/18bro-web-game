@@ -18,3 +18,5 @@ Ordinary street rewards repeatedly appeared as four chips in one lane, so broad 
 ## Consequences
 
 Routes remain reproducible and safe while looking less predictable. The extra held-animation actions are created once per loaded hero and released with its mixer. Shield shards add a small bounded geometry/material cost per hero. Visual changes require real-browser review in addition to deterministic tests.
+
+Amendment: DEC-014 replaces the result-motion details with a faster compositor wave and a real multi-frame 3D chip render.

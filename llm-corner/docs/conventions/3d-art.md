@@ -1,5 +1,7 @@
 # 3D art conventions
 
+Temporary GPT Image inputs and concept sheets belong in the ignored dated workspace described by `generative-reference-workbench.md`; only reviewed Blender/code implementations and their provenance enter tracked assets.
+
 - Author in Blender metric units with one unit equal to one game unit.
 - Use Z-up in Blender, face `-Y`, place feet at the origin and export glTF Y-up. Runtime forward is `+Z` before scene yaw.
 - Keep mesh and armature root transforms at identity.
@@ -14,3 +16,4 @@
 - Initial human budget: 1,000–2,000 triangles, at most 24 bones, at most three materials and a 256–512 atlas.
 - Export self-contained ordinary GLB. Do not add external URIs, Draco, Meshopt or KTX2 without a recorded delivery decision.
 - Run `scripts/validate-assets.mjs --manifest art/manifest.json`, inspect all review views, exercise the asset in the actual game and run `npm run verify` before accepting a regenerated model.
+- UI snapshots derived from 3D assets need a reproducible Blender generator, tracked .blend source and hash manifest. scripts/blender/create_chip_icon.py is the reference implementation; standalone UI consumers read its embedded __18BRO_UI_IMAGES__ value.

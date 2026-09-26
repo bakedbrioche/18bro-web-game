@@ -1,9 +1,9 @@
 export const MODEL_MANIFEST=Object.freeze([
  Object.freeze({
-  assetId:'18bro-v1',category:'character',rigVersion:4,
+  assetId:'18bro-v1',category:'character',rigVersion:5,
   source:'art/characters/18bro/18bro.blend',output:'dist/assets/models/18bro-v1.glb',
-  sha256:'6cfe638385e4365ceb98886ab4357a308fce834e287d6d3ce6dea36e60076ce7',
-  blenderVersion:'5.2.2 LTS',exportPreset:'18bro-blender-5.2-v4',bytes:868816,
+  sha256:'d3068a6adbad2b23afecf3b194fd948ce25d027878db5e19e392e31b37244f07',
+  blenderVersion:'5.2.2 LTS',exportPreset:'18bro-blender-5.2-v5',bytes:878992,
   bounds:Object.freeze({min:Object.freeze([-.9662122130393982,.003000006079673767,-.4952065646648407]),max:Object.freeze([.7856764793395996,2.7360000610351562,.6499999761581421])}),
   boundsBlenderZUp:Object.freeze({min:Object.freeze([-.9662122130393982,-.6499999761581421,.003000006079673767]),max:Object.freeze([.7856764793395996,.4952065646648407,2.7360000610351562])}),
   triangles:3972,materials:3,bones:20,
@@ -26,9 +26,9 @@ export const MODEL_MANIFEST=Object.freeze([
  Object.freeze({
  assetId:'powerups-v1',category:'props',rigVersion:0,
   source:'art/powerups/powerups.blend',output:'dist/assets/models/powerups-v1.glb',
-  sha256:'4d70447876492bdb09b23923337bf9b94ac8a41caa64a9880e702145ba1372ce',
-  blenderVersion:'5.2.2 LTS',exportPreset:'18bro-blender-5.2-powerups-v2',bytes:633768,
-  triangles:12323,materials:1,bones:0,clips:Object.freeze([]),sockets:Object.freeze([]),
+  sha256:'90543b21c1dcfb4f22a2b89ac18f14dd7ea2b27fdb8528fea3e76653ec5d3560',
+  blenderVersion:'5.2.2 LTS',exportPreset:'18bro-blender-5.2-powerups-v3',bytes:643248,
+  triangles:12703,materials:1,bones:0,clips:Object.freeze([]),sockets:Object.freeze([]),
   roots:Object.freeze(['powerup_magnet','powerup_moon','powerup_moped','powerup_shield','powerup_doublechips','powerup_jetpack','powerup_speedburst']),
   wearables:Object.freeze(['wearable_magnet','wearable_moon_L','wearable_moon_R']),
   provenance:'Original geometry authored in repository Python with Blender. No external media, fonts or source artwork.'

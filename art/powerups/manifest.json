@@ -1,12 +1,12 @@
 {
   "schemaVersion": 2,
   "assetId": "powerups-v1",
-  "revision": 2,
+  "revision": 3,
   "blenderVersion": "5.2.2 LTS",
   "source": "art/powerups/powerups.blend",
   "output": "dist/assets/models/powerups-v1.glb",
-  "sha256": "4d70447876492bdb09b23923337bf9b94ac8a41caa64a9880e702145ba1372ce",
-  "bytes": 633768,
+  "sha256": "90543b21c1dcfb4f22a2b89ac18f14dd7ea2b27fdb8528fea3e76653ec5d3560",
+  "bytes": 643248,
   "materials": 1,
   "materialNames": [
     "powerup_palette"
@@ -37,7 +37,7 @@
         "width": 256,
         "height": 256,
         "bytes": 44285,
-        "sha256": "9cacfc91dcd96ba8508cc50a7057d1366641e11873747300ddec9cca5c5b50a4",
+        "sha256": "817266c6dc20dc81d9e95a127c6e12e1b086b42d3526b0812a529d3f3e771980",
         "alphaBoundsBottomOrigin": [
           41,
           64,
@@ -78,7 +78,7 @@
         "width": 256,
         "height": 256,
         "bytes": 61277,
-        "sha256": "eb762eb2623980634c6e15cd26ccfc58beb2802d1b0145805a8fd45c781cf82e",
+        "sha256": "7e4111bef7389947af42fbd48e143b4944f1739298ba370c751d398a2e628f5c",
         "alphaBoundsBottomOrigin": [
           40,
           26,
@@ -119,7 +119,7 @@
         "width": 256,
         "height": 256,
         "bytes": 49536,
-        "sha256": "62417f28b7dd09fbc10f1e03f0ed6f7e353f198052314c17c85fa42c8e636e51",
+        "sha256": "06379c48a4227b056b96ff50fa2363c751601d487fd9c64dde56b3444a974113",
         "alphaBoundsBottomOrigin": [
           52,
           27,
@@ -141,8 +141,8 @@
     "shield": {
       "root": "powerup_shield",
       "mesh": "mesh_shield",
-      "triangles": 808,
-      "vertices": 426,
+      "triangles": 884,
+      "vertices": 466,
       "bounds": {
         "min": [
           -0.6048000454902649,
@@ -159,8 +159,8 @@
         "path": "dist/assets/icons/powerup-shield.png",
         "width": 256,
         "height": 256,
-        "bytes": 60710,
-        "sha256": "f0469139347b8bba0b8a3bb787014b5556e8dbbaabd790d5861bf3c0b1414ae6",
+        "bytes": 61349,
+        "sha256": "e47c840c1d08128432a4be0cc8e67ab3b45bf39833bdf6551fee2dd0d3edc4a2",
         "alphaBoundsBottomOrigin": [
           57,
           42,
@@ -201,7 +201,7 @@
         "width": 256,
         "height": 256,
         "bytes": 59846,
-        "sha256": "3a6f95bdbf4307d19083cd759ef8bf6824a70c178dd71e3023c84604323c36ee",
+        "sha256": "cb7361b5f7aa8749c6962ed16756845e4d65e30e92340a795026b902330f9105",
         "alphaBoundsBottomOrigin": [
           62,
           26,
@@ -223,8 +223,8 @@
     "jetpack": {
       "root": "powerup_jetpack",
       "mesh": "mesh_jetpack",
-      "triangles": 1416,
-      "vertices": 754,
+      "triangles": 1492,
+      "vertices": 794,
       "bounds": {
         "min": [
           -0.699999988079071,
@@ -241,8 +241,8 @@
         "path": "dist/assets/icons/powerup-jetpack.png",
         "width": 256,
         "height": 256,
-        "bytes": 54019,
-        "sha256": "589df5a313c5482104d2d4ba448791aeb692015fc14665249a0e31c0ce1f50ff",
+        "bytes": 54094,
+        "sha256": "7d3487bfc6e23259f9ff576288d4ffb41293d2ed2360d6cc8c063be2362877dc",
         "alphaBoundsBottomOrigin": [
           45,
           40,
@@ -283,7 +283,7 @@
         "width": 256,
         "height": 256,
         "bytes": 46947,
-        "sha256": "e7634bbc76fd3a15d3f33de54a5cba0efade1bdd63a55f1c8ff8bb13e5ff0615",
+        "sha256": "c16f8e8f872f2f2bd2670006a5d4d1a096c389b47bc60b335a5bee5fbf35b914",
         "alphaBoundsBottomOrigin": [
           48,
           62,
@@ -307,8 +307,8 @@
     "magnet": {
       "root": "wearable_magnet",
       "mesh": "mesh_wearable_magnet",
-      "triangles": 1008,
-      "vertices": 530,
+      "triangles": 1084,
+      "vertices": 570,
       "bounds": {
         "min": [
           -0.26649999618530273,
@@ -329,23 +329,23 @@
       "attachTo": "socket_carry_L",
       "origin": "center of paw grip on lower bridge",
       "orientation": "neutral glTF Y-up, pole tips +Y, front +Z",
-        "recommendedScale": 1,
-        "restOffset": [
-          0,
-          0,
-          0
-        ],
-        "recommendedEulerXYZ": [
-          0,
-          0,
-          0.9
-        ]
+      "recommendedScale": 1,
+      "restOffset": [
+        0,
+        0,
+        0
+      ],
+      "recommendedEulerXYZ": [
+        0,
+        0,
+        0
+      ]
     },
     "moon_L": {
       "root": "wearable_moon_L",
       "mesh": "mesh_wearable_moon_L",
-      "triangles": 1094,
-      "vertices": 598,
+      "triangles": 1170,
+      "vertices": 638,
       "bounds": {
         "min": [
           -0.25164711475372314,
@@ -376,8 +376,8 @@
     "moon_R": {
       "root": "wearable_moon_R",
       "mesh": "mesh_wearable_moon_R",
-      "triangles": 1094,
-      "vertices": 598,
+      "triangles": 1170,
+      "vertices": 638,
       "bounds": {
         "min": [
           -0.19099999964237213,
@@ -406,7 +406,7 @@
       ]
     }
   },
-  "pickupTriangles": 9127,
-  "wearableTriangles": 3196,
-  "triangles": 12323
+  "pickupTriangles": 9279,
+  "wearableTriangles": 3424,
+  "triangles": 12703
 }

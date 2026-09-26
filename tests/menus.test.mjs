@@ -15,16 +15,21 @@ function app(initialSave,{modelHook=true}={}){
  const classes=()=>{const values=new Set();return {add:(...names)=>names.forEach(name=>values.add(name)),remove:(...names)=>names.forEach(name=>values.delete(name)),contains:name=>values.has(name),toggle(name,force){const active=force===undefined?!values.has(name):!!force;if(active)values.add(name);else values.delete(name);return active;}}};
  const document={activeElement:null,body:{classList:classes(),dataset:{}},hidden:false,
   getElementById:id=>elements.get(id),querySelectorAll:()=>[],
-  addEventListener(){},createElement:()=>element('div')};
+  addEventListener(){},createElement:tag=>element(tag)};
  function element(tag,id=''){
-  return {id,tagName:tag.toUpperCase(),hidden:false,disabled:false,inert:false,open:false,
-   textContent:'',classList:classes(),style:{},dataset:{},clientWidth:640,clientHeight:600,
+  const attributes=new Map(),children=[];
+  const node={id,tagName:tag.toUpperCase(),hidden:false,disabled:false,inert:false,open:false,parentNode:null,children,
+   textContent:'',classList:classes(),style:{},dataset:{},clientWidth:640,clientHeight:600,srcWrites:0,
    set innerHTML(html){registerElements(html);},
-   addEventListener(){},setAttribute(){},append(){},querySelectorAll:()=>[],
+   addEventListener(){},setAttribute(name,value){attributes.set(name,String(value));},getAttribute(name){return attributes.get(name);},
+   append(...nodes){for(const child of nodes){child.parentNode=this;children.push(child);}},
+   remove(){if(!this.parentNode)return;const index=this.parentNode.children.indexOf(this);if(index>=0)this.parentNode.children.splice(index,1);this.parentNode=null;},
+   querySelectorAll:()=>[],
    focus(){document.activeElement=this;},close(){this.open=false;},showModal(){this.open=true;},
    click(){if(!this.disabled)this.onclick?.();}};
- }
- function registerElements(html){
+  let source='';Object.defineProperty(node,'src',{get:()=>source,set:value=>{source=value;node.srcWrites++;}});
+  return node;
+ } function registerElements(html){
   for(const match of html.matchAll(/<(\w+)[^>]*\bid="([^"]+)"[^>]*>/g)){
    const node=element(match[1],match[2]);node.hidden=/\bhidden\b/.test(match[0]);elements.set(node.id,node);
   }
@@ -47,7 +52,13 @@ function app(initialSave,{modelHook=true}={}){
   for(const fn of listeners.keydown||[])fn({code,repeat,preventDefault(){prevented=true;}});
   if(!prevented&&['Enter','Space'].includes(code)&&target?.tagName==='BUTTON')target.click();
  }
- return {game,scene,get:id=>elements.get(id),key,document,openPanel:name=>vm.runInContext(`openPanel(${JSON.stringify(name)})`,context),saved:()=>JSON.parse(saved.get('18bro.save.v1'))};
+ return {game,scene,get:id=>elements.get(id),key,document,
+  openPanel:name=>vm.runInContext(`openPanel(${JSON.stringify(name)})`,context),
+  updateHUD:()=>vm.runInContext('updateHUD()',context),
+  showPickup:type=>vm.runInContext(`showPowerPickup(${JSON.stringify(type)})`,context),
+  powerPill:type=>vm.runInContext(`powerPills.get(${JSON.stringify(type)})`,context),
+  finishResults:()=>vm.runInContext('updateResultSequence(999999)',context),
+  saved:()=>JSON.parse(saved.get('18bro.save.v1'))};
 }
 function caught(a){
  a.get('start-run').click();a.game.start({skipIntro:true});
@@ -59,6 +70,7 @@ test('visible arrest buttons respond immediately and a retry resets the run',()=
  const a=app();caught(a);
  assert.equal(a.game.state,'CAUGHT');assert.equal(a.get('gameover-panel').hidden,false);
  assert.equal(a.get('retry-run').disabled,false);assert.equal(a.get('over-menu').disabled,false);
+ assert.equal(a.get('result-score').textContent,'0');assert.equal(a.document.activeElement,a.get('gameover-card'));a.finishResults();
  assert.equal(a.get('result-score').textContent,'120');assert.equal(a.saved().runs,1);
  a.get('retry-run').click();
  assert.equal(a.game.state,'STARTING');assert.equal(a.game.captureRemaining,0);
@@ -71,7 +83,7 @@ test('arrest menu remains usable after pausing and banks a result only once',()=
  a.get('resume-run').click();assert.equal(a.game.state,'CAUGHT');
  for(let n=0;n<20;n++)a.game.update(1);
  assert.equal(a.game.state,'GAME_OVER');assert.equal(a.saved().runs,1);
- assert.equal(a.get('result-score').textContent,'120');
+ a.finishResults();assert.equal(a.get('result-score').textContent,'120');
  a.get('over-menu').click();assert.equal(a.game.state,'MAIN_MENU');
  assert.equal(a.get('main-menu').hidden,false);assert.equal(a.get('gameover-panel').hidden,true);
  assert.equal(a.saved().runs,1);
@@ -150,4 +162,50 @@ test('model requests wait for the main menu without altering a paused run',()=>{
  assert.equal(a.scene.modelRequests.length,1);
  a.game.pause();a.get('pause-menu').click();
  assert.deepEqual(a.scene.modelRequests,[{value:'original',state:'MAIN_MENU'},{value:'refreshed',state:'MAIN_MENU'}]);
+});
+
+test('Speed Burst uses a motion-aware screen-edge surge instead of a cat particle trail',()=>{
+ const html=fs.readFileSync(new URL('../dist/index.html',import.meta.url),'utf8');
+ const appSource=fs.readFileSync(new URL('../dist/app.mjs',import.meta.url),'utf8');
+ const css=fs.readFileSync(new URL('../dist/style.css',import.meta.url),'utf8');
+ const sceneSource=fs.readFileSync(new URL('../dist/scene.mjs',import.meta.url),'utf8');
+ assert.match(html,/class="speed-surge"/);
+ assert.match(appSource,/classList\.toggle\('speedburst',game\.state==='RUNNING'&&game\.powers\.has\('speedburst'\)\)/);
+ assert.match(css,/\.game-shell\.speedburst \.speed-surge/);
+ assert.match(css,/body\.reduced-motion \.game-shell\.speedburst \.speed-surge::before/);
+ assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
+ assert.doesNotMatch(sceneSource,/\(moon\|\|riding\|\|speedburst\).*this\.burst/);
+});
+test('power art keeps the same decoded image nodes through pause and resume',()=>{
+ const a=app();a.get('start-run').click();a.game.start({skipIntro:true});a.game.activatePower('magnet');a.updateHUD();
+ const first=a.powerPill('magnet');assert.ok(first);first.icon.onload?.();assert.equal(first.icon.src,'assets/icons/powerup-magnet.png');assert.equal(first.icon.srcWrites,1);
+ a.game.pause();a.updateHUD();a.game.resume();a.updateHUD();
+ const resumed=a.powerPill('magnet');assert.equal(resumed.card,first.card);assert.equal(resumed.icon,first.icon);assert.equal(resumed.icon.srcWrites,1);
+ a.showPickup('magnet');const pickup=a.get('power-pickup-icon');pickup.onload?.();const writes=pickup.srcWrites;
+ a.game.pause();a.showPickup('magnet');assert.equal(a.get('power-pickup-icon'),pickup);assert.equal(pickup.srcWrites,writes);
+ a.game.resume();a.game.activatePower('shield');a.updateHUD();const shield=a.powerPill('shield');assert.equal(shield.time.textContent,'10s · ×3');assert.match(shield.card.getAttribute('aria-label'),/3 shields remaining/);
+});
+
+test('Busted results count up in stages and reduced motion resolves immediately',()=>{
+ const animated=app();caught(animated);
+ assert.equal(animated.get('result-score').textContent,'0');assert.equal(animated.document.activeElement,animated.get('gameover-card'));
+ animated.key('Enter');assert.equal(animated.game.state,'CAUGHT');assert.equal(animated.get('result-score').textContent,'120');assert.equal(animated.document.activeElement,animated.get('retry-run'));
+ animated.finishResults();assert.equal(animated.get('result-score').textContent,'120');assert.equal(animated.get('result-distance').textContent,'0 m');assert.equal(animated.document.activeElement,animated.get('retry-run'));
+ const reduced=app({settings:{reducedMotion:true}});caught(reduced);
+ assert.equal(reduced.get('result-score').textContent,'120');assert.equal(reduced.document.activeElement,reduced.get('retry-run'));
+});
+
+test('Busted markup and styles keep the centered staged sequence configurable',()=>{
+ const html=fs.readFileSync(new URL('../dist/index.html',import.meta.url),'utf8');
+ const appSource=fs.readFileSync(new URL('../dist/app.mjs',import.meta.url),'utf8');
+ const css=fs.readFileSync(new URL('../dist/style.css',import.meta.url),'utf8');
+ assert.match(html,/id="gameover-card"[^>]+aria-labelledby="result-title"/);
+ assert.match(html,/id="result-chip-icon"[^>]+assets\/icons\/chip[.]png/);
+ assert.match(appSource,/globalThis[.]__18BRO_UI_IMAGES__[|][|]\{chip:'assets\/icons\/chip[.]png'\}/);
+ assert.match(appSource,/const RESULT_WAVE_ENABLED=true/);
+ assert.match(appSource,/const RESULT_COUNT_MS=3000/);assert.match(appSource,/THREE-PAW GUARD/);assert.match(appSource,/three hits for 10 seconds/);
+ assert.match(css,/[.]gameover\{justify-content:center/);
+ assert.match(css,/@keyframes result-stamp/);assert.match(css,/@keyframes busted-letter-wave/);
+ assert.match(css,/prefers-reduced-motion:reduce/);
+ assert.doesNotMatch(appSource,/[$]\('active-powers'\)[.]innerHTML/);
 });

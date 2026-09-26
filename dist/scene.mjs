@@ -3,7 +3,7 @@ import { clone as cloneSkeleton } from './vendor/addons/utils/SkeletonUtils.js';
 import { sidewalkPose, CROWD_COUNT } from './crowd.mjs?v=street-28';
 import { INTRO_DURATION, CAPTURE_DURATION, STORE, introPose, capturePose, smooth, slidePose } from './choreography.mjs?v=street-28';
 import { applyMaterialAssets } from './material-assets.mjs?v=street-28';
-import { BARRIERS } from './core.mjs?v=graphics2-1';
+import { BARRIERS } from './core.mjs?v=graphics2-2';
 import { ROUTE, BRANCHES, getRouteProfile, routeCenter, branchOffset } from './route.mjs?v=street-28';
 import { DistrictScene } from './district-scene.mjs?v=street-28';
 import { FURS } from './customization.mjs?v=street-28';
@@ -170,8 +170,12 @@ export class GameScene {
   const jetpack=this.makeJetpack();jetpack.position.set(0,0,0);jetpack.rotation.set(0,0,0);jetpack.scale.setScalar(.8/scale);backSocket.add(jetpack);const jetFlames=jetpack.getObjectByName('jet_flames');
   const shield=this.makeShield();shield.position.y=1.05;root.add(shield);
   asset.scene.updateMatrixWorld(true);
-  const cloneWearable=(name,parent,rotationZ=0)=>{const source=this.authoredPowerupTemplate?.wearables.get(name);if(!source)throw new Error(`Authored hero cannot attach ${name}`);const wearable=source.clone(true);wearable.name=`18bro_${name}`;wearable.position.set(0,0,0);wearable.scale.setScalar(1);const sceneQ=new THREE.Quaternion(),parentQ=new THREE.Quaternion();asset.scene.getWorldQuaternion(sceneQ);parent.getWorldQuaternion(parentQ);wearable.quaternion.copy(sceneQ.invert().multiply(parentQ).invert());if(rotationZ)wearable.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1),rotationZ));wearable.visible=false;parent.add(wearable);return wearable;};
-  const magnet=cloneWearable('wearable_magnet',leftHand,.9),moonBootL=cloneWearable('wearable_moon_L',leftFoot),moonBootR=cloneWearable('wearable_moon_R',rightFoot);
+  const cloneWearable=(name,parent)=>{const source=this.authoredPowerupTemplate?.wearables.get(name);if(!source)throw new Error(`Authored hero cannot attach ${name}`);const wearable=source.clone(true);wearable.name=`18bro_${name}`;wearable.position.set(0,0,0);wearable.scale.setScalar(1);const sceneQ=new THREE.Quaternion(),parentQ=new THREE.Quaternion();asset.scene.getWorldQuaternion(sceneQ);parent.getWorldQuaternion(parentQ);wearable.quaternion.copy(sceneQ.invert().multiply(parentQ).invert());wearable.visible=false;parent.add(wearable);return wearable;};
+  // The authored magnet's origin is the centre of its lower bridge. Keeping that
+  // origin at the carry socket makes the paw visibly grip the U instead of
+  // twisting the whole prop behind the wrist.
+  const magnet=cloneWearable('wearable_magnet',leftHand);magnet.userData.gripAtBottom=true;this.addMagnetWaves(magnet);
+  const moonBootL=cloneWearable('wearable_moon_L',leftFoot),moonBootR=cloneWearable('wearable_moon_R',rightFoot);
   return {root,asset,mixer,actions,hand,leftHand,leftFoot,rightFoot,hat,hatSocket,backSocket,hats,jetpack,jetFlames,shield,magnet,moonBoots:[moonBootL,moonBootR],hips,furMaterials,assetScale:scale,clip:null,packet:null,packetSource:null,look:null};
  }
  restoreOriginalHero(){
@@ -213,7 +217,7 @@ export class GameScene {
    hero.hand.add(hero.packet);hero.packet.position.set(0,0,0);hero.packet.rotation.set(0,0,-.12);hero.packet.scale.setScalar(1/hero.assetScale);hero.packetSource=this.cat.bag;
   }
   hero.packet.visible=this.cat.bag.visible;
-  hero.jetpack.visible=this.cat.jetpack.visible;if(hero.jetFlames){hero.jetFlames.visible=hero.jetpack.visible;hero.jetFlames.scale.copy(this.cat.jetpack.userData.flames.scale);hero.jetFlames.children.forEach((plume,index)=>plume.rotation.copy(this.cat.jetpack.userData.flames.children[index]?.rotation||new THREE.Euler()));}hero.shield.visible=this.cat.shield.visible;hero.magnet.visible=this.cat.magnet.visible;hero.moonBoots.forEach(boot=>boot.visible=this.cat.moonBoots.some(item=>item.visible));
+  hero.jetpack.visible=this.cat.jetpack.visible;if(hero.jetFlames){hero.jetFlames.visible=hero.jetpack.visible;this.animateJetFlames(hero.jetpack,this.clock,false);}hero.shield.visible=this.cat.shield.visible;hero.magnet.visible=this.cat.magnet.visible;hero.moonBoots.forEach(boot=>boot.visible=this.cat.moonBoots.some(item=>item.visible));
   this._hiddenHeroMeshes=[];
   this.cat.root.traverse(object=>{if(object.isMesh){this._hiddenHeroMeshes.push([object,object.visible]);object.visible=false;}});
  }
@@ -425,7 +429,7 @@ export class GameScene {
   for(const side of [-1,1]){const leg=new THREE.Group();leg.position.set(side*.24,.4,0);body.add(leg);this.ellipsoid(leg,coat,0,-.13,0,.3,.48,.34);this.ellipsoid(leg,skin==='astronaut'?m.white:coat,0,-.31,.11,.36,.21,.48);legs.push(leg);const arm=new THREE.Group();arm.position.set(side*.45,.96,0);body.add(arm);this.ellipsoid(arm,suit,0,-.2,0,.31,.55,.34);this.ellipsoid(arm,coat,0,-.43,.035,.32,.3,.33);arm.rotation.z=side*.12;arms.push(arm);}
   const tail=new THREE.Mesh(new THREE.CylinderGeometry(.07,.11,.8,10),coat);tail.position.set(.14,.66,-.53);tail.rotation.x=-.75;body.add(tail);
   const bag=new THREE.Group();this.makePacket(bag);bag.position.set(0,-.42,.09);bag.rotation.z=-.12;arms[1].add(bag);
-  const magnet=new THREE.Group();magnet.name='magnet_wearable';magnet.position.set(-.03,-.55,.09);magnet.rotation.set(.08,0,.25);arms[0].add(magnet);const magnetArc=new THREE.Mesh(new THREE.TorusGeometry(.22,.07,8,18,Math.PI),m.red);magnetArc.rotation.z=Math.PI/2;magnet.add(magnetArc);for(const side of [-1,1])this.boxMesh(magnet,side<0?m.red:m.cyan,side*.22,.01,0,.13,.16,.14);magnet.visible=false;
+  const magnet=new THREE.Group();magnet.name='magnet_wearable';magnet.position.set(-.03,-.44,.08);magnet.rotation.set(.08,0,.08);magnet.userData.gripAtBottom=true;arms[0].add(magnet);const magnetArc=new THREE.Mesh(new THREE.TorusGeometry(.22,.07,8,18,Math.PI),m.red);magnetArc.position.y=.22;magnetArc.rotation.z=Math.PI;magnet.add(magnetArc);for(const side of [-1,1])this.boxMesh(magnet,side<0?m.red:m.cyan,side*.22,.22,0,.13,.16,.14);this.addMagnetWaves(magnet);magnet.visible=false;
   const moonBoots=legs.map((leg,index)=>{const boot=new THREE.Group();boot.name=`moon_boot_${index?'R':'L'}`;boot.position.set(0,-.34,.14);leg.add(boot);this.roundedMesh(boot,m.blue,0,0,0,.48,.3,.56,.08);this.boxMesh(boot,m.cyan,0,.1,.18,.4,.08,.12);this.ellipsoid(boot,m.lamp,0,-.11,.21,.28,.06,.13);boot.visible=false;return boot;});
   const jetpack=this.makeJetpack();jetpack.position.set(0,.85,-.46);jetpack.scale.setScalar(.8);body.add(jetpack);jetpack.visible=false;
   const shield=this.makeShield();root.add(shield);shield.position.y=1.05;
@@ -433,16 +437,29 @@ export class GameScene {
   return {root,body,head,legs,arms,tail,bag,magnet,moonBoots,jetpack,shield};
  }
  makeShield(){
-  const m=this.m,shield=new THREE.Group();shield.name='shield_aura';
-  const shieldGlass=this.materials?this.mat(0x51dff1,{transparent:true,opacity:.105,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending}):m.cyan.clone();
-  shieldGlass.transparent=true;shieldGlass.opacity=.105;shieldGlass.depthWrite=false;shieldGlass.side=THREE.DoubleSide;shieldGlass.blending=THREE.AdditiveBlending;
-  const bubble=new THREE.Mesh(new THREE.SphereGeometry(1.02,16,11),shieldGlass);bubble.name='shield_bubble';bubble.scale.set(1,.98,.78);shield.add(bubble);
-  for(let i=0;i<6;i++){const regionMaterial=this.materials?this.mat(i%2?0x7cecff:0x6e8cff,{transparent:true,opacity:.08,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending}):m.cyan.clone();regionMaterial.color.setHex(i%2?0x7cecff:0x6e8cff);regionMaterial.transparent=true;regionMaterial.opacity=.08;regionMaterial.depthWrite=false;regionMaterial.side=THREE.DoubleSide;regionMaterial.blending=THREE.AdditiveBlending;const region=new THREE.Mesh(new THREE.SphereGeometry(1.035,14,9,i*TAU/6,.82,.25+(i%3)*.62,.55),regionMaterial);region.name=`shield_region_${i}`;region.scale.set(1,.98,.78);region.rotation.z=i*.47;shield.add(region);}
-  const heartShape=new THREE.Shape();heartShape.moveTo(0,-.12);heartShape.bezierCurveTo(-.31,-.31,-.45,.03,-.24,.18);heartShape.bezierCurveTo(-.1,.29,0,.18,0,.1);heartShape.bezierCurveTo(0,.18,.1,.29,.24,.18);heartShape.bezierCurveTo(.45,.03,.31,-.31,0,-.12);heartShape.closePath();
-  const heartGeo=new THREE.ExtrudeGeometry(heartShape,{depth:.035,steps:1,bevelEnabled:true,bevelSegments:1,bevelSize:.018,bevelThickness:.012,curveSegments:5});const heartOrbit=new THREE.Group();heartOrbit.name='shield_heart_orbit';shield.add(heartOrbit);
-  for(let i=0;i<9;i++){const a=i*TAU/9,heart=new THREE.Group();heart.name=`shield_heart_${i}`;heart.position.set(Math.cos(a)*1.08,Math.sin(a)*.96,Math.sin(a*2)*.13);heart.rotation.y=-a;heart.rotation.z=-a+Math.PI/2;heart.scale.setScalar(.39);heart.add(new THREE.Mesh(heartGeo,m.red));this.ellipsoid(heart,m.white,0,.015,.052,.095,.07,.025);for(let toe=0;toe<4;toe++){const ta=-.72+toe*.48;this.ellipsoid(heart,m.white,Math.sin(ta)*.115,.105+Math.cos(ta)*.05,.052,.038,.045,.021);}heartOrbit.add(heart);}
+  const shield=new THREE.Group();shield.name='shield_aura';const trackedMaterials=this.materials||(this.materials=[]),ownedMaterials=[],track=(...materials)=>{trackedMaterials.push(...materials);ownedMaterials.push(...materials);};shield.userData.ownedMaterials=ownedMaterials;
+  // A true sphere keeps the same circular silhouette from every camera angle.
+  const glass=new THREE.ShaderMaterial({transparent:true,depthWrite:false,side:THREE.FrontSide,uniforms:{glow:{value:1}},vertexShader:'varying vec3 vNormal; varying vec3 vEye; void main(){vec4 world=modelMatrix*vec4(position,1.0); vNormal=normalize(mat3(modelMatrix)*normal); vEye=cameraPosition-world.xyz; gl_Position=projectionMatrix*viewMatrix*world;}',fragmentShader:'uniform float glow; varying vec3 vNormal; varying vec3 vEye; void main(){float rim=pow(1.0-abs(dot(normalize(vNormal),normalize(vEye))),2.2); vec3 color=mix(vec3(0.08,0.42,0.54),vec3(0.48,0.91,0.96),rim); gl_FragColor=vec4(color,(0.018+rim*0.29)*glow);}'});track(glass);
+  const bubble=new THREE.Mesh(new THREE.SphereGeometry(1.25,24,18),glass);bubble.name='shield_bubble';shield.add(bubble);
+  for(let i=0;i<6;i++){const regionMaterial=new THREE.MeshBasicMaterial({color:i%2?0x76dcf2:0x4699d2,transparent:true,opacity:.035,depthWrite:false,side:THREE.DoubleSide});track(regionMaterial);const region=new THREE.Mesh(new THREE.SphereGeometry(1.255,14,8,i*TAU/6,.72,.27+(i%3)*.56,.58),regionMaterial);region.name=`shield_region_${i}`;region.rotation.z=i*.43;shield.add(region);}
+  const badgeShape=new THREE.Shape();badgeShape.moveTo(-.25,.24);badgeShape.lineTo(.25,.24);badgeShape.lineTo(.21,-.08);badgeShape.quadraticCurveTo(.12,-.23,0,-.31);badgeShape.quadraticCurveTo(-.12,-.23,-.21,-.08);badgeShape.closePath();
+  const badgeGeo=new THREE.ShapeGeometry(badgeShape,8),pawShapes=[];const pad=new THREE.Shape();pad.moveTo(0,-.11);pad.bezierCurveTo(-.14,-.12,-.18,.03,-.08,.065);pad.bezierCurveTo(-.03,.082,.03,.082,.08,.065);pad.bezierCurveTo(.18,.03,.14,-.12,0,-.11);pawShapes.push(pad);
+  for(const [x,y] of [[-.135,.095],[-.045,.135],[.045,.135],[.135,.095]]){const toe=new THREE.Shape();toe.absellipse(x,y,.033,.043,0,TAU,false,0);pawShapes.push(toe);}
+  const pawGeo=new THREE.ShapeGeometry(pawShapes,8),border=new THREE.MeshBasicMaterial({color:0x8eeef2,transparent:true,opacity:.7,depthWrite:false,side:THREE.DoubleSide}),face=new THREE.MeshBasicMaterial({color:0x173e59,transparent:true,opacity:.9,depthWrite:false,side:THREE.DoubleSide}),mark=new THREE.MeshBasicMaterial({color:0xe8f8e8,transparent:true,opacity:.96,depthWrite:false,side:THREE.DoubleSide});for(const material of [border,face,mark])material.userData.baseOpacity=material.opacity;track(border,face,mark);
+  const chargeStripe=new THREE.Group();chargeStripe.name='shield_charge_stripe';shield.add(chargeStripe);
+  for(let i=0;i<3;i++){const a=(i-1)*.5,normal=new THREE.Vector3(Math.sin(a),0,Math.cos(a));const badge=new THREE.Group();badge.name=`shield_charge_${i}`;badge.position.copy(normal).multiplyScalar(1.29);badge.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),normal);badge.userData.chargeScale=1;const edge=new THREE.Mesh(badgeGeo,border);edge.scale.setScalar(1.12);badge.add(edge);const inset=new THREE.Mesh(badgeGeo,face);inset.position.z=.012;badge.add(inset);const paw=new THREE.Mesh(pawGeo,mark);paw.name=`shield_paw_${i}`;paw.userData.toes=4;paw.position.set(0,.005,.025);paw.scale.setScalar(.82);badge.add(paw);chargeStripe.add(badge);}
+  shield.userData.fade=0;
   shield.visible=false;
   return shield;
+ }
+ addMagnetWaves(magnet){
+  const waves=new THREE.Group();waves.name='magnet_wave_arcs';waves.position.set(0,.43,.018);magnet.add(waves);
+  for(let i=0;i<3;i++){const arc=new THREE.Mesh(new THREE.TorusGeometry(.2+i*.075,.012,4,22,Math.PI*.78),i%2?this.m.red:this.m.cyan);arc.name=`magnet_wave_${i}`;arc.rotation.z=Math.PI*.11;arc.userData.baseScale=1;waves.add(arc);}
+  return waves;
+ }
+ animateMagnet(magnet,time,reducedMotion=false){
+  if(!magnet?.visible)return;const waves=magnet.getObjectByName('magnet_wave_arcs');if(!waves)return;
+  waves.children.forEach((arc,i)=>{if(reducedMotion){arc.visible=true;arc.scale.setScalar(1);return;}const phase=(time*.72+i/3)%1;arc.visible=phase<.82;arc.scale.setScalar(.72+phase*.48);});
  }
  makeHat(kind){
   const g=new THREE.Group(),m=this.m;g.position.set(0,.63,-.04);
@@ -456,15 +473,32 @@ export class GameScene {
  makeJetpack(){
   const g=new THREE.Group(),m=this.m;g.name='jetpack';this.boxMesh(g,m.metal,0,0,0,.56,.65,.22);
   const flames=new THREE.Group();flames.name='jet_flames';g.add(flames);g.userData.flames=flames;flames.visible=false;
-  for(const side of [-1,1]){const tank=new THREE.Mesh(new THREE.CylinderGeometry(.17,.17,.66,10),m.blue);tank.position.set(side*.3,0,0);g.add(tank);this.ellipsoid(g,m.cyan,side*.3,.34,0,.31,.14,.31);this.boxMesh(g,m.orange,side*.3,-.38,0,.18,.18,.18);const plume=new THREE.Group();plume.name=`jet_plume_${side<0?'L':'R'}`;plume.position.set(side*.3,-.49,0);flames.add(plume);const outer=new THREE.Mesh(new THREE.ConeGeometry(.16,.82,8),m.orange);outer.name='jet_flame_outer';outer.rotation.z=Math.PI;outer.position.y=-.39;plume.add(outer);const inner=new THREE.Mesh(new THREE.ConeGeometry(.095,.58,8),m.lamp);inner.name='jet_flame_inner';inner.rotation.z=Math.PI;inner.position.y=-.29;plume.add(inner);for(let i=0;i<3;i++){const ring=new THREE.Mesh(new THREE.TorusGeometry(.08+i*.025,.018,5,16),i===0?m.white:m.cyan);ring.name=`jet_exhaust_ring_${i}`;ring.rotation.x=Math.PI/2;ring.position.y=-.62-i*.18;plume.add(ring);}}
+  for(const side of [-1,1]){const tank=new THREE.Mesh(new THREE.CylinderGeometry(.17,.17,.66,10),m.blue);tank.position.set(side*.3,0,0);g.add(tank);this.ellipsoid(g,m.cyan,side*.3,.34,0,.31,.14,.31);this.boxMesh(g,m.orange,side*.3,-.38,0,.18,.18,.18);const plume=new THREE.Group();plume.name=`jet_plume_${side<0?'L':'R'}`;plume.position.set(side*.3,-.49,0);flames.add(plume);for(const [name,radius,length,y,material] of [['outer',.17,.76,-.38,m.orange],['middle',.12,.67,-.32,m.yellow],['inner',.067,.53,-.255,m.lamp]]){const flame=new THREE.Mesh(new THREE.ConeGeometry(radius,length,10),material);flame.name=`jet_flame_${name}`;flame.rotation.z=Math.PI;flame.position.y=y;plume.add(flame);}for(let i=0;i<4;i++){const ring=new THREE.Mesh(new THREE.TorusGeometry(.085+i*.014,.014,5,14),i===0?m.white:m.cyan);ring.name=`jet_exhaust_ring_${i}`;ring.rotation.x=Math.PI/2;plume.add(ring);}}
   return g;
  }
- animateShield(shield,time,reducedMotion=false){
+ animateJetFlames(jetpack,time,reducedMotion=false){
+  const flames=jetpack?.getObjectByName('jet_flames');if(!flames?.visible)return;
+  for(let side=0;side<flames.children.length;side++){const plume=flames.children[side],phase=time*23+side*1.7;plume.rotation.z=reducedMotion?0:Math.sin(phase*.7)*.035;
+   for(const [name,base,offset] of [['outer',1,0],['middle',.84,1.5],['inner',.68,2.6]]){const flame=plume.getObjectByName(`jet_flame_${name}`);if(flame)flame.scale.y=reducedMotion?base:base+Math.sin(phase+offset)*.13;}
+   for(let i=0;i<4;i++){const ring=plume.getObjectByName(`jet_exhaust_ring_${i}`);if(!ring)continue;const travel=reducedMotion?(i+.5)/4:(time*2.8+i/4+side*.11)%1;ring.position.y=-.55-travel*.77;ring.scale.setScalar(.7+travel*.6);ring.material.opacity=1;}
+  }
+ }
+ shieldCharges(game){
+  const powers=game?.powers,direct=powers?.shieldCharges??powers?.getShieldCharges?.(),record=powers?.active?.get?.('shield')??powers?.get?.('shield'),value=direct??record?.charges??record?.remainingHits;
+  return Number.isFinite(value)?clamp(Math.round(value),0,3):3;
+ }
+ updateShieldVisual(shield,active,charges,time,dt,reducedMotion=false){
+  if(!shield)return;const target=active&&charges>0?1:0,current=Number.isFinite(shield.userData.fade)?shield.userData.fade:(target?1:0),rate=target?10:3.4;
+  shield.userData.fade=current+(target-current)*(1-Math.exp(-Math.max(0,dt)*rate));if(Math.abs(shield.userData.fade-target)<.002)shield.userData.fade=target;
+  shield.visible=shield.userData.fade>.008;if(shield.visible)this.animateShield(shield,time,reducedMotion,active?charges:0,shield.userData.fade,dt);
+ }
+ animateShield(shield,time,reducedMotion=false,charges=3,fade=1,dt=1/60){
   if(!shield?.visible)return;
-  const pulse=reducedMotion?1:1+Math.sin(time*3.2)*.018;shield.scale.setScalar(pulse);
-  const bubble=shield.getObjectByName('shield_bubble');if(bubble){bubble.rotation.y=-time*.18;bubble.material.opacity=reducedMotion?.085:.075+Math.sin(time*2.4)*.025;}
-  for(let i=0;i<6;i++){const region=shield.getObjectByName(`shield_region_${i}`);if(region){region.rotation.y=time*(i%2?.11:-.08);region.material.opacity=reducedMotion?.07:.04+(Math.sin(time*(1.7+i*.09)+i*1.8)+1)*.045;}}
-  const hearts=shield.getObjectByName('shield_heart_orbit');if(hearts){hearts.rotation.set(.48+Math.sin(time*.31)*.18,time*(reducedMotion?.16:.42),-.25+Math.cos(time*.27)*.2);}
+  const pulse=reducedMotion?1:1+Math.sin(time*2.2)*.008;shield.scale.setScalar(pulse*(.82+.18*smooth(fade)));
+  const bubble=shield.getObjectByName('shield_bubble');if(bubble)bubble.material.uniforms.glow.value=(reducedMotion?.85:.86+Math.sin(time*2.1)*.12)*fade;
+  for(let i=0;i<6;i++){const region=shield.getObjectByName(`shield_region_${i}`);if(region){region.rotation.y=reducedMotion?0:time*(i%2?.1:-.075);region.material.opacity=(reducedMotion?.035:.018+(Math.sin(time*(1.5+i*.08)+i*1.8)+1)*.024)*fade;}}
+  const stripe=shield.getObjectByName('shield_charge_stripe');if(stripe){stripe.rotation.set(0,reducedMotion?0:-time*.34,0);stripe.children.forEach((badge,i)=>{const target=i<charges?1:0,current=badge.userData.chargeScale??target;badge.userData.chargeScale=current+(target-current)*(1-Math.exp(-Math.max(0,dt)*12));badge.visible=badge.userData.chargeScale>.015;badge.scale.setScalar(.58*badge.userData.chargeScale*fade);});}
+  for(const material of shield.userData.ownedMaterials||[])if(Number.isFinite(material.userData.baseOpacity))material.opacity=material.userData.baseOpacity*fade;
  }
  decoratePowerup(group,type){
   const colors={magnet:0x6cf0ca,moon:0xd8eb58,moped:0xff7541,shield:0x62ddff,doublechips:0xffc846,jetpack:0xff6952,speedburst:0x55bfff},color=colors[type]||0x6cf0ca;
@@ -929,11 +963,11 @@ export class GameScene {
  }
  burst(x,y,z,count=16,color=0xffdb76,speed=2,size=.055){
   for(let i=0;i<count;i++){const e=this.effects[this.effectCursor++%this.effects.length],a=Math.random()*TAU;
-    Object.assign(e,{x,y,z,vx:Math.cos(a)*speed*(.3+Math.random()),vy:1+Math.random()*speed,vz:Math.sin(a)*speed,life:.4+Math.random()*.55,maxLife:1,size,color});}
+    Object.assign(e,{x,y,z,vx:Math.cos(a)*speed*(.3+Math.random()),vy:1+Math.random()*speed,vz:Math.sin(a)*speed,life:.4+Math.random()*.55,maxLife:1,size,color,thrust:false});}
  }
  emitJetThrust(x,y,z,reducedMotion=false){
-  const count=reducedMotion?1:3;
-  for(const side of [-1,1])for(let i=0;i<count;i++){const e=this.effects[this.effectCursor++%this.effects.length];Object.assign(e,{x:x+side*.23+(Math.random()-.5)*.05,y:y+.31,z:z+.31+(Math.random()-.5)*.05,vx:(Math.random()-.5)*.22,vy:-2.4-Math.random()*1.5,vz:(Math.random()-.5)*.28,life:.28+Math.random()*.28,maxLife:.56,size:.035+Math.random()*.025,color:i%2?0xff8a2c:0x7defff});}
+  const count=reducedMotion?1:2;
+  for(const side of [-1,1])for(let i=0;i<count;i++){const e=this.effects[this.effectCursor++%this.effects.length];Object.assign(e,{x:x+side*.23+(Math.random()-.5)*.045,y:y+.31,z:z+.31+(Math.random()-.5)*.05,vx:(Math.random()-.5)*.2,vy:-3.1-Math.random()*1.35,vz:(Math.random()-.5)*.3,life:.22+Math.random()*.2,maxLife:.42,size:.025+Math.random()*.022,color:i%3===0?0xffe2a0:i%3===1?0xff8132:0x8deaff,thrust:true});}
  }
  handleEvent(e){
   if(e.type==='state'&&e.state==='STARTING'){this.effects.forEach(p=>p.life=0);this.lastIntroTime=0;this.chaseZ=2.825;this.lastState='';}
@@ -955,7 +989,7 @@ export class GameScene {
   }
   let count=0;const dummy=this.particleDummy;
   for(const e of this.effects){if(e.life<=0)continue;if(!freeze){e.life-=dt;e.x+=e.vx*dt;e.y+=e.vy*dt;e.z+=(e.vz+moving)*dt;e.vy-=3*dt;}if(e.life<=0)continue;
-    const size=e.size*Math.min(1,e.life*3);dummy.position.set(e.x,e.y,e.z);dummy.rotation.set(e.life*4,e.x,e.z);dummy.scale.setScalar(size);dummy.updateMatrix();this.particleMesh.setMatrixAt(count,dummy.matrix);this.particleMesh.setColorAt(count,new THREE.Color(e.color));count++;}
+    const size=e.size*Math.min(1,e.life*4);dummy.position.set(e.x,e.y,e.z);dummy.rotation.set(e.thrust?0:e.life*4,e.thrust?0:e.x,e.thrust?0:e.z);dummy.scale.set(size*(e.thrust?.55:1),size*(e.thrust?2.5:1),size*(e.thrust?.55:1));dummy.updateMatrix();this.particleMesh.setMatrixAt(count,dummy.matrix);this.particleMesh.setColorAt(count,new THREE.Color(e.color));count++;}
   this.particleMesh.count=count;this.particleMesh.instanceMatrix.needsUpdate=true;if(this.particleMesh.instanceColor)this.particleMesh.instanceColor.needsUpdate=true;
  }
  resize(width,height,{quality='clear'}={}){
@@ -1035,7 +1069,10 @@ export class GameScene {
  animateCapture(cat,cops,progress,crash={},starts=null,reducedMotion=false){
   const {fall,gather,lift,turn,carry}=capturePose(progress),seconds=progress*CAPTURE_DURATION,px=crash.x||0;
   const grip=smooth((progress-.25)/.11),fold=smooth((progress-.15)/.13),yaw=Math.PI*(1-turn);
-  const travel=carry*2.8+Math.max(0,progress-1)*CAPTURE_DURATION*1.8,phase=turn*4+travel*4.2;
+  // Start the escort while the final pivot settles, then keep one linear pace.
+  // The former pair of smooth curves both reached zero velocity at .67, which
+  // read as a short backward-walk pause before the officers moved again.
+  const travel=Math.max(0,progress-.61)*CAPTURE_DURATION*1.8,phase=turn*4+travel*4.2;
   const bob=reducedMotion?0:Math.sin(phase*2)*.014*lift;
   const recoil=.72*smooth(seconds/.4),carriedZ=recoil+travel;
   cat.root.position.set(px,(crash.y||0)*(1-fall)+Math.sin(Math.min(1,seconds/.6)*Math.PI)*.26+fall*.06+lift*.94+bob,carriedZ);
@@ -1058,8 +1095,8 @@ export class GameScene {
     // Gait follows distance traveled, then stops completely for the planted lift.
     const approachDistance=Math.hypot(px+side*1.04-start.x,.72-start.z)*gather;
     const approachWeight=Math.sin(Math.PI*gather)*(progress<.35?1:0);
-    const turnWeight=Math.sin(Math.PI*turn),carryWeight=smooth((progress-.67)/.04);
-    const walking=Math.max(approachWeight,turnWeight*.55,carryWeight);
+    const turnWeight=Math.sin(Math.PI*turn),escortWeight=smooth((progress-.58)/.06);
+    const walking=Math.max(approachWeight,turnWeight*.55,escortWeight);
     const gait=approachDistance*4.2+phase+i*.35;
     this.animateCop(cop,gait/12,walking*.35,true,i?1:-1);
     const crouch=.79*smooth((progress-.19)/.14)*(1-lift);
@@ -1082,6 +1119,7 @@ export class GameScene {
  }
  replaceCat(skin,look={},lookKey=[skin,look.fur,look.hat].join(':')){
   const old=this.cat;this.scene.remove(old.root);
+   for(const material of old.shield?.userData.ownedMaterials||[]){const index=this.materials.indexOf(material);if(index>=0)this.materials.splice(index,1);material.dispose();}
   old.root.traverse(object=>{if(object.geometry&&![this.box,this.sphere,this.cylinder,this.plane].includes(object.geometry))object.geometry.dispose();});
   this.cat=this.makeCat(skin,look);this.scene.add(this.cat.root);this.skin=skin;this.lookKey=lookKey;
   return this.cat;
@@ -1115,9 +1153,9 @@ export class GameScene {
   this.store.visible=isMenu||isStarting||dist<55;this.store.position.z=STORE.z+dist;this.menuProps.visible=false;if(this.storeInfill)this.storeInfill.visible=dist>=55;
   this.cat.root.visible=true;this.cat.root.scale.setScalar(.776);this.cat.bag.visible=!isMenu&&(!isStarting||it>=.95);
   this.cat.magnet.visible=!!game.powers?.has('magnet')&&!isCaught&&!isOver;this.cat.moonBoots.forEach(boot=>boot.visible=!!moon&&!isCaught&&!isOver);
-  this.cat.jetpack.visible=!!game.powers?.has('jetpack')&&!isCaught&&!isOver;this.cat.shield.visible=!!game.powers?.has('shield')&&!isCaught&&!isOver;
-  this.cat.jetpack.userData.flames.visible=this.cat.jetpack.visible;this.cat.jetpack.userData.flames.scale.y=1.12+Math.sin(t*29)*.24;for(const plume of this.cat.jetpack.userData.flames.children)plume.rotation.z=Math.sin(t*23+plume.position.x*8)*.045;
-  this.animateShield(this.cat.shield,t,reducedMotion);if(this.authoredHero)this.animateShield(this.authoredHero.shield,t,reducedMotion);
+  this.cat.jetpack.visible=!!game.powers?.has('jetpack')&&!isCaught&&!isOver;const shieldActive=!!game.powers?.has('shield')&&!isCaught&&!isOver,shieldCharges=this.shieldCharges(game);
+  this.cat.jetpack.userData.flames.visible=this.cat.jetpack.visible;this.animateJetFlames(this.cat.jetpack,this.clock,reducedMotion);
+
   this.moped.visible=!!riding;this.stars.visible=(isCaught||isOver)&&!!game.crash;this.shelfBag.visible=isMenu||isStarting&&it<.95;
   let goalFov=65;
   if(isMenu||isStarting){
@@ -1200,10 +1238,12 @@ export class GameScene {
     const mesh=slot.variants.get(variantKey);if(!freeze)mesh.userData.wheels?.forEach(w=>w.rotation.x+=dt*(game.speed||0)*Math.max(0,(e.actualApproach??e.approachFactor)-1)*3.3);if(mesh.userData.rider)this.updateAuthoredHuman(mesh.userData.rider,'ride',this.clock*5,freeze);if(isPower)this.animatePowerup(mesh,type,t,e.id,reducedMotion);
   }
   if(!isPaused){this.camera.position.lerp(this.target,isMenu?1:1-Math.exp(-dt*(isStarting?8:9)));this.camera.lookAt(this.cameraTarget);this.camera.fov+=(goalFov-this.camera.fov)*(1-Math.exp(-dt*9));this.camera.updateProjectionMatrix();}
-  if((moon||riding||speedburst)&&!freeze&&this.clock-(this.lastBoost||0)>.05){this.lastBoost=this.clock;this.burst(this.cat.root.position.x,this.cat.root.position.y+.4,.9,reducedMotion?2:5,speedburst?0x59c9ff:moon?0xffd44f:0x71f9ed,speedburst?3.1:2,.05);}
-  if(this.cat.jetpack.visible&&!freeze&&this.clock-(this.lastJetThrust||0)>.035){this.lastJetThrust=this.clock;this.emitJetThrust(this.cat.root.position.x,this.cat.root.position.y,this.cat.root.position.z,reducedMotion);}
+  if((moon||riding)&&!freeze&&this.clock-(this.lastBoost||0)>.05){this.lastBoost=this.clock;this.burst(this.cat.root.position.x,this.cat.root.position.y+.4,.9,reducedMotion?2:5,moon?0xffd44f:0x71f9ed,2,.05);}
+  if(this.cat.jetpack.visible&&!freeze&&this.clock-(this.lastJetThrust||0)>.016){this.lastJetThrust=this.clock;this.emitJetThrust(this.cat.root.position.x,this.cat.root.position.y,this.cat.root.position.z,reducedMotion);}
   this.updateEffects(game,isPaused?0:dt,isPaused||isOver,reducedMotion);
   this.updateAuthoredHero(game,dt,{skin,fur,hat,menu,reducedMotion});
+  this.animateMagnet(this.cat.magnet,this.clock,reducedMotion);if(this.authoredHero)this.animateMagnet(this.authoredHero.magnet,this.clock,reducedMotion);
+  this.updateShieldVisual(this.cat.shield,shieldActive,shieldCharges,this.clock,isPaused?0:dt,reducedMotion);if(this.authoredHero)this.updateShieldVisual(this.authoredHero.shield,shieldActive,shieldCharges,this.clock,isPaused?0:dt,reducedMotion);
   this.updateDebug(game,isMenu||isOver||isStarting);this.renderer.render(this.scene,this.camera);
  }
  updateDebug(game,hide){const show=game.debug?.showColliders&&!hide;this.debugBoxes.visible=!!show;if(!show)return;const es=game.entities.filter(e=>e.active&&['traffic','blocker','jump','slide'].includes(e.type));for(let i=0;i<=es.length;i++){if(!this.debugPool[i]){const mesh=new THREE.LineSegments(new THREE.EdgesGeometry(this.box),new THREE.LineBasicMaterial({color:0x76f55a,depthTest:false}));mesh.renderOrder=100;this.debugBoxes.add(mesh);this.debugPool.push(mesh);}const m=this.debugPool[i];m.visible=true;if(i===0){const p=game.player; m.position.set(p.x,p.y+(p.slide>0?.32:.85),0);m.scale.set(.6,p.slide>0?.64:1.7,.5);}else{const e=es[i-1];m.position.set(e.x,e.type==='slide'?2:e.type==='jump'?.5:1.2,e.z);m.scale.set(e.width,e.type==='slide'?.96:e.type==='jump'?1:2.4,e.depth);}}for(let i=es.length+1;i<this.debugPool.length;i++)this.debugPool[i].visible=false;}

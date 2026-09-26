@@ -34,3 +34,9 @@ scooter, cat-ear paw shield, twin golden chips in an orange packet, cream/teal
 twin-tank jetpack, and a cyan diamond/lightning Speed Burst. The matching UI
 pictures are rendered directly from these models from one consistent three-quarter
 studio camera.
+The wearable magnet's origin is the lower bridge of its U shape and its recommended
+runtime rotation is identity. Attach that origin to the cat's carry socket; do not
+restore the former quarter-turn wrist correction. The runtime adds the animated
+magnetic-wave arcs. The shield pickup and its runtime energy sphere share a
+four-toe paw mark. The sphere presents exactly three charge badges for ten seconds,
+removing one badge after each protected hit.

@@ -1,11 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {RunnerGame,LANES,MOTION,POWER_DURATIONS,PATTERNS,THEMES,VEHICLES,INTRO_DURATION,CAPTURE_DURATION,validatePattern,obstacleSpacing} from '../dist/core.mjs';
+import {RunnerGame,LANES,MOTION,POWER_DURATIONS,POWER_SPAWN,PATTERNS,THEMES,VEHICLES,INTRO_DURATION,CAPTURE_DURATION,validatePattern,obstacleSpacing} from '../dist/core.mjs';
 function game(){const g=new RunnerGame({random:()=>.21});g.start({skipIntro:true});return g;}
 function tick(g,t,dt=1/120){for(let n=0;n<Math.ceil(t/dt);n++)g.update(Math.min(dt,t-n*dt));}
 function empty(g){g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;}
 test('street edition starts faster, keeps one level, and uses only supported powers',()=>{let g=game();assert.equal(g.speed,10.4);assert.deepEqual(THEMES,['HONG KONG']);assert.deepEqual(Object.keys(POWER_DURATIONS),['magnet','moon','speedburst','moped','shield','doublechips','jetpack']);assert.equal(g.activatePower('frenzy'),false);assert.equal(g.activatePower('rocket'),false);assert.equal(g.activatePower('giant'),false);assert.equal(g.activatePower('skateboard'),false);assert.equal(g.spawnEntity('chip',1,-30),null);});
-test('short runs regularly offer all seven authored power-up types',()=>{const g=new RunnerGame({random:()=>.21}),seen=[];g.entities.forEach(e=>e.active=false);g._rowId=0;for(let row=0;row<35;row++){g._spawnPattern(30+row*.01);const power=g.entities.find(e=>e.active&&e.rowId===row&&Object.hasOwn(POWER_DURATIONS,e.type));if(power)seen.push(power.type);}assert.deepEqual(seen,['moped','magnet','shield','doublechips','jetpack','moon','speedburst']);});
+test('power-up selection is weighted, sparse and never repeats immediately',()=>{
+ let seed=11;const g=new RunnerGame({random:()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296)}),seen=[];
+ for(let i=0;i<100000;i++)seen.push(g._nextPowerKind());
+ for(let i=1;i<seen.length;i++)assert.notEqual(seen[i],seen[i-1]);
+ const count=Object.fromEntries(Object.keys(POWER_SPAWN.weights).map(kind=>[kind,seen.filter(value=>value===kind).length]));
+ assert.ok(count.magnet>count.moon&&count.moon>count.speedburst&&count.speedburst>count.doublechips);
+ assert.ok(count.doublechips>count.moped&&count.moped>count.shield&&count.shield>count.jetpack,JSON.stringify(count));
+ const cadence=new RunnerGame({random:()=>.21}),rows=[];
+ cadence.entities.forEach(e=>e.active=false);cadence._rowId=0;
+ for(let row=0;row<32;row++){cadence._spawnPattern(30+row*.01);if(cadence.entities.some(e=>e.active&&e.rowId===row&&Object.hasOwn(POWER_DURATIONS,e.type)))rows.push(row);cadence.entities.forEach(e=>e.active=false);}
+ assert.deepEqual(rows,[3,11,19,27]);assert.equal(POWER_SPAWN.rowInterval,8);
+});
 test('new obstacle groups are meaningfully closer with safe recovery spacing',()=>{for(let speed of [10.4,15,26])for(let tier=1;tier<=4;tier++){const spacing=obstacleSpacing(speed,tier);assert.ok(spacing/speed>MOTION.slideDuration+.2);if(tier===1)assert.ok(spacing<Math.max(17,speed*1.6+4));}});
 test('all templates and 10000 generated traffic patterns leave a clear lane',()=>{let seed=4;const g=new RunnerGame({random:()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296)});PATTERNS.forEach(p=>assert.ok(validatePattern(p)));for(let i=0;i<10000;i++){g.tier=i%4+1;const p=g._makePattern();assert.ok(validatePattern(p));assert.equal(p.slots[p.safeLane],null);}assert.equal(validatePattern({slots:['traffic','traffic','traffic']}),false);});
 test('traffic advances faster than road scenery but preserves encounter timing',()=>{const g=game();empty(g);g.debug.invincible=true;g.debug.speedOverride=10;const car=g.spawnEntity('traffic',0,-40),bar=g.spawnEntity('jump',2,-40);assert.equal(car.z,-82);assert.equal(bar.z,-40);tick(g,2);assert.ok(Math.abs(car.z+41)<1e-6);assert.ok(Math.abs(bar.z+20)<1e-6);tick(g,2);assert.ok(Math.abs(car.z)<1e-6);assert.ok(Math.abs(bar.z)<1e-6);});

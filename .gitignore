@@ -4,6 +4,7 @@
 
 release/
 node_modules/
+tmp/
 
 # Blender scratch and automatic backups. Authored .blend sources are tracked.
 *.blend1

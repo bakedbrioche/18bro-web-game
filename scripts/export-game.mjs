@@ -45,6 +45,7 @@ const modelsDirectory=path.join(src,'assets/models');
 const models=Object.fromEntries((fs.existsSync(modelsDirectory)?fs.readdirSync(modelsDirectory):[]).filter(file=>file.endsWith('.glb')).sort().map(file=>[file,fs.readFileSync(path.join(modelsDirectory,file)).toString('base64')]));
 const iconsDirectory=path.join(src,'assets/icons');
 const powerIcons=Object.fromEntries((fs.existsSync(iconsDirectory)?fs.readdirSync(iconsDirectory):[]).filter(file=>/^powerup-.*[.]png$/.test(file)).sort().map(file=>[file.slice(8,-4),'data:image/png;base64,'+fs.readFileSync(path.join(iconsDirectory,file)).toString('base64')]));
+const uiImages=Object.fromEntries((fs.existsSync(iconsDirectory)?fs.readdirSync(iconsDirectory):[]).filter(file=>/^(?!powerup-).*[.]png$/.test(file)).sort().map(file=>[path.basename(file,'.png'),'data:image/png;base64,'+fs.readFileSync(path.join(iconsDirectory,file)).toString('base64')]));
 const ambience='data:audio/mpeg;base64,'+fs.readFileSync(path.join(src,'assets/audio/street-market.mp3')).toString('base64');
 const modules=[
  'vendor/three.module.js',
@@ -56,7 +57,7 @@ const modules=[
 ];
 if([...read('app.mjs').matchAll(importPattern)].some(match=>match[3].split('?')[0]==='./analytics.mjs'))modules.push('analytics.mjs');
 modules.push('app.mjs');
-const code=`const standaloneModules=Object.create(null);\nconst embeddedAmbience=${JSON.stringify(ambience)};\nconst embeddedTextures=${JSON.stringify(images)};\nglobalThis.__18BRO_EMBEDDED_MODELS__=${JSON.stringify(models)};\nglobalThis.__18BRO_POWER_ICONS__=${JSON.stringify(powerIcons)};\n${modules.map(bundle).join('')}`;
+const code=`const standaloneModules=Object.create(null);\nconst embeddedAmbience=${JSON.stringify(ambience)};\nconst embeddedTextures=${JSON.stringify(images)};\nglobalThis.__18BRO_EMBEDDED_MODELS__=${JSON.stringify(models)};\nglobalThis.__18BRO_POWER_ICONS__=${JSON.stringify(powerIcons)};\nglobalThis.__18BRO_UI_IMAGES__=${JSON.stringify(uiImages)};\n${modules.map(bundle).join('')}`;
 const font=fs.readFileSync(path.join(src,'vendor/VT323.ttf')).toString('base64');
 const css=read('style.css').replace('./vendor/VT323.ttf','data:font/ttf;base64,'+font);
 const html=read('index.html').replace(/<link rel="stylesheet" href="style[.]css[^"]*">/,()=>`<style>${css}</style>`).replace(/<script type="module" src="app\.mjs[^\"]*"><\/script>/,()=>`<script type="module">${code.replace(/<\/script/gi,'<\\/script')}</script>`);

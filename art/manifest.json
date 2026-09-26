@@ -3,13 +3,13 @@
     "assets":  [
                    {
                        "assetId":  "18bro-v1",
-                       "rigVersion":  4,
+                       "rigVersion":  5,
                        "source":  "art/characters/18bro/18bro.blend",
                        "output":  "dist/assets/models/18bro-v1.glb",
-                       "sha256":  "6cfe638385e4365ceb98886ab4357a308fce834e287d6d3ce6dea36e60076ce7",
+                       "sha256":  "d3068a6adbad2b23afecf3b194fd948ce25d027878db5e19e392e31b37244f07",
                        "blenderVersion":  "5.2.2 LTS",
-                       "exportPreset":  "18bro-blender-5.2-v4",
-                       "bytes":  868816,
+                       "exportPreset":  "18bro-blender-5.2-v5",
+                       "bytes":  878992,
                        "bounds":  {
                                       "min":  [
                                                   -0.9662122130393982,
@@ -254,13 +254,13 @@
                        "rigVersion":  0,
                        "source":  "art/powerups/powerups.blend",
                        "output":  "dist/assets/models/powerups-v1.glb",
-                       "sha256":  "4d70447876492bdb09b23923337bf9b94ac8a41caa64a9880e702145ba1372ce",
+                       "sha256":  "90543b21c1dcfb4f22a2b89ac18f14dd7ea2b27fdb8528fea3e76653ec5d3560",
                        "blenderVersion":  "5.2.2 LTS",
-                       "exportPreset":  "18bro-blender-5.2-powerups-v2",
-                       "bytes":  633768,
-                       "triangles":  12323,
-                       "pickupTriangles":  9127,
-                       "wearableTriangles":  3196,
+                       "exportPreset":  "18bro-blender-5.2-powerups-v3",
+                       "bytes":  643248,
+                       "triangles":  12703,
+                       "pickupTriangles":  9279,
+                       "wearableTriangles":  3424,
                        "materials":  1,
                        "bones":  0,
                        "clips":  [

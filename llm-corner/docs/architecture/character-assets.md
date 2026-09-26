@@ -16,6 +16,13 @@ Refreshed keeps the authored 18Bro visible for every runtime state. Complete aut
 The character-family switch also applies to police, cashier, scooter riders and both crowd systems through `human-v1.glb`. Police, cashier, rider and pedestrian role meshes share one 24-joint skeleton and role-specific clips. Mouth and brow joints give the cashier a readable angry scream while every other clip resets the face and comic mark. Existing controllers still own world placement and bounded district pooling; each visible imported actor has an independent skeleton.
 
 `powerups-v1.glb` adds seven static authored pickups: magnet, moon boots, scooter, shield, double chips, jetpack and speed burst. It also carries independently cloneable `wearable_magnet`, `wearable_moon_L` and `wearable_moon_R` attachment roots. The Refreshed family loads cat, human and power-up templates atomically. Each pickup keeps a deterministic simulation type while the renderer clones its named `powerup_<type>` root, adds a bounded individual aura and uses the matching transparent icon in the pickup card and timer HUD. The active magnet follows the left carry socket and the boots follow their animated foot bones. Original appears only when explicitly selected or when any required asset fails to load.
+The magnet is held from the lower bridge of its U shape with an identity attachment
+rotation; the renderer supplies the magnetic-wave effect independently of the GLB.
+Three-Paw Guard renders as a true sphere with three equatorial four-toe paw-shield
+badges, consumes one badge per protected collision, and expires after ten seconds.
+Jetpack owns a fixed ten-second airborne-only chip route with a progressive six-to-eight
+chip look-ahead. Its route is removed at expiry and landing restores the ordinary run
+state without carrying jump input or flight chips into the street phase.
 
 ## Asset lifecycle
 
@@ -31,13 +38,13 @@ Modular builds fetch the three GLBs in `dist/assets/models/`. Standalone builds 
 - Builder: `scripts/blender/create_18bro.py`
 - Runtime asset: `dist/assets/models/18bro-v1.glb`
 - Blender: 5.2.2 LTS
-- Budget: 3,972 triangles, 20 skin joints, three materials/draw calls, 868,816 bytes; rig version 4
+- Budget: 3,972 triangles, 20 skin joints, three materials/draw calls, 878,992 bytes; rig version 5
 - Texture: one embedded 512×512 palette atlas
 - Clips: `idle`, `run`, `walk`, `jump`, `fall`, `slide`, `roll`, `stumble`, `ride`, `moped_mount`, `moped_jump`, `moped_slide_L`, `moped_slide_R`, `jetpack`, `snack`, `celebrate`, `caught`, `carry`
 - Sockets: hat, bag, back and left/right carry
 
 The human family lives in `art/characters/human/human.blend`, builds through `scripts/blender/create_human.py`, and exports police, cashier, rider and pedestrian roles in `dist/assets/models/human-v1.glb`. It has 2,526 triangles, 24 joints, 777,208 bytes and clips for idle/walk/run/chase/alert/clerk/panic/ride/crouch plus shared and side-specific carry poses. The extra facial joints drive angry panic brows while the cashier-only comic anger mark remains hidden in neutral clips.
 
-Power-up source lives in `art/powerups/powerups.blend`, builds through `scripts/blender/create_powerups.py`, and exports one texture-free 633,768-byte GLB with 12,323 triangles: 9,127 across seven independently cloneable pickup roots and 3,196 across three wearable roots. The same builder renders seven 256x256 transparent icons. `scripts/blender/validate-powerups.mjs` checks the exact hash, root names, wearable pivots/dimensions, triangle counts, identity transforms, vertex colors and icon bytes.
+Power-up source lives in `art/powerups/powerups.blend`, builds through `scripts/blender/create_powerups.py`, and exports one texture-free 643,248-byte GLB with 12,703 triangles: 9,279 across seven independently cloneable pickup roots and 3,424 across three wearable roots. The same builder renders seven 256x256 transparent icons. `scripts/blender/validate-powerups.mjs` checks the exact hash, root names, wearable pivots/dimensions, triangle counts, identity transforms, vertex colors and icon bytes.
 
 `art/manifest.json` and `dist/model-manifest.mjs` record both hashes, exported Y-up bounds and provenance. Rebuilds must update both manifests only after validation and visual review.

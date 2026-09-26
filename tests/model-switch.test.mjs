@@ -29,6 +29,11 @@ test('Refreshed hero stays active through every pose and cosmetic',async()=>{
  assert.deepEqual(scene.authoredHero.root.position.toArray(),[1,2,3]);
  assert.equal(scene.authoredHero.packet.parent,scene.authoredHero.hand);
  assert.equal(scene.authoredHero.magnet.parent,scene.authoredHero.leftHand);
+ assert.equal(scene.authoredHero.magnet.userData.gripAtBottom,true);
+ assert.equal(scene.authoredHero.magnet.getObjectByName('magnet_wave_arcs').children.length,3);
+ scene.authoredHero.magnet.geometry.computeBoundingBox();
+ assert.ok(scene.authoredHero.magnet.geometry.boundingBox.min.y<=0&&scene.authoredHero.magnet.geometry.boundingBox.min.y>-.06,'magnet origin stays in its lower bridge');
+ assert.ok(scene.authoredHero.magnet.geometry.boundingBox.max.y>.45,'the U rises above the paw grip');
  assert.equal(scene.authoredHero.moonBoots[0].parent,scene.authoredHero.leftFoot);
  assert.equal(scene.authoredHero.moonBoots[1].parent,scene.authoredHero.rightFoot);
  assert.equal(scene.authoredHero.jetFlames?.name,'jet_flames');
@@ -88,11 +93,14 @@ test('cosmetic cat replacement preserves active Refreshed shield and jetpack geo
  scene.cat.root.traverse(object=>{if(object.geometry&&!shared.has(object.geometry))disposableProcedural.add(object.geometry);});
  assert.ok(persistent.size>0);assert.ok([...persistent].every(geometry=>!disposableProcedural.has(geometry)),'persistent authored attachments must not share disposable cosmetic geometry');
  let disposed=0;for(const geometry of persistent)geometry.addEventListener('dispose',()=>disposed++);
+ const materialCount=scene.materials.length,retiredMaterials=scene.cat.shield.userData.ownedMaterials;let retired=0;for(const material of retiredMaterials)material.addEventListener('dispose',()=>retired++);
  scene.replaceCat('18bro',{fur:'pink',hat:'crown'});
+ assert.equal(retired,retiredMaterials.length);assert.equal(scene.materials.length,materialCount,'cosmetic replacement must not retain discarded shield materials');
  scene.cat.jetpack.visible=true;scene.cat.shield.visible=true;
  const game={state:'RUNNING',player:{anim:'run',y:0,slide:0,hit:0},powers:new Set(['jetpack','shield'])};
  scene.updateAuthoredHero(game,1/60,{skin:'18bro',fur:'pink',hat:'crown'});
  assert.equal(disposed,0);assert.equal(scene.authoredHero.jetpack.visible,true);assert.equal(scene.authoredHero.shield.visible,true);
+  scene.replaceCat('18bro',{fur:'gold',hat:'bucket'});assert.equal(scene.materials.length,materialCount);
  scene.disposeCharacterModels();
 });
 

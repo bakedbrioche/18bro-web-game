@@ -81,10 +81,19 @@ Acceptance:
 
 - Added Blender-authored magnet and Moon Boot wearables that follow the Refreshed cat's animated paw/feet, with coherent procedural equivalents for Original.
 - Separated Moon Boots into a high-jump power and introduced a distinct blue Speed Burst pickup, icon, aura, HUD timer and deterministic speed effect.
-- Replaced incremental Jetpack chip spawning with a complete connected ten-second sky route whose final chip ends flight; added layered tube thrust.
-- Rebuilt the Shield as a flickering energy sphere with nine rotating paw hearts and removed its white particle trail.
+- Replaced the first incremental Jetpack trail with a fixed ten-second airborne-only route; its rolling window is cleared exactly at landing.
+- Rebuilt the Shield as a true energy sphere with three rotating four-toe paw-shield charges and removed its white particle trail.
 - Lowered authored scooter dodges below the 1.6-unit rail and replaced the cashier's party-like motion with a planted angry panic loop.
 
+
+### Phase I — reference-led animation and power feedback — complete
+
+- Used an ignored, dated GPT Image workbench to preserve prompts, inputs and outputs for shield, mascot turnaround and animation-keyframe studies without committing temporary reference media.
+- Re-authored the hero as rig v5 with a more expressive full jump arc, a motorcycle-style scooter jump and lower left/right side-saddle dodges; runtime now samples the complete jump clip through descent.
+- Rebuilt the Shield as a true sphere with restrained energy regions and exactly three four-toe paw-shield badges. One badge disappears per protected hit; the authored pickup uses the same paw language.
+- Jetpack reveals a connected lane-changing airborne route progressively, keeping six to eight chips readable ahead. It suppresses ground chips during flight, expires at ten seconds, clears the route and resets directly to run.
+- Power-up spawning uses a sparse exported weighted table: Magnet/Moon Boots are common, Shield/Jetpack are rare, and the same power never repeats immediately.
+- Speed Burst uses a motion-aware blue edge vignette and directional swooshes instead of emitting particles behind the cat.
 ## 3. Model and animation contract
 
 - The simulation owns position, facing, collision, capture logic, and root motion. Imported animation clips are in-place visual motion.

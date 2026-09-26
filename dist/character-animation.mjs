@@ -42,9 +42,14 @@ export function selectHeroAnimation(game={},options={}){
   selection=looping('jetpack',1,.1);
  }else if((p.slide||0)>0||p.anim==='slide'||p.anim==='roll'){
   selection=sampled('roll',(.72-(p.slide||0))/.72,.04);
- }else if(p.anim==='jump'||((p.y||0)>.01&&(p.vy||0)>=0)){
-  selection=sampled('jump',(p.y||0)/(p.jumpApex||2.65),.06);
- }else if(p.anim==='fall'||((p.y||0)>.01&&(p.vy||0)<0)){
+ }else if((p.y||0)>.01&&(p.anim==='jump'||p.anim==='fall')){
+  // Play the authored jump as one full arc: anticipation/rise occupy the
+  // first half and apex/descent/landing preparation occupy the second half.
+  const height=clamp01((p.y||0)/(p.jumpApex||2.65)),progress=(p.vy||0)>=0?height*.5:.5+(1-height)*.5;
+  selection=sampled('jump',progress,.06);
+ }else if(p.anim==='jump'){
+  selection=sampled('jump',0,.06);
+ }else if(p.anim==='fall'){
   selection=looping('fall',1,.06);
  }else if(state==='MAIN_MENU'||state==='ARCADE'||p.anim==='idle'){
   selection=looping('idle',1,.15);

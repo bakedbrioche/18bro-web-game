@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {RunnerGame,INTRO_DURATION,MOTION,BARRIERS,POWER_DURATIONS} from '../dist/core.mjs';
+import {RunnerGame,INTRO_DURATION,LANES,MOTION,BARRIERS,POWER_DURATIONS,SHIELD_CHARGES} from '../dist/core.mjs';
 import {introPose} from '../dist/choreography.mjs';
 const tick=(g,t)=>{for(let s=0;s<t;s+=1/120)g.update(Math.min(1/120,t-s));};
 function empty(){const g=new RunnerGame();g.start({skipIntro:true});g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;return g;}
@@ -9,9 +9,15 @@ test('double chips doubles pickups and pauses its timer without changing earlier
  g.pause();tick(g,20);assert.equal(g.powers.active.get('doublechips').remaining,12);
  g.resume();tick(g,12.1);g._pickup(g.spawnEntity('coin',1,0));assert.equal(g.coins,4);
 });
-test('shield protects one direct hit and the next unprotected hit captures',()=>{
- const g=empty();g.activatePower('shield');g._hit(g.spawnEntity('blocker',1,0));assert.equal(g.state,'RUNNING');assert.equal(g.powers.has('shield'),false);
+test('shield grants three timed collision charges and reports each consumed charge',()=>{
+ const events=[],g=new RunnerGame({onEvent:e=>events.push(e)});g.start({skipIntro:true});g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;
+ g.activatePower('shield');assert.equal(POWER_DURATIONS.shield,10);assert.equal(g.powers.shieldCharges,SHIELD_CHARGES);
+ for(let remaining=2;remaining>=0;remaining--){g._hit(g.spawnEntity('blocker',1,0));assert.equal(g.state,'RUNNING');assert.equal(g.powers.shieldCharges,remaining);if(remaining)tick(g,1.2);}
+ assert.equal(g.powers.has('shield'),false);
+ assert.deepEqual(events.filter(e=>e.type==='shieldhit').map(e=>e.remaining),[2,1,0]);
+ assert.equal(events.findLast(e=>e.type==='powerend'&&e.kind==='shield')?.reason,'depleted');
  tick(g,1.2);g._hit(g.spawnEntity('traffic',1,0));assert.equal(g.state,'CAUGHT');
+ const timed=empty();timed.activatePower('shield');tick(timed,9.99);assert.equal(timed.powers.shieldCharges,3);tick(timed,.02);assert.equal(timed.powers.shieldCharges,0);
 });
 test('Moon Boots raise the jump above two-storey blockers without changing speed, score or protection',()=>{
  const ordinary=empty();ordinary.input('jump');let ordinaryApex=0;
@@ -33,7 +39,7 @@ test('speed burst is its own timed speed power and Moon Boots never accelerate i
  assert.equal(g.powers.speedMultiplier,1.6);assert.equal(g.powers.scoreMultiplier,1);
  tick(g,POWER_DURATIONS.speedburst+.1);assert.equal(g.powers.has('speedburst'),false);assert.equal(g.powers.speedMultiplier,1);
 });
-test('jetpack lifts smoothly, pulls chips, clears hazards and lands when the last chip arrives',()=>{
+test('jetpack lifts smoothly, pulls chips, clears hazards and lands exactly when its timer ends',()=>{
  const g=empty();g.activatePower('jetpack');let last=0;
  for(let t=0;t<1;t+=1/120){g.update(1/120);assert.ok(Math.abs(g.player.y-last)<.12);last=g.player.y;}
  assert.ok(g.player.y>5);g.spawnEntity('coin',0,-3);g.spawnEntity('blocker',1,-2);tick(g,.5);
@@ -41,25 +47,39 @@ test('jetpack lifts smoothly, pulls chips, clears hazards and lands when the las
  tick(g,8.8);assert.equal(g.powers.has('jetpack'),false);assert.ok(g.shieldGrace>0);tick(g,1.3);assert.equal(g.player.y,0);assert.equal(g.player.grounded,true);
  g.start({skipIntro:true});assert.equal(g.powers.active.size,0);
 });
-test('jetpack creates a connected, ten-second airborne chip route immediately at pickup',()=>{
- const g=empty();g.activatePower('jetpack');const route=g.entities.filter(e=>e.active&&e.flightTrail).sort((a,b)=>a.trailIndex-b.trailIndex);
- assert.ok(route.length>=30);assert.equal(route[0].trailIndex,0);assert.equal(route.at(-1).trailFinal,true);
- assert.equal(new Set(route.map(e=>e.flightTrailId)).size,1);
- const gaps=route.slice(1).map((e,i)=>Math.abs(e.z-route[i].z));
- assert.ok(Math.max(...gaps)-Math.min(...gaps)<1e-6);assert.ok(gaps[0]>=2.5&&gaps[0]<=4.5);
- assert.ok(route[0].y<route[Math.floor(route.length/2)].y);
- assert.ok(route.at(-1).y<route[Math.floor(route.length/2)].y);
- assert.ok(Math.abs(-route.at(-1).z/g.speed-POWER_DURATIONS.jetpack)<1);
- tick(g,2);assert.ok(g.coins>0,'the pre-existing line is pulled into the cat while airborne');
+test('jetpack reveals its lane-changing route only after lift-off and removes it at landing',()=>{
+ let seed=7;const g=new RunnerGame({random:()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296)});g.start({skipIntro:true});g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;
+ g.activatePower('jetpack');assert.equal(g.entities.filter(e=>e.active&&e.flightTrail).length,0);
+ assert.ok(g._flightTrailPlan.length>=30);assert.deepEqual([...new Set(g._flightTrailPlan.map(e=>e.lane))].sort(),[0,1,2]);
+ tick(g,.1);let visible=g.entities.filter(e=>e.active&&e.flightTrail).sort((a,b)=>a.trailIndex-b.trailIndex);
+ assert.ok(g.player.y>.05);assert.equal(visible.length,8);assert.deepEqual(visible.map(e=>e.trailIndex),[0,1,2,3,4,5,6,7]);
+ assert.ok(visible.every(e=>e.y>2.1));assert.equal(new Set(visible.map(e=>e.flightTrailId)).size,1);
+ for(let second=0;second<8;second++){tick(g,1);visible=g.entities.filter(e=>e.active&&e.flightTrail&&e.z<3);assert.ok(visible.length>=6&&visible.length<=8,(second+1)+'s: '+visible.length+' visible');}
+ assert.ok(g._flightTrailCursor>8,'new route chips are revealed as the player advances');
+ tick(g,2);assert.equal(g.player.y,0);assert.equal(g.player.grounded,true);assert.equal(g.entities.some(e=>e.active&&e.flightTrail),false);
 });
-test('the final route chip ends Jetpack, with a bounded escape for an unreachable chip',()=>{
+test('speed burst cannot extend Jetpack chips or trigger a post-landing jump',()=>{
  const events=[];const g=new RunnerGame({onEvent:e=>events.push(e)});g.start({skipIntro:true});g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;
- g.activatePower('jetpack');const last=g._jetpackFinalChip;tick(g,9.5);assert.equal(g.powers.has('jetpack'),true);
- tick(g,.7);assert.equal(last.active,false);assert.equal(g.powers.has('jetpack'),false);
- assert.equal(events.findLast(e=>e.type==='powerend'&&e.kind==='jetpack')?.reason,'trail-complete');
- const stalled=empty();stalled.activatePower('jetpack');stalled._jetpackFinalChip.z=-1000;stalled._jetpackFinalChip.y=100;
- tick(stalled,10.5);assert.equal(stalled.powers.has('jetpack'),true);
- tick(stalled,1.6);assert.equal(stalled.powers.has('jetpack'),false);
+ g.activatePower('speedburst');g.powers.active.get('speedburst').remaining=2;g.activatePower('jetpack');tick(g,9.9);
+ assert.equal(g.powers.has('speedburst'),false);assert.equal(g.powers.has('jetpack'),true);assert.ok(g.player.y>0);
+ assert.ok(g.entities.some(e=>e.active&&e.flightTrail));g.player.jumpBuffer=MOTION.jumpBuffer;
+ tick(g,.11);assert.equal(g.powers.has('jetpack'),false);assert.equal(g.player.y,0);assert.equal(g.player.vy,0);
+ assert.equal(g.player.grounded,true);assert.equal(g.player.anim,'run');assert.equal(g.player.jumpBuffer,0);
+ assert.equal(g.entities.some(e=>e.active&&e.flightTrail),false);assert.equal(g._flightTrailPlan.length,0);
+ assert.equal(events.findLast(e=>e.type==='powerend'&&e.kind==='jetpack')?.reason,'expired');
+ tick(g,.5);assert.equal(g.player.y,0);assert.equal(g.player.anim,'run');
+});
+test('jetpack removes and suppresses ordinary chips without suppressing hazards or powers',()=>{
+ const g=empty(),ahead=g.spawnEntity('coin',0,-20),behind=g.spawnEntity('coin',2,4);
+ const hazard=g.spawnEntity('blocker',0,-25),power=g.spawnEntity('shield',2,-24);
+ g.activatePower('magnet');g.activatePower('jetpack');
+ assert.equal(ahead.active,false);assert.equal(behind.active,true);assert.equal(hazard.active,true);assert.equal(power.active,true);
+ g._rowId=3;g._spawnPattern(80);
+ assert.equal(g.entities.some(e=>e.active&&e.rowId===3&&e.type==='coin'&&!e.flightTrail),false);
+ assert.ok(g.entities.some(e=>e.active&&e.rowId===3&&['blocker','jump','slide','traffic','scooter'].includes(e.type)));
+ assert.ok(g.entities.some(e=>e.active&&e.rowId===3&&Object.hasOwn(POWER_DURATIONS,e.type)));
+ const ordinary=g.spawnEntity('coin',0,-.5,{y:2.2});ordinary.magnetLatched=true;const x=ordinary.x;
+ tick(g,.05);assert.equal(ordinary.active,true);assert.equal(ordinary.x,x);assert.equal(ordinary.x,LANES[0]);assert.equal(ordinary.magnetic,false);
 });
 test('moped exposes mount, stunt-jump and randomized side-dodge animation state',()=>{
  const g=empty();g.activatePower('moped');assert.ok(g.player.mopedMount>0);
@@ -73,7 +93,7 @@ test('jetpack and moped replace each other while independent powers can stack',(
  const transitioning=empty();transitioning.activatePower('moped');tick(transitioning,.2);
  const scooterSpeed=transitioning.speed;transitioning.activatePower('jetpack');
  assert.ok(scooterSpeed>transitioning._projectSpeed());
- assert.ok(-transitioning._jetpackFinalChip.z<transitioning._projectSpeed()*POWER_DURATIONS.jetpack*1.1);
+ assert.equal(transitioning.entities.filter(e=>e.active&&e.flightTrail).length,0);assert.ok(transitioning._flightTrailPlan.length>=30);tick(transitioning,.1);assert.equal(transitioning.entities.filter(e=>e.active&&e.flightTrail).length,8);
  tick(transitioning,10.5);assert.equal(transitioning.powers.has('jetpack'),false);
 });
 test('the opening hazards already exist before the exit and keep their world positions at handoff',()=>{

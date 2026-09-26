@@ -43,7 +43,11 @@ test('standalone embeds exact model bytes and parses/clones them offline with ve
    assert.ok(encoded.startsWith('data:image/png;base64,'),`${type} icon is embedded`);
    assert.deepEqual(Buffer.from(encoded.split(',')[1],'base64'),fs.readFileSync(path.join(root,'dist/assets/icons',name)));
   }
-  const manifest=modules['model-manifest.mjs'].MODEL_MANIFEST;
+  for(const name of fs.readdirSync(path.join(root,'dist/assets/icons')).filter(name=>/^(?!powerup-).*[.]png$/.test(name))){
+   const key=path.basename(name,'.png'),encoded=context.__18BRO_UI_IMAGES__[key];
+   assert.ok(encoded.startsWith('data:image/png;base64,'),`${key} UI image is embedded`);
+   assert.deepEqual(Buffer.from(encoded.split(',')[1],'base64'),fs.readFileSync(path.join(root,'dist/assets/icons',name)));
+  }  const manifest=modules['model-manifest.mjs'].MODEL_MANIFEST;
   const store=modules['character-assets.mjs'].createCharacterAssetStore({manifest});
   try{
    for(const entry of manifest){

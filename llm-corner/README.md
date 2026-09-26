@@ -31,6 +31,7 @@ For multi-agent work, also read `protocols/roles.md`, `protocols/subagents.md`, 
 | Documentation filing rules | `docs/conventions/docs-style.md` |
 | Known traps | `docs/reference/gotchas.md` |
 | Blender, Astra, and model export setup | `docs/reference/blender-codex-setup.md` and `active/plans/PLAN-002-blender-model-pipeline.md` |
+| Temporary GPT Image/reference work | `docs/conventions/generative-reference-workbench.md` |
 | Integrate a colleague's street texture pack | `docs/reference/street-texture-integration.md` |
 | Why a choice was made | `decisions/INDEX.md` |
 | Current work | `active/plans/` and `active/backlog.md` |

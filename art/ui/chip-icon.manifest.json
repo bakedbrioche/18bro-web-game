@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "assetId": "ui-chip-icon",
+  "revision": 1,
+  "blenderVersion": "5.2.2 LTS",
+  "source": "art/ui/chip-icon.blend",
+  "output": "dist/assets/icons/chip.png",
+  "width": 256,
+  "height": 256,
+  "bytes": 50044,
+  "sha256": "ce060a29c0090682a60075203d49467678cae596399e40573608bb50133ef2bb",
+  "geometry": "one deformed rounded chip shell plus seven raised curve ridges",
+  "provenance": "Original geometry and render authored in repository Python with Blender; no external art."
+}

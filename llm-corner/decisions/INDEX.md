@@ -4,6 +4,9 @@ Decision records preserve why a non-obvious choice was made. Numbers are sequent
 
 | ID | Title | Date | Status |
 |---|---|---|---|
+| DEC-012 | Keep runtime icons persistent and stage run results (DEC-012-persistent-icons-and-staged-results.md) | 2026-09-26 | ACCEPTED |
+| DEC-011 | Bound flight to airtime and weight power-up pacing (DEC-011-weighted-powers-and-bounded-flight.md) | 2026-09-26 | ACCEPTED |
+| DEC-010 | Reveal power routes progressively and author motion from reviewed references (DEC-010-progressive-power-routes-and-reference-led-motion.md) | 2026-09-26 | SUPERSEDED |
 | DEC-009 | Visible power identity and complete sky routes (`DEC-009-visible-power-identity.md`) | 2026-09-25 | ACCEPTED |
 | DEC-008 | Responsive move chaining and authored power-up presentation (`DEC-008-responsive-moves-and-authored-powerups.md`) | 2026-09-25 | ACCEPTED |
 | DEC-007 | Authored rigs exclusively own their bones (`DEC-007-authored-rigs-own-bones.md`) | 2026-09-24 | ACCEPTED |

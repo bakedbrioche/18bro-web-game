@@ -1,12 +1,12 @@
 {
   "assetId": "18bro-v1",
-  "rigVersion": 4,
+  "rigVersion": 5,
   "source": "art/characters/18bro/18bro.blend",
   "output": "dist/assets/models/18bro-v1.glb",
-  "sha256": "6cfe638385e4365ceb98886ab4357a308fce834e287d6d3ce6dea36e60076ce7",
+  "sha256": "d3068a6adbad2b23afecf3b194fd948ce25d027878db5e19e392e31b37244f07",
   "blenderVersion": "5.2.2 LTS",
-  "exportPreset": "18bro-blender-5.2-v4",
-  "bytes": 868816,
+  "exportPreset": "18bro-blender-5.2-v5",
+  "bytes": 878992,
   "bounds": {
     "min": [
       -0.9662122130393982,

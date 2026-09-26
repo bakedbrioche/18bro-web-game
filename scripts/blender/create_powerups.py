@@ -204,7 +204,9 @@ def star(shape, center, radius, color, points=4, depth=.055, transform=None):
 def paw(shape, center, scale, color, transform=None):
     x,y,z=center
     shape.ellipsoid((x,y,z),(.16*scale,.05*scale,.12*scale),color,sides=10,latitudes=4,transform=transform)
-    for xx,zz,rr in ((-.17,.16,.075),(0,.23,.085),(.17,.16,.075)):
+    # One central pad plus four distinct toe beans. This silhouette is shared
+    # by the shield crest and smaller power-up details so every paw reads alike.
+    for xx,zz,rr in ((-.19,.145,.068),(-.065,.225,.076),(.065,.225,.076),(.19,.145,.068)):
         shape.ellipsoid((x+xx*scale,y,z+zz*scale),(rr*scale,.045*scale,rr*1.1*scale),color,sides=8,latitudes=4,transform=transform)
 
 
@@ -566,7 +568,7 @@ effects={
 }
 
 report={
-    'schemaVersion':2,'assetId':'powerups-v1','revision':2,'blenderVersion':bpy.app.version_string,
+    'schemaVersion':2,'assetId':'powerups-v1','revision':3,'blenderVersion':bpy.app.version_string,
     'source':'art/powerups/powerups.blend','output':'dist/assets/models/powerups-v1.glb',
     'sha256':hashlib.sha256(blob).hexdigest(),'bytes':len(blob),'materials':1,'materialNames':['powerup_palette'],
     'coordinates':'glTF Y-up; forward +Z; pickup roots: centered, max dimension 1.4; wearable roots: paw/ankle pivot, authored meter scale',
@@ -607,7 +609,7 @@ for key,obj in objects.items():
 wearable_contracts={
     'magnet':{'attachTo':'socket_carry_L','origin':'center of paw grip on lower bridge',
               'orientation':'neutral glTF Y-up, pole tips +Y, front +Z',
-              'recommendedScale':1,'restOffset':[0,0,0],'recommendedEulerXYZ':[0,0,.9]},
+              'recommendedScale':1,'restOffset':[0,0,0],'recommendedEulerXYZ':[0,0,0]},
     'moon_L':{'attachTo':'foot_L','origin':'ankle pivot; sole is Y=-0.12',
               'orientation':'neutral glTF Y-up, toe +Z; apply inverse bone REST rotation when attaching',
               'recommendedScale':1,'restOffset':[0,0,0]},

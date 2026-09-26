@@ -523,14 +523,19 @@ def lift_from_floor(clearance=.006):
 side_dodge_arms = {}
 
 def side_dodge_pose(side, amount, t=0):
-    ride_pose(t,hip_x=side*.40*amount,hip_y=.015*amount,
-              hip_z=.18-.33*amount,lean=.14+1.06*amount,bank=-side*.045*amount)
-    rotate('head',-.112+.092*amount,z=side*.018*amount)
+    # Swing the whole silhouette OUTSIDE the scooter, rather than bowing the
+    # oversized head directly through its steering cowl. The near hand keeps
+    # the bar, while the other hugs the body in this side-saddle trick.
+    ride_pose(t,hip_x=side*.60*amount,hip_y=.05*amount,
+              hip_z=.18-.40*amount,lean=.14+1.08*amount)
+    rotate('spine',.14+1.08*amount,y=side*.60*amount)
+    rotate('head',-.112+.092*amount,y=side*.40*amount)
     for label in ('L','R'):
-        rotate('leg_'+label,-1.30-.25*amount,y=-side*.055*amount)
-        rotate('shin_'+label,1.78+.20*amount)
-        rotate('foot_'+label,-.48+.05*amount)
+        rotate('leg_'+label,-1.30-.50*amount,y=-side*.26*amount)
+        rotate('shin_'+label,1.78+.22*amount)
+        rotate('foot_'+label,-.48-.12*amount)
     rotate('tail',.06-.10*amount,y=.16+side*.14*amount)
+    lift_from_floor(.008)
 
 
 def side_dodge_grips(side, amount, t=0):
@@ -544,6 +549,10 @@ def side_dodge_grips(side, amount, t=0):
             reset_pose()
             side_dodge_pose(side,endpoint)
             seat_arms()
+            if endpoint:
+                far='L' if side>0 else 'R'
+                rotate('arm_'+far,-.80,y=-side*.25)
+                rotate('forearm_'+far,-1.30)
             endpoints.append({name:rig.pose.bones[name].rotation_quaternion.copy()
                               for name in ('arm_L','forearm_L','arm_R','forearm_R')})
         side_dodge_arms[side]=endpoints
@@ -588,18 +597,22 @@ def pose_at(clip, t):
         rotate('tail', z=.065*math.sin(phase))
         for label in ('L','R'): rotate('forearm_'+label, -.06)
     elif clip == 'jump':
-        anticipation = math.sin(math.pi*min(t/.2,1))**2 if t < .2 else 0
-        airborne = smoothstep(.14,.34,t)*(1-smoothstep(.65,.86,t))
+        anticipation = math.sin(math.pi*min(t/.18,1))**2 if t < .18 else 0
+        airborne = smoothstep(.12,.38,t)*(1-smoothstep(.61,.85,t))
         landing = math.sin(math.pi*(t-.82)/.18)**2 if t > .82 else 0
-        hip = -.10*anticipation-.105*landing
+        hip = -.14*anticipation-.14*landing+.04*airborne
         locate('hips', z=hip)
-        rotate('spine', .13*anticipation+.075*airborne+.15*landing)
-        rotate('head', -.10*anticipation-.06*airborne-.09*landing)
+        rotate('spine', .26*anticipation+.28*airborne+.28*landing,z=.08*airborne)
+        rotate('head', -.18*anticipation-.20*airborne-.18*landing,z=-.10*airborne)
         for label, side in (('L',-1),('R',1)):
-            leg_ik(label,-.045+.12*airborne,.112+.16*airborne,hip,-.08*airborne)
-            rotate('arm_'+label,-.65*airborne+.25*anticipation, -side*.10*airborne)
-            rotate('forearm_'+label,-.10-.6*airborne)
-        rotate('tail', .12*airborne)
+            leg_ik(label,-.045+side*.15*airborne,.112+(.22-side*.08)*airborne,hip,-.30*airborne)
+            basis=rest_basis['leg_'+label]
+            spread=Euler((0,-side*.32*airborne,0),'XYZ').to_quaternion()
+            rig.pose.bones['leg_'+label].rotation_quaternion=basis.inverted()@spread@basis@rig.pose.bones['leg_'+label].rotation_quaternion
+            rotate('arm_'+label,(-1.10+side*.35)*airborne+.38*anticipation,-side*.80*airborne)
+            rotate('forearm_'+label,-.10-.55*airborne)
+        rotate('tail', -.32*airborne,y=.30*airborne,z=-.10*airborne)
+        lift_from_floor()
     elif clip == 'slide':
         duck = smoothstep(0,.16,t)*(1-smoothstep(.82,1,t))
         hip = -.235*duck
@@ -643,14 +656,16 @@ def pose_at(clip, t):
         lift_from_floor()
         seat_arms(smoothstep(.20,.62,t))
     elif clip == 'moped_jump':
-        stunt=smoothstep(.08,.36,t)*(1-smoothstep(.65,.94,t))
-        ride_pose(t,hip_y=.12*stunt,hip_z=.18+.16*stunt,lean=.14+.23*stunt)
+        stunt=smoothstep(.05,.34,t)*(1-smoothstep(.66,.95,t))
+        ride_pose(t,hip_y=.34*stunt,hip_z=.18+.32*stunt,lean=.14-.04*stunt)
+        rotate('hips',1.03*stunt)
+        rotate('head',-.112-.60*stunt)
         for label,sign in (('L',-1),('R',1)):
             # Both rear paws kick behind the seat, keeping the front paws on
             # their fixed grips. The slight split reads clearly from the rear.
-            limb_pose(label,thigh=lerp(-1.30,.78+sign*.10,stunt),
-                      knee=lerp(1.78,.54,stunt),foot=lerp(-.48,-.62,stunt))
-            rotate('leg_'+label,lerp(-1.30,.78+sign*.10,stunt),y=-sign*.15*stunt)
+            limb_pose(label,thigh=lerp(-1.30,1.15+sign*.10,stunt),
+                      knee=lerp(1.78,.42,stunt),foot=lerp(-.48,-.38,stunt))
+            rotate('leg_'+label,lerp(-1.30,1.15+sign*.10,stunt),y=-sign*.28*stunt)
         seat_arms()
     elif clip in ('moped_slide_L','moped_slide_R'):
         side=-1 if clip.endswith('_L') else 1
@@ -658,7 +673,7 @@ def pose_at(clip, t):
         # Drop off the seat into a compact side saddle. The head follows the
         # folded torso instead of counter-rotating upright: even the ear tips
         # now pass below the 1.6-unit low rail during the held dodge. Keep the
-        # lateral offset inside the lane and bake both front-paw grip contacts.
+        # lateral offset inside the lane and bake the near-paw grip while the far paw tucks against the body.
         side_dodge_grips(side,dodge,t)
     elif clip == 'stumble':
         recoil = smoothstep(0,.18,t)*(1-smoothstep(.28,1,t))
@@ -866,7 +881,7 @@ report={'blender':bpy.app.version_string,'source':str(SOURCE.relative_to(ROOT)),
  'export_triangles':export_tris,'max_vertex_weights':max(len(v.groups) for o in parts for v in o.data.vertices),
  'bytes':len(blob),'sha256':hashlib.sha256(blob).hexdigest(),
  'animation_metrics':clip_metrics,
- 'rig_version':4,
+ 'rig_version':5,
  'socket_rest_orientation':'socket_hat +Y bone axis = model +Z in Blender; no twist. Parent props using the socket world transform, never the Original head.',
  'notes':['Complete in-place quaternion clips; the animation mixer exclusively owns every imported bone.',
           'Run/walk use baked two-joint IK for planted contacts; arms and legs have independent concealed skin caps.',
@@ -928,11 +943,11 @@ rig.animation_data.action = None
 scene.frame_set(0); reset_pose(); bpy.context.view_layer.update()
 
 manifest = {
- 'assetId':'18bro-v1','rigVersion':4,
+ 'assetId':'18bro-v1','rigVersion':5,
  'source':str(SOURCE.relative_to(ROOT)).replace('\\','/'),
  'output':str(OUTPUT.relative_to(ROOT)).replace('\\','/'),
  'sha256':report['sha256'],'blenderVersion':bpy.app.version_string,
- 'exportPreset':'18bro-blender-5.2-v4','bytes':len(blob),
+ 'exportPreset':'18bro-blender-5.2-v5','bytes':len(blob),
  'bounds':{'min':[minimum[0],minimum[2],-maximum[1]],
            'max':[maximum[0],maximum[2],-minimum[1]]},
  'boundsBlenderZUp':{'min':minimum,'max':maximum},

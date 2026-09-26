@@ -4,7 +4,13 @@ import { ROUTE, BRANCHES, getRouteProfile, branchOffset, getTrafficPhase, crossS
 export { INTRO_DURATION, CAPTURE_DURATION } from './choreography.mjs?v=street-28';
 export const LANES = Object.freeze([-2.5, 0, 2.5]);
 export const THEMES = Object.freeze(['HONG KONG']);
-export const POWER_DURATIONS = Object.freeze({ magnet: 8, moon: 5, speedburst: 8, moped: 10, shield:12, doublechips:12, jetpack:10 });
+export const POWER_DURATIONS = Object.freeze({ magnet: 8, moon: 5, speedburst: 8, moped: 10, shield:10, doublechips:12, jetpack:10 });
+export const POWER_SPAWN = Object.freeze({
+  rowInterval: 8,
+  rowOffset: 3,
+  weights: Object.freeze({ magnet: 30, moon: 24, speedburst: 16, doublechips: 13, moped: 8, shield: 5, jetpack: 4 }),
+});
+export const SHIELD_CHARGES = 3;
 export const MOTION = Object.freeze({ laneDuration: .16, jumpDuration: .82, jumpHeight: 2.65, moonJumpDuration: 1.16, moonJumpHeight: 6.1, slideDuration: .72, jumpBuffer: .1, coyoteTime: .08 });
 export const BARRIERS = Object.freeze({ jump: { height: 1.9, width: 2.35, depth: 1.0 }, blocker: { opening: 1.55, height: 4.55, width: 2.38, depth: 1.65 }, slide: { height: 4.05, width: 2.38, depth: .9 } });
 export const VEHICLES = Object.freeze({ traffic: { approach: 2.05, height: 1.89, width: 1.94, depth: 3.56 }, scooter: { approach: 1.9, height: 2.26, width: 1.04, depth: 2.0 } });
@@ -62,7 +68,7 @@ const POWER_DEFINITIONS = {
   speedburst: { activate() {}, update() {}, end() {} },
   shield: { activate() {}, update() {}, end() {} },
   doublechips: { activate() {}, update() {}, end() {} },
-  jetpack: { refreshActivation: true, activate(game) {game.powers.remove('moped');game.player.vy=0;game.player.slide=0;game._createFlightTrail();}, update() {}, end(game) {game._clearFlightTrail();game.shieldGrace=Math.max(game.shieldGrace,1.4);} },
+  jetpack: { refreshActivation: true, activate(game) {game.powers.remove('moped');game.player.vy=0;game.player.slide=0;game.player.jumpBuffer=0;game._clearGroundCoinsAhead();game._createFlightTrail();}, update() {}, end(game) {game._finishJetpackLanding();} },
   moped: { activate(game) { game.powers.remove('jetpack');game.policeDistance=18;game._hitAge=100;game.player.mopedMount=.625;game.player.mopedSlideSide=0; }, update(game) { game.policeDistance=18; }, end(game) { game.player.mopedMount=0;game.player.mopedSlideSide=0; } },
 };
 
@@ -75,7 +81,7 @@ export class PowerUpManager {
     if (!definition) return false;
     const wasActive = this.has(type);
     const duration = POWER_DURATIONS[type];
-    this.active.set(type, { type, duration, remaining: duration, elapsed: 0 });
+    this.active.set(type, { type, duration, remaining: duration, elapsed: 0, ...(type === 'shield' ? { charges: SHIELD_CHARGES } : {}) });
     if (!wasActive || definition.refreshActivation) definition.activate(this.game);
     this.game.emit('power', { kind: type, duration, refresh: wasActive });
     return true;
@@ -91,20 +97,18 @@ export class PowerUpManager {
     for (const [type, power] of this.active) {
       const activeDt = Math.min(dt, power.remaining);
       POWER_DEFINITIONS[type].update(this.game, activeDt);
-      power.elapsed += type === 'jetpack' ? dt : activeDt;
+      power.elapsed += activeDt;
       power.remaining = Math.max(0, power.remaining - dt);
       // A coin already caught by the magnet remains owed to the player. Keep the
       // visual power alive while it completes its trip, but do not tag new coins.
       const magnetDebt = type === 'magnet' && this.game.entities.some(e => e.active && e.magnetLatched);
-      // The flight ends with its final chip. An overdue or missed chip has a
-      // short grace period, so an abandoned run cannot retain flight forever.
-      const flightDebt = type === 'jetpack' && this.game._jetpackFinalChip?.active && power.elapsed < power.duration + 2;
-      if (power.remaining <= 1e-8 && !magnetDebt && !flightDebt) this.remove(type);
+      if (power.remaining <= 1e-8 && !magnetDebt) this.remove(type);
     }
   }
   get speedMultiplier() { return Math.max(this.has('moped') ? 1.5 : 1, this.has('speedburst') ? 1.6 : 1); }
   get scoreMultiplier() { return 1; }
   get magnetRadius() { return (this.active.get('magnet')?.remaining || 0) > 0 ? 10 : 0; }
+  get shieldCharges() { return this.active.get('shield')?.charges || 0; }
   get invulnerable() { return this.has('jetpack'); }
 }
 
@@ -133,7 +137,8 @@ export class RunnerGame {
     this.introRemaining = INTRO_DURATION; this.introProgress = 0; this._hitAge = 100; this._slowRemaining = 0;
     this.mistakes = 0; this.shieldGrace = 0; this.captureRemaining = 0; this.captureDuration = CAPTURE_DURATION; this.captureProgress = 0; this.crash = null;
     this._spawnCursor = 30; this._rowId = 0; this._poolCursor = 0; this._lastSafeLane = 1;
-    this._jetpackTrailId = 0; this._jetpackFinalChip = null;
+    this._lastPowerKind = null;
+    this._jetpackTrailId = 0; this._jetpackFinalChip = null; this._flightTrailPlan = []; this._flightTrailCursor = 0; this._flightTrailSpacing = 3;
     this.patternHistory = []; this.powers.clear();
     this.route=this._routeProfile(0);this.routeTraffic=getTrafficPhase(0);this._branch=null;this._branchEntries=new Set();this._crossWave=-1;this._crossReleased=false;this._routeComplete=false;this._routeWaiting=false;
     for (const entity of this.entities) entity.active = false;
@@ -309,21 +314,23 @@ export class RunnerGame {
       this.spawnEntity(type,lane,z,{z:actualZ,previousZ:actualZ,delayedForBarrier:actualZ<z*approach-1e-6,
         rowId,safeLane:pattern.safeLane,variant:Math.floor(this._random()*3),fromLane:lane,toLane:lane});
     }
-    // Coins lead through the guaranteed clear lane, aligned to scheduled encounters.
-    for (let i = 0; i < 4; i++) this.spawnEntity('coin', pattern.safeLane, z + 3.375 - i * 2.25, { rowId, y: 1.0 });
-    const jumpLane = pattern.slots.indexOf('jump');
-    if (jumpLane >= 0) {
-      // Samples of the actual jump parabola: the center coin sits above the barrier at the apex.
-      for (let i = -2; i <= 2; i++) {
-        const offset = i * .12;
-        this.spawnEntity('coin', jumpLane, z + this.speed * offset, { rowId, y: .7 + MOTION.jumpHeight * (1 - (2 * offset / MOTION.jumpDuration) ** 2), jumpArc: true });
+    // Jetpack owns the only chip route while airborne. Hazards and power
+    // pickups keep streaming, but ordinary ground/jump rows resume after landing.
+    if (!this.powers.has('jetpack')) {
+      for (let i = 0; i < 4; i++) this.spawnEntity('coin', pattern.safeLane, z + 3.375 - i * 2.25, { rowId, y: 1.0 });
+      const jumpLane = pattern.slots.indexOf('jump');
+      if (jumpLane >= 0) {
+        // Samples of the actual jump parabola: the center coin sits above the barrier at the apex.
+        for (let i = -2; i <= 2; i++) {
+          const offset = i * .12;
+          this.spawnEntity('coin', jumpLane, z + this.speed * offset, { rowId, y: .7 + MOTION.jumpHeight * (1 - (2 * offset / MOTION.jumpDuration) ** 2), jumpArc: true });
+        }
       }
     }
-    // A visible power choice roughly every five encounter rows keeps short runs
-    // varied without stacking a new pickup on every obstacle.
-    if (rowId > 0 && rowId % 5 === 2) {
-      const kinds=['moped','magnet','shield','doublechips','jetpack','moon','speedburst'];
-      const kind = kinds[Math.floor(rowId / 5) % kinds.length];
+    // Power choices are deliberately sparse. Selection below is weighted so
+    // utility powers recur more often than run-changing Jetpack and Shield.
+    if (rowId > 0 && rowId % POWER_SPAWN.rowInterval === POWER_SPAWN.rowOffset) {
+      const kind = this._nextPowerKind();
       this.spawnEntity(kind, pattern.safeLane, z + 8, { rowId, y: 1.2 });
     }
     const spacing = obstacleSpacing(this.speed, this.tier)*(spawnDistance>ROUTE.start?1.5-this._routeProfile(spawnDistance).trafficIntensity*.55:1);
@@ -342,18 +349,36 @@ export class RunnerGame {
     if (this.distance >= ROUTE.start && this.debug.speedOverride == null) speed = Math.min(speed, this._routeProfile(this.distance).speedLimit * multiplier);
     return speed;
   }
+  _nextPowerKind() {
+    const choices=Object.entries(POWER_SPAWN.weights).filter(([kind])=>kind!==this._lastPowerKind);
+    const total=choices.reduce((sum,[,weight])=>sum+weight,0);
+    let roll=this._random()*total,kind=choices.at(-1)[0];
+    for(const [candidate,weight] of choices){roll-=weight;if(roll<0){kind=candidate;break;}}
+    this._lastPowerKind=kind;return kind;
+  }
+  _clearGroundCoinsAhead() {
+    for (const e of this.entities) if (e.active && e.type === 'coin' && !e.flightTrail && e.z < 3) e.active = false;
+  }
   _clearFlightTrail() {
     for (const e of this.entities) if (e.active && e.flightTrail && e.flightTrailId === this._jetpackTrailId) e.active = false;
-    this._jetpackFinalChip = null;
+    this._jetpackFinalChip = null;this._flightTrailPlan=[];this._flightTrailCursor=0;
+  }
+  _finishJetpackLanding() {
+    this._clearFlightTrail();
+    const p=this.player;
+    p.y=0;p.vy=0;p.grounded=true;p.coyote=MOTION.coyoteTime;p.jumpBuffer=0;p.slide=0;
+    p.jumpApex=MOTION.jumpHeight;p.jumpGravity=GRAVITY;p.roofEntityId=null;p.anim='run';
+    this.shieldGrace=Math.max(this.shieldGrace,1.4);
+    this.emit('jetpackland',{x:p.x});
   }
   _createFlightTrail() {
     this._clearFlightTrail();
     const flight = this.powers.active.get('jetpack');
     if (!flight) return;
     const trailId = ++this._jetpackTrailId;
-    // The whole line exists at pickup. Integrate the current speed plus its
-    // gentle normal-run acceleration to make its far end roughly ten seconds
-    // away; cap the count to preserve the fixed entity pool in endless runs.
+    // Build a deterministic route plan, then reveal only a readable window.
+    // Lane blocks bounce across all three lanes, with random initial direction
+    // and block lengths so repeat activations do not trace the same line.
     const speed = Math.max(this._projectSpeed(), 2);
     const acceleration = this.debug.speedOverride == null && this._slowRemaining <= 0 && speed < 26 * this.powers.speedMultiplier ? .12 * this.powers.speedMultiplier : 0;
     const routeLength = speed * flight.duration + .5 * acceleration * flight.duration ** 2;
@@ -361,18 +386,28 @@ export class RunnerGame {
     const available = Math.max(0, this.entities.reduce((count, e) => count + !e.active, 0) - 20);
     const count = Math.min(100, available, Math.max(2, Math.ceil((routeLength - firstDistance) / 3) + 1));
     if (count < 2) return;
-    const spacing = (routeLength - firstDistance) / (count - 1);
+    const spacing = this._flightTrailSpacing=(routeLength-firstDistance)/(count-1);
+    let lane=this.player.lane,direction=this._random()<.5?-1:1,hold=3+Math.floor(this._random()*3);
+    this._flightTrailPlan=[];this._flightTrailCursor=0;
     for (let i = 0; i < count; i++) {
       const distance = firstDistance + i * spacing;
       const arrival = acceleration > 0 ? (Math.sqrt(speed * speed + 2 * acceleration * distance) - speed) / acceleration : distance / speed;
       const blend = clamp(Math.min(arrival / 1.2, (flight.duration - arrival) / 1.3), 0, 1);
       const eased = blend * blend * (3 - 2 * blend);
-      const coin = this.spawnEntity('coin', this.player.lane, -distance, {
-        y: .85 + 9 * eased, flightTrail: true, flightTrailId: trailId,
-        trailIndex: i, trailFinal: i === count - 1,
-      });
-      if (!coin) break;
-      if (coin.trailFinal) this._jetpackFinalChip = coin;
+      this._flightTrailPlan.push({lane,y:2.2+7.6*eased,index:i,final:i===count-1});
+      if(--hold<=0&&i<count-1){if(lane+direction<0||lane+direction>2)direction*=-1;lane+=direction;hold=3+Math.floor(this._random()*3);}
+    }
+    // The first route window is created after lift-off in _step. This keeps
+    // Jetpack-only chips out of the ground phase entirely.
+  }
+  _spawnFlightTrailWindow(firstDistance=null,trailId=this._jetpackTrailId) {
+    if(!this.powers.has('jetpack')||!this._flightTrailPlan.length||this.player.y<=.05)return;
+    const active=this.entities.filter(e=>e.active&&e.flightTrail&&e.flightTrailId===trailId&&e.z<3).sort((a,b)=>a.z-b.z);
+    let farthest=active[0]?.z??-Math.max(3.5,firstDistance||this._flightTrailSpacing);
+    while(active.length<8&&this._flightTrailCursor<this._flightTrailPlan.length){
+      const step=this._flightTrailPlan[this._flightTrailCursor++],z=active.length?farthest-this._flightTrailSpacing:farthest;
+      const coin=this.spawnEntity('coin',step.lane,z,{y:step.y,flightTrail:true,flightTrailId:trailId,trailIndex:step.index,trailFinal:step.final});
+      if(!coin){this._flightTrailCursor--;break;}active.push(coin);farthest=z;if(step.final)this._jetpackFinalChip=coin;
     }
   }
   update(dt) {
@@ -418,7 +453,7 @@ export class RunnerGame {
       p.roofEntityId = null; p.grounded = false; p.coyote = MOTION.coyoteTime;
     }
     if(this.powers.has('jetpack')){
-      const flight=this.powers.active.get('jetpack'),landingTime=flight.remaining || (this._jetpackFinalChip?.active ? 1.3 : 0);
+      const flight=this.powers.active.get('jetpack'),landingTime=flight.remaining;
       const blend=Math.min(1,flight.elapsed/1.2,landingTime/1.3);
       const target=9*blend*blend*(3-2*blend);
       p.y+=(target-p.y)*(1-Math.exp(-dt*12));p.vy=0;p.grounded=false;
@@ -472,8 +507,11 @@ export class RunnerGame {
       e.previousZ = e.z;
       const oldX = e.x;
       if(!e.stopped){if(e.type==='crossTraffic'){e.z=this.distance-e.anchor;e.x+=e.crossSpeed*dt;}else e.z=HAZARDS.has(e.type)?e.nextZ:e.z+movement*e.approachFactor;}
-      const pullRadius=this.powers.has('jetpack')?(e.flightTrail?5:12):this.powers.magnetRadius;
-      if (COLLECTIBLES.has(e.type) && (e.magnetLatched || (pullRadius > 0 && e.z > -pullRadius && e.z < 1))) {
+      const jetpackActive=this.powers.has('jetpack');
+      const flightPull=jetpackActive&&e.flightTrail&&(e.trailFinal||Math.abs(p.x-e.x)<.95)?2.4:0;
+      const pullRadius=jetpackActive?(e.flightTrail?flightPull:0):this.powers.magnetRadius;
+      const mayAttract=!jetpackActive||e.flightTrail;
+      if (COLLECTIBLES.has(e.type) && mayAttract && (e.magnetLatched || (pullRadius > 0 && e.z > -pullRadius && e.z < 1))) {
         if (this.powers.magnetRadius > 0 && e.z > -this.powers.magnetRadius && e.z < 1) e.magnetLatched = true;
         e.magnetic = true;
         e.x += (p.x - e.x) * Math.min(1, dt * 13);
@@ -527,8 +565,9 @@ export class RunnerGame {
           this.emit('dodge', { streak: this.dodgeStreak, bonus });
         }
       }
-      if (e.z > 9) e.active = false;
+      if (e.z > (e.flightTrail?3:9)) e.active = false;
     }
+    if(this.powers.has('jetpack'))this._spawnFlightTrailWindow();
     if (this.state === 'RUNNING') this._fillAhead();
   }
   _pickup(entity) {
@@ -537,7 +576,6 @@ export class RunnerGame {
     if (kind === 'coin') { const count=this.powers.has('doublechips')?2:1;this.coins+=count; this.score += 10 * count * this.powers.scoreMultiplier; }
     else this.powers.activate(kind);
     this.emit('pickup', { kind, id: entity.id, x: entity.x, y: entity.y, chips: this.chips, coins: this.coins });
-    if (kind === 'coin' && entity.flightTrail && entity.trailFinal && entity.flightTrailId === this._jetpackTrailId) this.powers.remove('jetpack', 'trail-complete');
   }
   _hit(entity, impact = 'front') {
     entity.hit = true;
@@ -547,7 +585,14 @@ export class RunnerGame {
       this.emit('smash', { kind: entity.type, x: entity.x }); return;
     }
     if (this.shieldGrace > 0) { entity.active = false; return; }
-    if(this.powers.has('shield')){this.powers.remove('shield','collision');entity.active=false;this.shieldGrace=1.1;this.emit('shieldbreak',{kind:entity.type});return;}
+    if(this.powers.has('shield')){
+      const shield=this.powers.active.get('shield');
+      shield.charges=Math.max(0,shield.charges-1);entity.active=false;this.shieldGrace=1.1;
+      this.emit('shieldhit',{kind:entity.type,remaining:shield.charges});
+      this.emit('shieldbreak',{kind:entity.type,remaining:shield.charges});
+      if(!shield.charges)this.powers.remove('shield','depleted');
+      return;
+    }
     if (this.powers.has('moped')) {
       this.powers.remove('moped', 'collision'); entity.active = false;
       this.shieldGrace = 1.1; this.player.hit = 0;

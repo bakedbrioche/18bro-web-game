@@ -14,7 +14,7 @@ test('authored hero contract covers every gameplay pose',()=>{
   [{...game('STARTING'),introProgress:.35},'celebrate'],
   [{...game('STARTING'),introProgress:.8},'run'],
   [game('RUNNING',{anim:'jump',y:1,vy:2}),'jump'],
-  [game('RUNNING',{anim:'fall',y:1,vy:-2}),'fall'],
+  [game('RUNNING',{anim:'fall',y:1,vy:-2,jumpApex:2.65}),'jump'],
   [game('RUNNING',{anim:'roll',slide:.4}),'roll'],
   [game('RUNNING',{anim:'hit',hit:.8}),'stumble'],
   [{...game('CAUGHT'),captureProgress:.4},'caught'],
@@ -22,6 +22,14 @@ test('authored hero contract covers every gameplay pose',()=>{
   [game('GAME_OVER'),'carry']
  ];
  for(const [input,expected] of cases)assert.equal(selectHeroAnimation(input).clip,expected);
+});
+
+test('normal jump samples the complete authored arc through ascent and descent',()=>{
+ const rising=selectHeroAnimation(game('RUNNING',{anim:'jump',y:1.325,vy:3,jumpApex:2.65}));
+ const apex=selectHeroAnimation(game('RUNNING',{anim:'jump',y:2.65,vy:0,jumpApex:2.65}));
+ const falling=selectHeroAnimation(game('RUNNING',{anim:'fall',y:1.325,vy:-3,jumpApex:2.65}));
+ assert.equal(rising.clip,'jump');assert.equal(apex.clip,'jump');assert.equal(falling.clip,'jump');
+ assert.equal(rising.sample,.25);assert.equal(apex.sample,.5);assert.equal(falling.sample,.75);
 });
 
 test('vehicles have priority over locomotion and pause freezes the current family',()=>{

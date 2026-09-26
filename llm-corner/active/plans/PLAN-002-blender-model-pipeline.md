@@ -154,3 +154,9 @@ The refreshed procedural hero can ship as an interim visual improvement if autho
 - Refreshed loads both templates before an atomic swap. Each human instance uses a skeleton-safe clone and per-person material palette. Imported mixers exclusively own imported bones; gameplay owns world placement and explicit whole-root capture tipping.
 - Hats, packet, jetpack and shield follow the authored rig/root. Fur and hat customization remain on Refreshed through every pose.
 - The automated gate has 118 passing tests, both GLB validators pass, and the standalone export is 7,680,537 bytes. A headless Chrome flow loaded both modular GLBs in Clear Retro, exercised intro/run/jump/slide/capture/game-over/retry and pink-fur/crown customization, and reported WebGL error 0 with no JavaScript exception.
+
+## 11. Reference-led animation record — 2026-09-26
+
+- Hero rig v5 remains at 3,972 triangles, 20 joints, three materials and 18 complete in-place clips. The expressive jump uses the full ascent/descent timeline; scooter jump extends the lower body behind the gripped bars, and left/right side-saddle dodges move the body outside the scooter cowl.
+- Power-ups revision 3 exports seven pickup roots plus three wearables in a 643,248-byte, 12,703-triangle GLB. Shield paw marks use four toes in both the authored pickup and runtime energy sphere.
+- Exact GPT Image prompts, inputs, outputs and notes live only in the ignored dated workbench defined by docs/conventions/generative-reference-workbench.md. Shipped results are rebuilt in Blender or code and validated normally.

@@ -225,3 +225,30 @@ test('arrest officers start outside the camera and move into view before pickup 
   });
  }
 });
+
+test('magnet is gripped at the U bridge and emits three restrained wave arcs',()=>{
+ const s=modelFactory(),cat=s.makeCat('18bro'),magnet=cat.magnet;
+ assert.equal(magnet.parent,cat.arms[0]);assert.equal(magnet.userData.gripAtBottom,true);
+ const waves=magnet.getObjectByName('magnet_wave_arcs');assert.equal(waves.children.length,3);
+ magnet.visible=true;s.animateMagnet(magnet,1,false);
+ assert.ok(waves.children.every(arc=>Number.isFinite(arc.scale.x)));
+ s.animateMagnet(magnet,2,true);assert.ok(waves.children.every(arc=>arc.visible&&arc.scale.x===1));
+});
+
+test('shield presents three four-toe charge badges and collapses after its final charge',()=>{
+ const s=modelFactory();s.materials=[];const shield=s.makeShield(),stripe=shield.getObjectByName('shield_charge_stripe');
+ assert.equal(stripe.children.length,3);assert.equal(shield.getObjectByName('shield_heart_orbit'),undefined);
+ for(let i=0;i<3;i++){assert.equal(shield.getObjectByName(`shield_paw_${i}`).userData.toes,4);assert.equal(stripe.children[i].position.y,0);}
+ s.updateShieldVisual(shield,true,3,1,1/60,false);const before=stripe.rotation.y;s.updateShieldVisual(shield,true,2,2,.5,false);
+ assert.ok(stripe.rotation.y<before,'charge stripe rotates clockwise');assert.equal(stripe.children.filter(item=>item.visible).length,2);
+ s.updateShieldVisual(shield,true,1,2.5,.5,false);assert.equal(stripe.children.filter(item=>item.visible).length,1);
+ s.updateShieldVisual(shield,false,0,3,1,false);assert.equal(shield.visible,true,'expiry keeps one graceful fade frame');
+ s.updateShieldVisual(shield,false,0,4,1,false);assert.equal(shield.visible,false);
+});
+
+test('capture escort keeps one continuous pace through the completed turn',()=>{
+ const s=modelFactory(),cat=s.makeCat('18bro'),cops=[s.makeCop(),s.makeCop()];cat.root.scale.setScalar(.776);
+ const samples=[];for(const progress of [.68,.70,.72,.74]){s.animateCapture(cat,cops,progress);samples.push({cat:cat.root.position.z,cops:cops.map(c=>c.root.position.z)});}
+ const catSteps=samples.slice(1).map((sample,i)=>sample.cat-samples[i].cat);assert.ok(catSteps.every(step=>step>.13));
+ for(let officer=0;officer<2;officer++){const steps=samples.slice(1).map((sample,i)=>sample.cops[officer]-samples[i].cops[officer]);assert.ok(steps.every(step=>step>.13),`officer ${officer} pauses after turning`);}
+});

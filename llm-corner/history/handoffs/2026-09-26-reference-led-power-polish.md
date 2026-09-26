@@ -2,7 +2,7 @@
 
 Author: Codex with delegated simulation, scene and UI review
 Branch: feature/graphics-v2-pivot
-Commit/PR: working tree intentionally remains uncommitted; the current task did not authorize a commit or push
+Commit/PR: e44736d; included in draft PR #1
 
 ## State of the world
 

@@ -94,6 +94,16 @@ Acceptance:
 - Jetpack reveals a connected lane-changing airborne route progressively, keeping six to eight chips readable ahead. It suppresses ground chips during flight, expires at ten seconds, clears the route and resets directly to run.
 - Power-up spawning uses a sparse exported weighted table: Magnet/Moon Boots are common, Shield/Jetpack are rare, and the same power never repeats immediately.
 - Speed Burst uses a motion-aware blue edge vignette and directional swooshes instead of emitting particles behind the cat.
+
+
+### Phase J — route, camera and result refinement — complete
+
+- Raised the active Magnet in a straight mixer-owned arm pose while preserving every base clip's non-arm tracks; enlarged its U and blue wave signal.
+- Enlarged and evenly spaced the three Shield badges, set a three-second orbit, added per-charge shatter/fade feedback and extended the power to fifteen seconds.
+- Replaced repetitive four-chip ground rows with seeded 3–6 chip straight, lateral and weave paths using a 1:3:3:1 length distribution.
+- Kept Moon Boots and Jetpack camera pitch constant by lifting the camera position and look target together.
+- Smoothed the BUSTED letter wave so adjacent glyphs flow together and spun the model-rendered result chip with reduced-motion fallbacks.
+
 ## 3. Model and animation contract
 
 - The simulation owns position, facing, collision, capture logic, and root motion. Imported animation clips are in-place visual motion.

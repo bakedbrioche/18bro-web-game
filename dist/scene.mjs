@@ -13,8 +13,15 @@ import { HERO_CLIPS, selectHeroAnimation } from './character-animation.mjs';
 
 const TAU = Math.PI * 2;
 const POWER_TYPES=Object.freeze(['magnet','moon','moped','shield','doublechips','jetpack','speedburst']);
+const SHIELD_ORBIT_SECONDS=3;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const seeded=(n)=>{let s=n>>>0;return ()=>((s=(s*1664525+1013904223)>>>0)/4294967296)};
+
+export function airborneCameraFollow(powers,height=0){
+ const y=Math.max(0,Number.isFinite(height)?height:0),constantPitch=!!powers?.has?.('jetpack')||!!powers?.has?.('moon');
+ const lift=constantPitch?y*.9:Math.min(y*.14,.6);
+ return {cameraLift:lift,targetLift:constantPitch?lift:0,constantPitch};
+}
 
 function texture(paint,w=64,h=w){
   const c=document.createElement('canvas');c.width=w;c.height=h;
@@ -157,6 +164,16 @@ export class GameScene {
   const min=asset.definition.bounds?.min?.[1]||0,max=asset.definition.bounds?.max?.[1]||2.736;
   const scale=2.4/(max-min);asset.scene.scale.setScalar(scale);asset.scene.position.y=-min*scale;
   const mixer=new THREE.AnimationMixer(asset.scene),actions=Object.fromEntries(HERO_CLIPS.map(name=>[name,mixer.clipAction(clips.get(name))])),furMaterials=[];
+  // Build one mixer-owned variant per authored state. Only the left arm
+  // quaternion tracks change; every head, body and lower-body track is cloned
+  // from the active base clip so running, jumping and riding continue normally.
+  const holdAngle=40*Math.PI/180,holdDirection=new THREE.Vector3(-Math.cos(holdAngle),Math.sin(holdAngle),0);
+  const magnetArmQuaternion=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),holdDirection),magnetForearmQuaternion=new THREE.Quaternion();
+  const holdRotations=new Map([['arm_L.quaternion',magnetArmQuaternion.toArray()],['forearm_L.quaternion',magnetForearmQuaternion.toArray()]]),magnetClips={},magnetActions={};
+  for(const name of HERO_CLIPS){
+   const base=clips.get(name),tracks=base.tracks.map(track=>{const held=holdRotations.get(track.name),copy=track.clone();if(held)for(let i=0;i<copy.times.length;i++)copy.values.set(held,i*4);return copy;});
+   const heldClip=magnetClips[name]=new THREE.AnimationClip(`${name}_magnet_hold`,base.duration,tracks,base.blendMode);magnetActions[name]=mixer.clipAction(heldClip);
+  }
   asset.scene.traverse(object=>{
    // Skinned bounds can differ between clips; this one small hero is always relevant.
    if(object.isSkinnedMesh)object.frustumCulled=false;
@@ -171,12 +188,11 @@ export class GameScene {
   const shield=this.makeShield();shield.position.y=1.05;root.add(shield);
   asset.scene.updateMatrixWorld(true);
   const cloneWearable=(name,parent)=>{const source=this.authoredPowerupTemplate?.wearables.get(name);if(!source)throw new Error(`Authored hero cannot attach ${name}`);const wearable=source.clone(true);wearable.name=`18bro_${name}`;wearable.position.set(0,0,0);wearable.scale.setScalar(1);const sceneQ=new THREE.Quaternion(),parentQ=new THREE.Quaternion();asset.scene.getWorldQuaternion(sceneQ);parent.getWorldQuaternion(parentQ);wearable.quaternion.copy(sceneQ.invert().multiply(parentQ).invert());wearable.visible=false;parent.add(wearable);return wearable;};
-  // The authored magnet's origin is the centre of its lower bridge. Keeping that
-  // origin at the carry socket makes the paw visibly grip the U instead of
-  // twisting the whole prop behind the wrist.
-  const magnet=cloneWearable('wearable_magnet',leftHand);magnet.userData.gripAtBottom=true;this.addMagnetWaves(magnet);
+  // The magnet stays on the authored grip socket. Its attachment rotation
+  // cancels the fixed mixer-owned hold chain so the U remains upright.
+  const magnet=cloneWearable('wearable_magnet',leftHand);magnet.position.set(0,0,0);magnet.quaternion.copy(magnetArmQuaternion).multiply(magnetForearmQuaternion).multiply(leftHand.quaternion).invert();magnet.scale.setScalar(1.16);magnet.userData.gripAtBottom=true;magnet.userData.raisedToPlayerRight=true;this.addMagnetWaves(magnet);
   const moonBootL=cloneWearable('wearable_moon_L',leftFoot),moonBootR=cloneWearable('wearable_moon_R',rightFoot);
-  return {root,asset,mixer,actions,hand,leftHand,leftFoot,rightFoot,hat,hatSocket,backSocket,hats,jetpack,jetFlames,shield,magnet,moonBoots:[moonBootL,moonBootR],hips,furMaterials,assetScale:scale,clip:null,packet:null,packetSource:null,look:null};
+  return {root,asset,mixer,actions,magnetActions,magnetClips,magnetArmQuaternion,magnetForearmQuaternion,holdAngle,hand,leftHand,leftFoot,rightFoot,hat,hatSocket,backSocket,hats,jetpack,jetFlames,shield,magnet,moonBoots:[moonBootL,moonBootR],hips,furMaterials,assetScale:scale,clip:null,action:null,actionKey:'',magnetHeld:false,packet:null,packetSource:null,look:null};
  }
  restoreOriginalHero(){
   if(this._hiddenHeroMeshes){for(const [object,visible] of this._hiddenHeroMeshes)object.visible=visible;this._hiddenHeroMeshes=null;}
@@ -203,13 +219,15 @@ export class GameScene {
    hero.hat.visible=hat==='cap';for(const [kind,accessory] of hero.hats)accessory.visible=hat===kind;hero.look=look;
   }
   const selection=selectHeroAnimation(game,{menu,previousState:this._modelLastState,reducedMotion});
-  const clip=selection.clip;
-  if(hero.clip!==clip){
-   const previous=hero.clip?hero.actions[hero.clip]:null,next=hero.actions[clip];
+  const clip=selection.clip,magnetHeld=!!this.cat.magnet.visible,actionKey=`${clip}:${magnetHeld?'magnet':'base'}`;
+  if(hero.actionKey!==actionKey){
+   const previous=hero.action,next=magnetHeld?hero.magnetActions[clip]:hero.actions[clip],sameClip=hero.clip===clip,holdChanged=previous&&hero.magnetHeld!==magnetHeld;
+   const phase=holdChanged&&sameClip?(previous.time/(previous.getClip().duration||1))%1:0;
    next.reset().setLoop(selection.loop?THREE.LoopRepeat:THREE.LoopOnce,selection.loop?Infinity:1);next.clampWhenFinished=!selection.loop;next.setEffectiveWeight(1).play();
-   if(previous&&previous!==next)next.crossFadeFrom(previous,selection.blend,false);hero.clip=clip;
+   if(previous&&previous!==next){if(holdChanged){previous.stop();if(sameClip)next.time=phase*(next.getClip().duration||1);}else next.crossFadeFrom(previous,selection.blend,false);}
+   hero.clip=clip;hero.action=next;hero.actionKey=actionKey;hero.magnetHeld=magnetHeld;
   }
-  const action=hero.actions[clip];action.setEffectiveTimeScale(selection.rate);
+  const action=hero.action;action.setEffectiveTimeScale(selection.rate);
   if(selection.sample!==null){hero.mixer.update(selection.frozen?0:Math.max(0,Math.min(dt,.05)));action.time=selection.sample*action.getClip().duration;hero.mixer.update(0);}
   else hero.mixer.update(selection.frozen?0:Math.max(0,Math.min(dt,.05)));
   if(hero.packetSource!==this.cat.bag){
@@ -429,7 +447,7 @@ export class GameScene {
   for(const side of [-1,1]){const leg=new THREE.Group();leg.position.set(side*.24,.4,0);body.add(leg);this.ellipsoid(leg,coat,0,-.13,0,.3,.48,.34);this.ellipsoid(leg,skin==='astronaut'?m.white:coat,0,-.31,.11,.36,.21,.48);legs.push(leg);const arm=new THREE.Group();arm.position.set(side*.45,.96,0);body.add(arm);this.ellipsoid(arm,suit,0,-.2,0,.31,.55,.34);this.ellipsoid(arm,coat,0,-.43,.035,.32,.3,.33);arm.rotation.z=side*.12;arms.push(arm);}
   const tail=new THREE.Mesh(new THREE.CylinderGeometry(.07,.11,.8,10),coat);tail.position.set(.14,.66,-.53);tail.rotation.x=-.75;body.add(tail);
   const bag=new THREE.Group();this.makePacket(bag);bag.position.set(0,-.42,.09);bag.rotation.z=-.12;arms[1].add(bag);
-  const magnet=new THREE.Group();magnet.name='magnet_wearable';magnet.position.set(-.03,-.44,.08);magnet.rotation.set(.08,0,.08);magnet.userData.gripAtBottom=true;arms[0].add(magnet);const magnetArc=new THREE.Mesh(new THREE.TorusGeometry(.22,.07,8,18,Math.PI),m.red);magnetArc.position.y=.22;magnetArc.rotation.z=Math.PI;magnet.add(magnetArc);for(const side of [-1,1])this.boxMesh(magnet,side<0?m.red:m.cyan,side*.22,.22,0,.13,.16,.14);this.addMagnetWaves(magnet);magnet.visible=false;
+  const magnet=new THREE.Group();magnet.name='magnet_wearable';magnet.position.set(0,-.49,.08);magnet.userData.gripAtBottom=true;magnet.userData.raisedToPlayerRight=true;arms[0].add(magnet);const magnetArc=new THREE.Mesh(new THREE.TorusGeometry(.28,.075,8,20,Math.PI),m.red);magnetArc.position.y=.28;magnetArc.rotation.z=Math.PI;magnet.add(magnetArc);for(const side of [-1,1])this.boxMesh(magnet,side<0?m.red:m.cyan,side*.28,.29,0,.14,.22,.15);this.addMagnetWaves(magnet);magnet.visible=false;
   const moonBoots=legs.map((leg,index)=>{const boot=new THREE.Group();boot.name=`moon_boot_${index?'R':'L'}`;boot.position.set(0,-.34,.14);leg.add(boot);this.roundedMesh(boot,m.blue,0,0,0,.48,.3,.56,.08);this.boxMesh(boot,m.cyan,0,.1,.18,.4,.08,.12);this.ellipsoid(boot,m.lamp,0,-.11,.21,.28,.06,.13);boot.visible=false;return boot;});
   const jetpack=this.makeJetpack();jetpack.position.set(0,.85,-.46);jetpack.scale.setScalar(.8);body.add(jetpack);jetpack.visible=false;
   const shield=this.makeShield();root.add(shield);shield.position.y=1.05;
@@ -445,21 +463,29 @@ export class GameScene {
   const badgeShape=new THREE.Shape();badgeShape.moveTo(-.25,.24);badgeShape.lineTo(.25,.24);badgeShape.lineTo(.21,-.08);badgeShape.quadraticCurveTo(.12,-.23,0,-.31);badgeShape.quadraticCurveTo(-.12,-.23,-.21,-.08);badgeShape.closePath();
   const badgeGeo=new THREE.ShapeGeometry(badgeShape,8),pawShapes=[];const pad=new THREE.Shape();pad.moveTo(0,-.11);pad.bezierCurveTo(-.14,-.12,-.18,.03,-.08,.065);pad.bezierCurveTo(-.03,.082,.03,.082,.08,.065);pad.bezierCurveTo(.18,.03,.14,-.12,0,-.11);pawShapes.push(pad);
   for(const [x,y] of [[-.135,.095],[-.045,.135],[.045,.135],[.135,.095]]){const toe=new THREE.Shape();toe.absellipse(x,y,.033,.043,0,TAU,false,0);pawShapes.push(toe);}
-  const pawGeo=new THREE.ShapeGeometry(pawShapes,8),border=new THREE.MeshBasicMaterial({color:0x8eeef2,transparent:true,opacity:.7,depthWrite:false,side:THREE.DoubleSide}),face=new THREE.MeshBasicMaterial({color:0x173e59,transparent:true,opacity:.9,depthWrite:false,side:THREE.DoubleSide}),mark=new THREE.MeshBasicMaterial({color:0xe8f8e8,transparent:true,opacity:.96,depthWrite:false,side:THREE.DoubleSide});for(const material of [border,face,mark])material.userData.baseOpacity=material.opacity;track(border,face,mark);
-  const chargeStripe=new THREE.Group();chargeStripe.name='shield_charge_stripe';shield.add(chargeStripe);
-  for(let i=0;i<3;i++){const a=(i-1)*.5,normal=new THREE.Vector3(Math.sin(a),0,Math.cos(a));const badge=new THREE.Group();badge.name=`shield_charge_${i}`;badge.position.copy(normal).multiplyScalar(1.29);badge.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),normal);badge.userData.chargeScale=1;const edge=new THREE.Mesh(badgeGeo,border);edge.scale.setScalar(1.12);badge.add(edge);const inset=new THREE.Mesh(badgeGeo,face);inset.position.z=.012;badge.add(inset);const paw=new THREE.Mesh(pawGeo,mark);paw.name=`shield_paw_${i}`;paw.userData.toes=4;paw.position.set(0,.005,.025);paw.scale.setScalar(.82);badge.add(paw);chargeStripe.add(badge);}
+  const pawGeo=new THREE.ShapeGeometry(pawShapes,8),shardGeo=new THREE.TetrahedronGeometry(.075,0),border=new THREE.MeshBasicMaterial({color:0x8eeef2,transparent:true,opacity:.7,depthWrite:false,side:THREE.DoubleSide}),face=new THREE.MeshBasicMaterial({color:0x173e59,transparent:true,opacity:.9,depthWrite:false,side:THREE.DoubleSide}),mark=new THREE.MeshBasicMaterial({color:0xe8f8e8,transparent:true,opacity:.96,depthWrite:false,side:THREE.DoubleSide});for(const material of [border,face,mark])material.userData.baseOpacity=material.opacity;track(border,face,mark);
+  const chargeStripe=new THREE.Group();chargeStripe.name='shield_charge_stripe';chargeStripe.userData.orbitSeconds=SHIELD_ORBIT_SECONDS;shield.add(chargeStripe);
+  for(let i=0;i<3;i++){
+   const a=i*TAU/3,normal=new THREE.Vector3(Math.sin(a),0,Math.cos(a)),badge=new THREE.Group(),visual=new THREE.Group(),shards=new THREE.Group();
+   badge.name=`shield_charge_${i}`;badge.position.copy(normal).multiplyScalar(1.3);badge.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),normal);badge.userData.chargeScale=1;badge.userData.active=true;badge.userData.breakProgress=0;badge.userData.baseScale=1.04;
+   visual.name=`shield_charge_visual_${i}`;const edge=new THREE.Mesh(badgeGeo,border);edge.scale.setScalar(1.12);visual.add(edge);const inset=new THREE.Mesh(badgeGeo,face);inset.position.z=.012;visual.add(inset);const paw=new THREE.Mesh(pawGeo,mark);paw.name=`shield_paw_${i}`;paw.userData.toes=4;paw.position.set(0,.005,.025);paw.scale.setScalar(.82);visual.add(paw);badge.add(visual);
+   const shardMaterial=new THREE.MeshBasicMaterial({color:0x9af5f4,transparent:true,opacity:.88,depthWrite:false});shardMaterial.userData.baseOpacity=shardMaterial.opacity;shardMaterial.userData.shieldShard=true;track(shardMaterial);shards.name=`shield_break_${i}`;shards.userData.material=shardMaterial;shards.visible=false;
+   for(let j=0;j<6;j++){const angle=j*TAU/6+(i%2)*.25,shard=new THREE.Mesh(shardGeo,shardMaterial);shard.name=`shield_shard_${i}_${j}`;shard.userData.breakDirection=new THREE.Vector3(Math.cos(angle),Math.sin(angle),j%2?.32:-.18).normalize();shards.add(shard);}
+   badge.add(shards);chargeStripe.add(badge);
+  }
   shield.userData.fade=0;
   shield.visible=false;
   return shield;
  }
  addMagnetWaves(magnet){
-  const waves=new THREE.Group();waves.name='magnet_wave_arcs';waves.position.set(0,.43,.018);magnet.add(waves);
-  for(let i=0;i<3;i++){const arc=new THREE.Mesh(new THREE.TorusGeometry(.2+i*.075,.012,4,22,Math.PI*.78),i%2?this.m.red:this.m.cyan);arc.name=`magnet_wave_${i}`;arc.rotation.z=Math.PI*.11;arc.userData.baseScale=1;waves.add(arc);}
+  const waves=new THREE.Group();waves.name='magnet_wave_arcs';waves.position.set(0,.58,.035);magnet.add(waves);
+  for(let i=0;i<3;i++){const arc=new THREE.Mesh(new THREE.TorusGeometry(.26+i*.11,.018,5,28,Math.PI*.86),this.m.cyan);arc.name=`magnet_wave_${i}`;arc.rotation.z=Math.PI*.07;arc.userData.baseScale=1;arc.userData.signalColor='blue';waves.add(arc);}
   return waves;
  }
  animateMagnet(magnet,time,reducedMotion=false){
-  if(!magnet?.visible)return;const waves=magnet.getObjectByName('magnet_wave_arcs');if(!waves)return;
-  waves.children.forEach((arc,i)=>{if(reducedMotion){arc.visible=true;arc.scale.setScalar(1);return;}const phase=(time*.72+i/3)%1;arc.visible=phase<.82;arc.scale.setScalar(.72+phase*.48);});
+  if(!magnet?.visible)return;
+  const waves=magnet.getObjectByName('magnet_wave_arcs');if(!waves)return;
+  waves.children.forEach((arc,i)=>{if(reducedMotion){arc.visible=true;arc.scale.setScalar(1);return;}const phase=(time*.78+i/3)%1;arc.visible=phase<.86;arc.scale.setScalar(.78+phase*.62);});
  }
  makeHat(kind){
   const g=new THREE.Group(),m=this.m;g.position.set(0,.63,-.04);
@@ -497,8 +523,18 @@ export class GameScene {
   const pulse=reducedMotion?1:1+Math.sin(time*2.2)*.008;shield.scale.setScalar(pulse*(.82+.18*smooth(fade)));
   const bubble=shield.getObjectByName('shield_bubble');if(bubble)bubble.material.uniforms.glow.value=(reducedMotion?.85:.86+Math.sin(time*2.1)*.12)*fade;
   for(let i=0;i<6;i++){const region=shield.getObjectByName(`shield_region_${i}`);if(region){region.rotation.y=reducedMotion?0:time*(i%2?.1:-.075);region.material.opacity=(reducedMotion?.035:.018+(Math.sin(time*(1.5+i*.08)+i*1.8)+1)*.024)*fade;}}
-  const stripe=shield.getObjectByName('shield_charge_stripe');if(stripe){stripe.rotation.set(0,reducedMotion?0:-time*.34,0);stripe.children.forEach((badge,i)=>{const target=i<charges?1:0,current=badge.userData.chargeScale??target;badge.userData.chargeScale=current+(target-current)*(1-Math.exp(-Math.max(0,dt)*12));badge.visible=badge.userData.chargeScale>.015;badge.scale.setScalar(.58*badge.userData.chargeScale*fade);});}
   for(const material of shield.userData.ownedMaterials||[])if(Number.isFinite(material.userData.baseOpacity))material.opacity=material.userData.baseOpacity*fade;
+  const stripe=shield.getObjectByName('shield_charge_stripe');
+  if(stripe){
+   stripe.rotation.set(0,reducedMotion?0:-time*TAU/SHIELD_ORBIT_SECONDS,0);
+   stripe.children.forEach((badge,i)=>{
+    const active=i<charges,wasActive=badge.userData.active!==false,visual=badge.getObjectByName(`shield_charge_visual_${i}`),shards=badge.getObjectByName(`shield_break_${i}`);
+    if(active){badge.userData.breakProgress=0;badge.userData.chargeScale+=(1-badge.userData.chargeScale)*(1-Math.exp(-Math.max(0,dt)*12));}
+    else{if(wasActive)badge.userData.breakProgress=0;badge.userData.breakProgress=Math.min(1,(badge.userData.breakProgress??0)+Math.max(0,dt)/(reducedMotion?.22:.58));badge.userData.chargeScale=Math.max(0,1-badge.userData.breakProgress*2.4);}
+    badge.userData.active=active;const broken=badge.userData.breakProgress??0;badge.visible=active||broken<1;badge.scale.setScalar(badge.userData.baseScale*fade);visual.visible=active||badge.userData.chargeScale>.01;visual.scale.setScalar(active?badge.userData.chargeScale:Math.max(0,1-broken*2.4));
+    if(shards){shards.visible=!active&&!reducedMotion&&broken<1;const eased=smooth(broken),shardScale=Math.sin(Math.PI*Math.min(1,broken*1.05))*(1-broken*.35);shards.children.forEach((shard,j)=>{shard.position.copy(shard.userData.breakDirection).multiplyScalar(.055+eased*.38);shard.rotation.set(eased*(j%2?2.4:-2.1),eased*(j+1)*.72,eased*(j%2?-3.2:2.8));shard.scale.setScalar(shardScale);});shards.userData.material.opacity=shards.userData.material.userData.baseOpacity*(1-broken)*fade;}
+   });
+  }
  }
  decoratePowerup(group,type){
   const colors={magnet:0x6cf0ca,moon:0xd8eb58,moped:0xff7541,shield:0x62ddff,doublechips:0xffc846,jetpack:0xff6952,speedburst:0x55bfff},color=colors[type]||0x6cf0ca;
@@ -1010,7 +1046,8 @@ export class GameScene {
     cat.body.rotation.x=-.42*seated;cat.legs.forEach(l=>l.rotation.x=-1.45*seated);
     cat.arms.forEach((a,i)=>a.rotation.set(-.35*seated,0,(i?1:-1)*(.12+.3*seated)));
   }
-  // The chip bag inherits every arm transform from the wrist attachment.
+  if(cat.magnet?.visible){const arm=cat.arms[0];arm.rotation.x=-.08;arm.rotation.z=-2.28;cat.magnet.position.set(0,-.49,.08);cat.magnet.quaternion.copy(arm.quaternion).invert();}
+  // The chip bag and magnet inherit their final arm transforms from their wrist attachments.
  }
  animateCop(c,t,strength=1,carrying=false,carrySide=0){
   if(c.authored&&this.effectiveModelSet==='refreshed'){this.updateAuthoredHuman(c,carrying?(carrySide<0?'carry_left':carrySide>0?'carry_right':'carry'):strength>.15?'chase':'alert',t*12);return;}
@@ -1206,8 +1243,8 @@ export class GameScene {
     const px=p.x||0,py=p.y||0;this.cat.root.position.set(px,py+(riding?.08:0),p.hit>0?.65*Math.sin(Math.PI*smooth((1.15-p.hit)/1.15)):0);this.cat.root.rotation.set(0,Math.PI,0);this.animateCat(this.cat,t,riding?'ride':p.anim==='idle'?'menu':'run',p,reducedMotion);
     if(py>.1&&!riding){this.cat.legs[0].rotation.x=-.65;this.cat.legs[1].rotation.x=.45;}
     this.moped.position.set(px,py,0);this.moped.rotation.y=Math.PI;this.moped.userData.wheels?.forEach(w=>w.rotation.x=-dist*3.7);
-    const flying=game.powers?.has('jetpack')||py>3.2;
-    this.target.set(px*.1,3.85+(flying?py*.9:Math.min(py*.14,.6)),7.3);this.cameraTarget.set(px*.12,1.4+(flying?py*.9:0),-10);
+    const airborneFollow=airborneCameraFollow(game.powers,py);
+    this.target.set(px*.1,3.85+airborneFollow.cameraLift,7.3);this.cameraTarget.set(px*.12,1.4+airborneFollow.targetLift,-10);
     const targetZ=1.1+(game.policeDistance??10)*1.15;this.chaseZ+=clamp((targetZ-this.chaseZ)*(1-Math.exp(-dt*2.2)),-dt*5,dt*4)*(isPaused?0:1);
     // Officers fall behind in world space and leave below the camera naturally. Never toggle them at a distance threshold.
     this.updateChasingCops(game,isPaused?0:dt,t);

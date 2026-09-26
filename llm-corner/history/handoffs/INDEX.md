@@ -2,6 +2,8 @@
 
 Newest first; the top entry is the next session’s entry point.
 
+- **2026-09-26-route-camera-result-polish.md** - Raised mixer-owned Magnet pose, fifteen-second shattering Shield, weighted 3-6 chip paths, constant-pitch air camera, smoother BUSTED wave, spinning result chip and 140 green tests.
+
 - **2026-09-26-reference-led-power-polish.md** — Rig v5 motion, fixed airborne Jetpack lifecycle, weighted power pacing, three-charge paw shield, persistent icons, staged BUSTED UI, 3D chip render, 136 green tests and a clean Refreshed Chrome smoke.
 
 - **`2026-09-25-graphics-v2-pivot.md`** — Graphics-v2 collaboration branch, visible equipment, separate Moon Boots/Speed Burst, complete Jetpack sky route, shield/thrust effects, deeper scooter dodges and angry cashier; 127 green tests and strict v4/v3/v2 asset validation.

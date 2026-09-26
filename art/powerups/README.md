@@ -38,5 +38,5 @@ The wearable magnet's origin is the lower bridge of its U shape and its recommen
 runtime rotation is identity. Attach that origin to the cat's carry socket; do not
 restore the former quarter-turn wrist correction. The runtime adds the animated
 magnetic-wave arcs. The shield pickup and its runtime energy sphere share a
-four-toe paw mark. The sphere presents exactly three charge badges for ten seconds,
+four-toe paw mark. The sphere presents exactly three equally spaced charge badges for fifteen seconds,
 removing one badge after each protected hit.

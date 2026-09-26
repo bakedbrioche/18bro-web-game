@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../dist/vendor/three.module.js';
-import { GameScene } from '../dist/scene.mjs';
+import { GameScene, airborneCameraFollow } from '../dist/scene.mjs';
 import { DistrictScene } from '../dist/district-scene.mjs';
 import { VEHICLES, MOTION, BARRIERS } from '../dist/core.mjs';
 
@@ -226,24 +226,41 @@ test('arrest officers start outside the camera and move into view before pickup 
  }
 });
 
-test('magnet is gripped at the U bridge and emits three restrained wave arcs',()=>{
- const s=modelFactory(),cat=s.makeCat('18bro'),magnet=cat.magnet;
- assert.equal(magnet.parent,cat.arms[0]);assert.equal(magnet.userData.gripAtBottom,true);
+test('magnet is held upright by a straight raised player-right arm with readable blue waves',()=>{
+ const s=modelFactory(),cat=s.makeCat('18bro'),magnet=cat.magnet,arm=cat.arms[0];
+ assert.equal(magnet.parent,arm);assert.equal(magnet.userData.gripAtBottom,true);assert.equal(magnet.userData.raisedToPlayerRight,true);
  const waves=magnet.getObjectByName('magnet_wave_arcs');assert.equal(waves.children.length,3);
- magnet.visible=true;s.animateMagnet(magnet,1,false);
+ assert.ok(waves.children.every(arc=>arc.userData.signalColor==='blue'&&arc.geometry.parameters.radius>=.26&&arc.geometry.parameters.tube>=.018));
+ magnet.visible=true;s.animateCat(cat,0,'run');s.animateMagnet(magnet,1,false);
+ assert.ok(arm.rotation.z<-2,'arm points outward and upward');assert.ok(arm.quaternion.clone().multiply(magnet.quaternion).angleTo(new THREE.Quaternion())<1e-6,'magnet stays upright at the lower bridge');
  assert.ok(waves.children.every(arc=>Number.isFinite(arc.scale.x)));
  s.animateMagnet(magnet,2,true);assert.ok(waves.children.every(arc=>arc.visible&&arc.scale.x===1));
+ magnet.visible=false;s.animateCat(cat,0,'run');assert.equal(arm.rotation.z,-.12,'ordinary run restores the arm immediately when Magnet ends');
 });
 
-test('shield presents three four-toe charge badges and collapses after its final charge',()=>{
+test('shield badges are large, equally spaced, orbit in three seconds and shatter on use',()=>{
  const s=modelFactory();s.materials=[];const shield=s.makeShield(),stripe=shield.getObjectByName('shield_charge_stripe');
- assert.equal(stripe.children.length,3);assert.equal(shield.getObjectByName('shield_heart_orbit'),undefined);
- for(let i=0;i<3;i++){assert.equal(shield.getObjectByName(`shield_paw_${i}`).userData.toes,4);assert.equal(stripe.children[i].position.y,0);}
- s.updateShieldVisual(shield,true,3,1,1/60,false);const before=stripe.rotation.y;s.updateShieldVisual(shield,true,2,2,.5,false);
- assert.ok(stripe.rotation.y<before,'charge stripe rotates clockwise');assert.equal(stripe.children.filter(item=>item.visible).length,2);
- s.updateShieldVisual(shield,true,1,2.5,.5,false);assert.equal(stripe.children.filter(item=>item.visible).length,1);
+ assert.equal(stripe.children.length,3);assert.equal(stripe.userData.orbitSeconds,3);assert.equal(shield.getObjectByName('shield_heart_orbit'),undefined);
+ const angles=stripe.children.map(badge=>Math.atan2(badge.position.x,badge.position.z)).sort((a,b)=>a-b),gaps=angles.map((angle,i)=>(angles[(i+1)%3]-angle+Math.PI*2)%(Math.PI*2));
+ for(let i=0;i<3;i++){const badge=stripe.children[i];assert.equal(shield.getObjectByName(`shield_paw_${i}`).userData.toes,4);assert.equal(badge.position.y,0);assert.ok(badge.userData.baseScale>=1);assert.ok(Math.abs(gaps[i]-Math.PI*2/3)<1e-10);}
+ s.updateShieldVisual(shield,true,3,0,1/60,false);s.updateShieldVisual(shield,true,3,1.5,1/60,false);
+ assert.ok(Math.abs(Math.abs(stripe.rotation.y)-Math.PI)<1e-10,'half an orbit takes 1.5 seconds');
+ s.updateShieldVisual(shield,true,2,1.6,.12,false);const spent=stripe.children[2],shards=spent.getObjectByName('shield_break_2');
+ assert.equal(spent.visible,true,'spent charge remains for its break animation');assert.equal(shards.visible,true);assert.ok(shards.children.some(shard=>shard.position.length()>.05));
+ s.updateShieldVisual(shield,true,2,2.2,.6,false);assert.equal(spent.visible,false);
+ s.updateShieldVisual(shield,true,1,2.3,.12,true);assert.equal(stripe.rotation.y,0,'reduced motion freezes the orbit');assert.equal(stripe.children[1].getObjectByName('shield_break_1').visible,false,'reduced motion omits flying shards');
  s.updateShieldVisual(shield,false,0,3,1,false);assert.equal(shield.visible,true,'expiry keeps one graceful fade frame');
  s.updateShieldVisual(shield,false,0,4,1,false);assert.equal(shield.visible,false);
+});
+
+test('Moon Boots and Jetpack lift camera and look target together without an apex tilt',()=>{
+ for(const power of ['moon','jetpack']){
+  const powers=new Set([power]),low=airborneCameraFollow(powers,1.2),nearThreshold=airborneCameraFollow(powers,3.19),pastThreshold=airborneCameraFollow(powers,3.21);
+  assert.equal(low.constantPitch,true);assert.equal(low.cameraLift,low.targetLift);
+  assert.ok(Math.abs((pastThreshold.cameraLift-nearThreshold.cameraLift)-.018)<1e-12,'camera follow stays continuous through the former height threshold');
+  assert.equal(pastThreshold.cameraLift,pastThreshold.targetLift);
+ }
+ const ordinary=airborneCameraFollow(new Set(),5);assert.equal(ordinary.constantPitch,false);assert.equal(ordinary.cameraLift,.6);assert.equal(ordinary.targetLift,0);
 });
 
 test('capture escort keeps one continuous pace through the completed turn',()=>{

@@ -4,13 +4,17 @@ import { ROUTE, BRANCHES, getRouteProfile, branchOffset, getTrafficPhase, crossS
 export { INTRO_DURATION, CAPTURE_DURATION } from './choreography.mjs?v=street-28';
 export const LANES = Object.freeze([-2.5, 0, 2.5]);
 export const THEMES = Object.freeze(['HONG KONG']);
-export const POWER_DURATIONS = Object.freeze({ magnet: 8, moon: 5, speedburst: 8, moped: 10, shield:10, doublechips:12, jetpack:10 });
+export const POWER_DURATIONS = Object.freeze({ magnet: 8, moon: 5, speedburst: 8, moped: 10, shield:15, doublechips:12, jetpack:10 });
 export const POWER_SPAWN = Object.freeze({
   rowInterval: 8,
   rowOffset: 3,
   weights: Object.freeze({ magnet: 30, moon: 24, speedburst: 16, doublechips: 13, moped: 8, shield: 5, jetpack: 4 }),
 });
 export const SHIELD_CHARGES = 3;
+export const COIN_SEQUENCES = Object.freeze({
+  lengthWeights: Object.freeze({ 3: 1, 4: 3, 5: 3, 6: 1 }),
+  patterns: Object.freeze(['straight', 'lateral', 'weave']),
+});
 export const MOTION = Object.freeze({ laneDuration: .16, jumpDuration: .82, jumpHeight: 2.65, moonJumpDuration: 1.16, moonJumpHeight: 6.1, slideDuration: .72, jumpBuffer: .1, coyoteTime: .08 });
 export const BARRIERS = Object.freeze({ jump: { height: 1.9, width: 2.35, depth: 1.0 }, blocker: { opening: 1.55, height: 4.55, width: 2.38, depth: 1.65 }, slide: { height: 4.05, width: 2.38, depth: .9 } });
 export const VEHICLES = Object.freeze({ traffic: { approach: 2.05, height: 1.89, width: 1.94, depth: 3.56 }, scooter: { approach: 1.9, height: 2.26, width: 1.04, depth: 2.0 } });
@@ -137,6 +141,7 @@ export class RunnerGame {
     this.introRemaining = INTRO_DURATION; this.introProgress = 0; this._hitAge = 100; this._slowRemaining = 0;
     this.mistakes = 0; this.shieldGrace = 0; this.captureRemaining = 0; this.captureDuration = CAPTURE_DURATION; this.captureProgress = 0; this.crash = null;
     this._spawnCursor = 30; this._rowId = 0; this._poolCursor = 0; this._lastSafeLane = 1;
+    this._coinSequenceId = 0; this._lastCoinPattern = null; this._lastCoinLane = null;
     this._lastPowerKind = null;
     this._jetpackTrailId = 0; this._jetpackFinalChip = null; this._flightTrailPlan = []; this._flightTrailCursor = 0; this._flightTrailSpacing = 3;
     this.patternHistory = []; this.powers.clear();
@@ -255,7 +260,8 @@ export class RunnerGame {
     Object.assign(entity, { active: true, type, lane, x: LANES[lane], y: isHazard ? 0 : 1.0, z,
       previousZ: z, approachFactor, width: dimensions?.width || .75,
       depth: dimensions?.depth || .72, height: dimensions?.height || 1.02, stopped: false, blocked: false, actualApproach: approachFactor,
-      variant: 0, hit: false, passed: false, magnetic: false, magnetLatched: false, flightTrail: false, flightTrailId: 0, trailIndex: -1, trailFinal: false, age: 0, rowId: -1,
+      variant: 0, hit: false, passed: false, magnetic: false, magnetLatched: false, flightTrail: false, flightTrailId: 0, trailIndex: -1, trailFinal: false,
+      jumpArc: false, ordinaryCoin: false, coinSequenceId: -1, coinPattern: null, coinSequenceLength: 0, sequenceIndex: -1, age: 0, rowId: -1,
       routeBranch:null,finale:false,anchor:null,yaw:null,crossSpeed:0,vehicleKind:null,
       safeLane: -1, fromLane: lane, toLane: lane, spawnDistance: this.distance - z, ...extra });
     return entity;
@@ -279,13 +285,65 @@ export class RunnerGame {
     this._lastSafeLane = safeLane;
     return result;
   }
+  _spawnCoinSequence({ safeLane = null, rowId = -1, z, y = 1 }) {
+    const weightedLengths = Object.entries(COIN_SEQUENCES.lengthWeights);
+    const totalWeight = weightedLengths.reduce((sum, [, weight]) => sum + weight, 0);
+    let lengthRoll = this._random() * totalWeight;
+    let length = Number(weightedLengths.at(-1)[0]);
+    for (const [candidate, weight] of weightedLengths) {
+      lengthRoll -= weight;
+      if (lengthRoll < 0) { length = Number(candidate); break; }
+    }
+
+    const availablePatterns = COIN_SEQUENCES.patterns.filter(pattern => pattern !== this._lastCoinPattern);
+    const pattern = availablePatterns[Math.floor(this._random() * availablePatterns.length)];
+    const openCenterLanes = [0, 1, 2].filter(lane => lane !== this._lastCoinLane);
+    const centerLane = safeLane == null
+      ? openCenterLanes[Math.floor(this._random() * openCenterLanes.length)]
+      : clamp(Math.round(safeLane), 0, 2);
+    const centerStart = Math.floor((length - 1) / 2);
+    const centerEnd = Math.ceil((length - 1) / 2);
+    let laneRoutes;
+    if (pattern === 'straight') {
+      laneRoutes = [Array(length).fill(centerLane)];
+    } else {
+      const outerLanes = [0, 1, 2].filter(lane => lane !== centerLane);
+      if (pattern === 'lateral') {
+        laneRoutes = outerLanes.flatMap(outerLane => [
+          Array.from({ length }, (_, index) => index < centerStart ? outerLane : centerLane),
+          Array.from({ length }, (_, index) => index > centerEnd ? outerLane : centerLane),
+        ]);
+      } else {
+        laneRoutes = outerLanes.flatMap(startLane => outerLanes
+          .filter(endLane => endLane !== startLane)
+          .map(endLane => Array.from({ length }, (_, index) => index < centerStart ? startLane : index > centerEnd ? endLane : centerLane)));
+      }
+    }
+    const freshLaneRoutes = laneRoutes.filter(route => route[0] !== this._lastCoinLane);
+    const candidates = freshLaneRoutes.length ? freshLaneRoutes : laneRoutes;
+    const lanes = candidates[Math.floor(this._random() * candidates.length)];
+    const gap = Math.max(2.25, this.speed * MOTION.laneDuration + .35);
+    const center = (length - 1) / 2;
+    const sequenceId = this._coinSequenceId++;
+    const coins = [];
+    for (let index = 0; index < length; index++) {
+      const coin = this.spawnEntity('coin', lanes[index], z + (center - index) * gap, {
+        rowId, y, ordinaryCoin: true, coinSequenceId: sequenceId, coinPattern: pattern,
+        coinSequenceLength: length, sequenceIndex: index,
+      });
+      if (coin) coins.push(coin);
+    }
+    this._lastCoinPattern = pattern;
+    this._lastCoinLane = lanes[0];
+    return coins;
+  }
   _spawnPattern(spawnDistance) {
     const doorway=BRANCHES.find(b=>Math.abs(spawnDistance-b.start)<12||Math.abs(spawnDistance-b.end)<10);
-    if(doorway){for(let i=0;i<3;i++)this.spawnEntity('coin',doorway.side<0?0:2,this.distance-spawnDistance-i*2.5);return 18;}
+    if(doorway){if(!this.powers.has('jetpack'))for(let i=0;i<3;i++)this.spawnEntity('coin',doorway.side<0?0:2,this.distance-spawnDistance-i*2.5);return 18;}
     // A broad junction uses its real lateral traffic and signal cycle, not a
     // second layer of invisible procedural roadblocks.
     if(this._routeProfile(spawnDistance).id==='intersection'){
-      for(let i=0;i<3;i++)this.spawnEntity('coin',1,this.distance-spawnDistance-i*2.5,{y:1});
+      if(!this.powers.has('jetpack'))this._spawnCoinSequence({z:this.distance-spawnDistance,y:1});
       return 24;
     }
     const pattern = this._makePattern();
@@ -317,7 +375,7 @@ export class RunnerGame {
     // Jetpack owns the only chip route while airborne. Hazards and power
     // pickups keep streaming, but ordinary ground/jump rows resume after landing.
     if (!this.powers.has('jetpack')) {
-      for (let i = 0; i < 4; i++) this.spawnEntity('coin', pattern.safeLane, z + 3.375 - i * 2.25, { rowId, y: 1.0 });
+      this._spawnCoinSequence({ safeLane: pattern.safeLane, rowId, z, y: 1 });
       const jumpLane = pattern.slots.indexOf('jump');
       if (jumpLane >= 0) {
         // Samples of the actual jump parabola: the center coin sits above the barrier at the apex.

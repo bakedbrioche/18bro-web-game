@@ -32,7 +32,7 @@ The player steals chips from a Hong Kong convenience store, escapes into a conti
 - One continuous WebGL chase through market, commercial, intersection, and neon districts.
 - Keyboard, touch, pause, mute, reduced-motion, and fullscreen controls.
 - Local records, missions, chip balance, fur colors, and hats stored in browser `localStorage`.
-- Powerups: magnet, Moon Boots, Speed Burst, electric scooter, Three-Paw Guard, double chips, and jetpack, each with an authored 3D pickup, aura and matching persistent icon. Magnet and boots remain visible on the cat; Moon Boots own high jump while Speed Burst owns acceleration. Sparse weighted selection makes Shield and Jetpack rare. Three-Paw Guard owns three hits over ten seconds; Jetpack owns only its ten-second airborne route and lands directly into run.
+- Powerups: magnet, Moon Boots, Speed Burst, electric scooter, Three-Paw Guard, double chips, and jetpack, each with an authored 3D pickup, aura and matching persistent icon. Magnet and boots remain visible on the cat; Moon Boots own high jump while Speed Burst owns acceleration. Sparse weighted selection makes Shield and Jetpack rare. Three-Paw Guard owns three hits over fifteen seconds; Jetpack owns only its ten-second airborne route and lands directly into run.
 - No account, backend, API key, active analytics, or shared leaderboard.
 
 ## Delivery surfaces

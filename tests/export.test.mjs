@@ -14,6 +14,8 @@ test('standalone embeds exact model bytes and parses/clones them offline with ve
   const output=path.join(directory,'game.html');
   execFileSync(process.execPath,['scripts/export-game.mjs','dist',output],{cwd:root});
   const html=fs.readFileSync(output,'utf8');
+  assert.match(html,/@keyframes result-chip-spin\{/,'standalone keeps the model-render chip spin');
+  assert.match(html,/[.]result-wave-enabled [.]result-title>span\{animation:busted-letter-wave/,'standalone keeps the flowing BUSTED wave');
   const code=html.match(/<script type="module">([\s\S]*?)<\/script>/)?.[1];
   assert.ok(code,'standalone contains the executable module');
   assert.doesNotMatch(code,/^\s*(?:import\s+(?!\()|export\s+)/m);

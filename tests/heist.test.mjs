@@ -73,10 +73,13 @@ test('moped immediately drops police and preserves the remaining mistake allowan
   assert.equal(g.policeDistance,18);assert.equal(g.mistakes,1);
   g.powers.remove('moped');g._hitAge=100;tick(g,3);assert.equal(g.policeDistance,18);
 });
-test('clear-lane chip lines are shorter and centered around the encounter',()=>{
+test('clear-lane chip routes stay compact and cross the safe lane at the encounter',()=>{
   const g=emptyGame();g._makePattern=()=>({slots:[null,'blocker',null],safeLane:0});
-  g._spawnPattern(30);const chips=g.entities.filter(e=>e.active&&e.type==='coin');
-  assert.equal(chips.length,4);assert.equal(chips[0].z-chips[3].z,6.75);
+  g._spawnPattern(30);const chips=g.entities.filter(e=>e.active&&e.type==='coin'&&e.ordinaryCoin).sort((a,b)=>a.sequenceIndex-b.sequenceIndex);
+  assert.ok(chips.length>=3&&chips.length<=6);
+  const centerStart=Math.floor((chips.length-1)/2),centerEnd=Math.ceil((chips.length-1)/2);
+  assert.equal(chips[centerStart].lane,0);assert.equal(chips[centerEnd].lane,0);
+  assert.ok(chips[0].z-chips.at(-1).z<=5*Math.max(2.25,g.speed*MOTION.laneDuration+.35)+1e-9);
 });
 test('police finish turning before carrying the cat toward the camera',()=>{
   assert.equal(capturePose(.35).turn,0);assert.equal(capturePose(.5).turn,0);

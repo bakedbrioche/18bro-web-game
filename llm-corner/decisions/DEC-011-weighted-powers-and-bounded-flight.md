@@ -21,3 +21,5 @@ Public Subway Surfers references describe random on-track powers, Jetpack-only a
 ## Consequences
 
 Power-ups are less frequent, common utility effects still appear often, and the two strongest protection/flight effects are rare. Excluding the previous result slightly changes the realized percentages from their raw weights; ordering and rarity remain stable. Old saves need no migration because the table, charges and flight route exist only in an active run.
+
+Amendment: DEC-013 retains the three-charge behavior and extends Shield duration from ten to fifteen seconds.

@@ -183,7 +183,7 @@ test('power art keeps the same decoded image nodes through pause and resume',()=
  const resumed=a.powerPill('magnet');assert.equal(resumed.card,first.card);assert.equal(resumed.icon,first.icon);assert.equal(resumed.icon.srcWrites,1);
  a.showPickup('magnet');const pickup=a.get('power-pickup-icon');pickup.onload?.();const writes=pickup.srcWrites;
  a.game.pause();a.showPickup('magnet');assert.equal(a.get('power-pickup-icon'),pickup);assert.equal(pickup.srcWrites,writes);
- a.game.resume();a.game.activatePower('shield');a.updateHUD();const shield=a.powerPill('shield');assert.equal(shield.time.textContent,'10s · ×3');assert.match(shield.card.getAttribute('aria-label'),/3 shields remaining/);
+ a.game.resume();a.game.activatePower('shield');a.updateHUD();const shield=a.powerPill('shield');assert.equal(shield.time.textContent,'15s · ×3');assert.match(shield.card.getAttribute('aria-label'),/3 shields remaining/);
 });
 
 test('Busted results count up in stages and reduced motion resolves immediately',()=>{
@@ -203,9 +203,14 @@ test('Busted markup and styles keep the centered staged sequence configurable',(
  assert.match(html,/id="result-chip-icon"[^>]+assets\/icons\/chip[.]png/);
  assert.match(appSource,/globalThis[.]__18BRO_UI_IMAGES__[|][|]\{chip:'assets\/icons\/chip[.]png'\}/);
  assert.match(appSource,/const RESULT_WAVE_ENABLED=true/);
- assert.match(appSource,/const RESULT_COUNT_MS=3000/);assert.match(appSource,/THREE-PAW GUARD/);assert.match(appSource,/three hits for 10 seconds/);
+ assert.match(appSource,/const RESULT_COUNT_MS=3000/);assert.match(appSource,/THREE-PAW GUARD/);assert.match(appSource,/three hits for 15 seconds/);
  assert.match(css,/[.]gameover\{justify-content:center/);
  assert.match(css,/@keyframes result-stamp/);assert.match(css,/@keyframes busted-letter-wave/);
+ const wave=css.match(/[.]result-wave-enabled [.]result-title>span\{animation:busted-letter-wave ([0-9.]+)s [^}]+var\(--letter-index\)\*([0-9.]+)s/);
+ assert.ok(wave,'result wave timing is explicit');const sweep=Number(wave[1])*.22+Number(wave[2])*6;assert.ok(sweep>=1.5&&sweep<=1.7,`BUSTED sweep is ${sweep}s`);
+ assert.match(html,/style="--letter-index:6">!<\/span>/);assert.match(css,/@keyframes busted-letter-wave\{0%,22%,100%\{transform:translateY\(0\) scale\(1\)\}/);assert.match(css,/11%\{transform:translateY\(-[.]18em\) scale\(1[.]22,[.]9\)\}16%/);
+ assert.match(css,/[.]gameover:not\(\[hidden\]\) [.]result-chip-icon\{animation:result-chip-spin/);assert.match(css,/@keyframes result-chip-spin\{/);
+ assert.match(css,/body[.]reduced-motion [^}]*[.]result-chip-icon\{animation:none\}/);
  assert.match(css,/prefers-reduced-motion:reduce/);
  assert.doesNotMatch(appSource,/[$]\('active-powers'\)[.]innerHTML/);
 });

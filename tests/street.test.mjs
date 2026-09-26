@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {RunnerGame,LANES,MOTION,POWER_DURATIONS,POWER_SPAWN,PATTERNS,THEMES,VEHICLES,INTRO_DURATION,CAPTURE_DURATION,validatePattern,obstacleSpacing} from '../dist/core.mjs';
+import {RunnerGame,LANES,MOTION,POWER_DURATIONS,POWER_SPAWN,COIN_SEQUENCES,PATTERNS,THEMES,VEHICLES,INTRO_DURATION,CAPTURE_DURATION,validatePattern,obstacleSpacing} from '../dist/core.mjs';
 function game(){const g=new RunnerGame({random:()=>.21});g.start({skipIntro:true});return g;}
 function tick(g,t,dt=1/120){for(let n=0;n<Math.ceil(t/dt);n++)g.update(Math.min(dt,t-n*dt));}
 function empty(g){g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;}
@@ -16,6 +16,47 @@ test('power-up selection is weighted, sparse and never repeats immediately',()=>
  cadence.entities.forEach(e=>e.active=false);cadence._rowId=0;
  for(let row=0;row<32;row++){cadence._spawnPattern(30+row*.01);if(cadence.entities.some(e=>e.active&&e.rowId===row&&Object.hasOwn(POWER_DURATIONS,e.type)))rows.push(row);cadence.entities.forEach(e=>e.active=false);}
  assert.deepEqual(rows,[3,11,19,27]);assert.equal(POWER_SPAWN.rowInterval,8);
+});
+function sampleCoinSequences(seed,count,{safeLane=null,speed=26}={}){
+ let state=seed;const g=new RunnerGame({random:()=>((state=(state*1664525+1013904223)>>>0)/4294967296)});g.speed=speed;
+ return Array.from({length:count},(_,row)=>{
+  const lane=typeof safeLane==='function'?safeLane(row):safeLane;
+  const coins=g._spawnCoinSequence({safeLane:lane,rowId:row,z:-100}).sort((a,b)=>a.sequenceIndex-b.sequenceIndex);
+  const sample={pattern:coins[0].coinPattern,length:coins.length,lanes:coins.map(e=>e.lane),z:coins.map(e=>e.z),safeLane:lane};
+  for(const coin of coins)coin.active=false;
+  return sample;
+ });
+}
+test('ordinary chip routes are seeded, varied and keep obstacle crossings accessible',()=>{
+ assert.deepEqual(COIN_SEQUENCES.lengthWeights,{3:1,4:3,5:3,6:1});
+ assert.deepEqual(COIN_SEQUENCES.patterns,['straight','lateral','weave']);
+ const routes=sampleCoinSequences(73,600,{safeLane:row=>row%3});
+ assert.deepEqual(routes,sampleCoinSequences(73,600,{safeLane:row=>row%3}));
+ for(let i=0;i<routes.length;i++){
+  const route=routes[i],centerStart=Math.floor((route.length-1)/2),centerEnd=Math.ceil((route.length-1)/2);
+  assert.ok(route.length>=3&&route.length<=6);
+  assert.equal(route.lanes[centerStart],route.safeLane);assert.equal(route.lanes[centerEnd],route.safeLane);
+  const laneCount=new Set(route.lanes).size;
+  assert.equal(laneCount,route.pattern==='straight'?1:route.pattern==='lateral'?2:3);
+  for(let step=1;step<route.length;step++)if(route.lanes[step]!==route.lanes[step-1]){
+   assert.ok((route.z[step-1]-route.z[step])/26>=MOTION.laneDuration);
+  }
+  if(i)assert.notDeepEqual([route.pattern,route.lanes[0]],[routes[i-1].pattern,routes[i-1].lanes[0]]);
+ }
+});
+test('ordinary chip lengths follow the explicit 1:3:3:1 bell distribution',()=>{
+ const routes=sampleCoinSequences(181,16000),counts=Object.fromEntries([3,4,5,6].map(length=>[length,0]));
+ for(const route of routes)counts[route.length]++;
+ const total=routes.length,expected={3:1/8,4:3/8,5:3/8,6:1/8};
+ for(const [length,ratio]of Object.entries(expected))assert.ok(Math.abs(counts[length]/total-ratio)<.018,JSON.stringify(counts));
+});
+test('broad intersections use varied ordinary routes and Jetpack suppresses them',()=>{
+ let seed=29;const make=()=>new RunnerGame({random:()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296)});
+ const g=make();g.entities.forEach(e=>e.active=false);g._spawnPattern(700);
+ const coins=g.entities.filter(e=>e.active&&e.ordinaryCoin);assert.ok(coins.length>=3&&coins.length<=6);
+ assert.ok(COIN_SEQUENCES.patterns.includes(coins[0].coinPattern));
+ const jet=make();jet.entities.forEach(e=>e.active=false);jet.activatePower('jetpack');jet._spawnPattern(700);
+ assert.equal(jet.entities.some(e=>e.active&&e.ordinaryCoin),false);
 });
 test('new obstacle groups are meaningfully closer with safe recovery spacing',()=>{for(let speed of [10.4,15,26])for(let tier=1;tier<=4;tier++){const spacing=obstacleSpacing(speed,tier);assert.ok(spacing/speed>MOTION.slideDuration+.2);if(tier===1)assert.ok(spacing<Math.max(17,speed*1.6+4));}});
 test('all templates and 10000 generated traffic patterns leave a clear lane',()=>{let seed=4;const g=new RunnerGame({random:()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296)});PATTERNS.forEach(p=>assert.ok(validatePattern(p)));for(let i=0;i<10000;i++){g.tier=i%4+1;const p=g._makePattern();assert.ok(validatePattern(p));assert.equal(p.slots[p.safeLane],null);}assert.equal(validatePattern({slots:['traffic','traffic','traffic']}),false);});

@@ -29,8 +29,10 @@ test('Refreshed hero stays active through every pose and cosmetic',async()=>{
  assert.deepEqual(scene.authoredHero.root.position.toArray(),[1,2,3]);
  assert.equal(scene.authoredHero.packet.parent,scene.authoredHero.hand);
  assert.equal(scene.authoredHero.magnet.parent,scene.authoredHero.leftHand);
- assert.equal(scene.authoredHero.magnet.userData.gripAtBottom,true);
+ assert.equal(scene.authoredHero.root.getObjectByName('18bro_magnet_raised_arm'),undefined,'authored hero must not gain a duplicate display arm');
+ assert.equal(scene.authoredHero.magnet.userData.gripAtBottom,true);assert.equal(scene.authoredHero.magnet.userData.raisedToPlayerRight,true);
  assert.equal(scene.authoredHero.magnet.getObjectByName('magnet_wave_arcs').children.length,3);
+ for(const [name,held] of Object.entries(scene.authoredHero.magnetClips)){const base=scene.authoredHero.actions[name].getClip();assert.equal(held.tracks.length,base.tracks.length);for(let i=0;i<base.tracks.length;i++)if(!['arm_L.quaternion','forearm_L.quaternion'].includes(base.tracks[i].name))assert.deepEqual([...held.tracks[i].values],[...base.tracks[i].values],`${name} must preserve ${base.tracks[i].name}`);}
  scene.authoredHero.magnet.geometry.computeBoundingBox();
  assert.ok(scene.authoredHero.magnet.geometry.boundingBox.min.y<=0&&scene.authoredHero.magnet.geometry.boundingBox.min.y>-.06,'magnet origin stays in its lower bridge');
  assert.ok(scene.authoredHero.magnet.geometry.boundingBox.max.y>.45,'the U rises above the paw grip');
@@ -45,7 +47,11 @@ test('Refreshed hero stays active through every pose and cosmetic',async()=>{
  assert.equal(scene.effectiveModelSet,'refreshed');
  scene.cat.magnet.visible=true;scene.cat.moonBoots.forEach(boot=>boot.visible=true);
  scene.updateAuthoredHero(game,1/60,{skin:'18bro',fur:'black',hat:'cap'});
- assert.equal(scene.authoredHero.magnet.visible,true);assert.ok(scene.authoredHero.moonBoots.every(boot=>boot.visible));
+ assert.equal(scene.authoredHero.magnet.visible,true);assert.ok(scene.authoredHero.moonBoots.every(boot=>boot.visible));assert.equal(scene.authoredHero.action,scene.authoredHero.magnetActions[scene.authoredHero.clip]);
+ scene.authoredHero.asset.scene.updateMatrixWorld(true);const shoulder=scene.authoredHero.asset.scene.getObjectByName('arm_L').getWorldPosition(new THREE.Vector3()),elbow=scene.authoredHero.asset.scene.getObjectByName('forearm_L').getWorldPosition(new THREE.Vector3()),grip=scene.authoredHero.leftHand.getWorldPosition(new THREE.Vector3()),armDirection=grip.clone().sub(shoulder),raiseAngle=Math.atan2(armDirection.y,Math.abs(armDirection.x));
+ assert.ok(raiseAngle>35*Math.PI/180&&raiseAngle<50*Math.PI/180,`magnet arm raises ${raiseAngle*180/Math.PI} degrees`);assert.ok(elbow.clone().sub(shoulder).angleTo(grip.clone().sub(elbow))<.02,'magnet arm stays straight');
+ const bones=[];scene.authoredHero.asset.scene.traverse(object=>{if(object.isBone)bones.push(object);});const heldBones=bones.flatMap(bone=>bone.quaternion.toArray());scene.animateMagnet(scene.authoredHero.magnet,1,false);assert.deepEqual(bones.flatMap(bone=>bone.quaternion.toArray()),heldBones,'magnet effects must not write imported bones');
+ scene.cat.magnet.visible=false;scene.updateAuthoredHero(game,1/60,{skin:'18bro',fur:'black',hat:'cap'});assert.equal(scene.authoredHero.action,scene.authoredHero.actions[scene.authoredHero.clip],'base mixer action restores immediately when Magnet ends');assert.equal(scene.authoredHero.magnetHeld,false);
  game.player.y=0;game.player.slide=.4;
  scene.updateAuthoredHero(game,1/60,{skin:'18bro',fur:'black',hat:'cap'});
  assert.equal(scene.effectiveModelSet,'refreshed');assert.equal(scene.modelSetReason,'');

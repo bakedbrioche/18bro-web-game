@@ -16,13 +16,14 @@ Refreshed keeps the authored 18Bro visible for every runtime state. Complete aut
 The character-family switch also applies to police, cashier, scooter riders and both crowd systems through `human-v1.glb`. Police, cashier, rider and pedestrian role meshes share one 24-joint skeleton and role-specific clips. Mouth and brow joints give the cashier a readable angry scream while every other clip resets the face and comic mark. Existing controllers still own world placement and bounded district pooling; each visible imported actor has an independent skeleton.
 
 `powerups-v1.glb` adds seven static authored pickups: magnet, moon boots, scooter, shield, double chips, jetpack and speed burst. It also carries independently cloneable `wearable_magnet`, `wearable_moon_L` and `wearable_moon_R` attachment roots. The Refreshed family loads cat, human and power-up templates atomically. Each pickup keeps a deterministic simulation type while the renderer clones its named `powerup_<type>` root, adds a bounded individual aura and uses the matching transparent icon in the pickup card and timer HUD. The active magnet follows the left carry socket and the boots follow their animated foot bones. Original appears only when explicitly selected or when any required asset fails to load.
-The magnet is held from the lower bridge of its U shape with an identity attachment
-rotation; the renderer supplies the magnetic-wave effect independently of the GLB.
+The magnet is held from the lower bridge of its U shape in a straight paw raised about 40 degrees. The renderer creates mixer-owned variants of each authored clip by replacing only the left arm-chain tracks; every other animation track stays byte-identical. The renderer also supplies the blue magnetic-wave effect independently of the GLB.
 Three-Paw Guard renders as a true sphere with three equatorial four-toe paw-shield
-badges, consumes one badge per protected collision, and expires after ten seconds.
+badges, rotates them once every three seconds, and plays a short break animation when each protected collision consumes a badge. The power expires after fifteen seconds.
 Jetpack owns a fixed ten-second airborne-only chip route with a progressive six-to-eight
 chip look-ahead. Its route is removed at expiry and landing restores the ordinary run
 state without carrying jump input or flight chips into the street phase.
+
+Ground chip sequences use deterministic seeded 3–6 chip paths with straight, lateral and weave forms. Length weights are 1:3:3:1, and each obstacle route crosses its safe lane at the central chips. Moon Boots and Jetpack lift the camera position and look target together so vertical movement does not change camera pitch.
 
 ## Asset lifecycle
 

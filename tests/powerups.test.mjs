@@ -11,13 +11,13 @@ test('double chips doubles pickups and pauses its timer without changing earlier
 });
 test('shield grants three timed collision charges and reports each consumed charge',()=>{
  const events=[],g=new RunnerGame({onEvent:e=>events.push(e)});g.start({skipIntro:true});g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;
- g.activatePower('shield');assert.equal(POWER_DURATIONS.shield,10);assert.equal(g.powers.shieldCharges,SHIELD_CHARGES);
+ g.activatePower('shield');assert.equal(POWER_DURATIONS.shield,15);assert.equal(g.powers.shieldCharges,SHIELD_CHARGES);
  for(let remaining=2;remaining>=0;remaining--){g._hit(g.spawnEntity('blocker',1,0));assert.equal(g.state,'RUNNING');assert.equal(g.powers.shieldCharges,remaining);if(remaining)tick(g,1.2);}
  assert.equal(g.powers.has('shield'),false);
  assert.deepEqual(events.filter(e=>e.type==='shieldhit').map(e=>e.remaining),[2,1,0]);
  assert.equal(events.findLast(e=>e.type==='powerend'&&e.kind==='shield')?.reason,'depleted');
  tick(g,1.2);g._hit(g.spawnEntity('traffic',1,0));assert.equal(g.state,'CAUGHT');
- const timed=empty();timed.activatePower('shield');tick(timed,9.99);assert.equal(timed.powers.shieldCharges,3);tick(timed,.02);assert.equal(timed.powers.shieldCharges,0);
+ const timed=empty();timed.activatePower('shield');tick(timed,14.99);assert.equal(timed.powers.shieldCharges,3);tick(timed,.02);assert.equal(timed.powers.shieldCharges,0);
 });
 test('Moon Boots raise the jump above two-storey blockers without changing speed, score or protection',()=>{
  const ordinary=empty();ordinary.input('jump');let ordinaryApex=0;

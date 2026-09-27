@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {RunnerGame,LANES,MOTION,POWER_DURATIONS,POWER_SPAWN,COIN_SEQUENCES,COIN_FORMATIONS,PATTERNS,THEMES,BARRIERS,VEHICLES,INTRO_DURATION,CAPTURE_DURATION,validatePattern,obstacleSpacing} from '../dist/core.mjs';
+import {RunnerGame,LANES,MOTION,POWER_DURATIONS,POWER_SPAWN,COIN_SEQUENCES,COIN_SECTIONS,PATTERNS,THEMES,BARRIERS,VEHICLES,INTRO_DURATION,CAPTURE_DURATION,validatePattern,obstacleSpacing} from '../dist/core.mjs';
 function game(){const g=new RunnerGame({random:()=>.21});g.start({skipIntro:true});return g;}
 function tick(g,t,dt=1/120){for(let n=0;n<Math.ceil(t/dt);n++)g.update(Math.min(dt,t-n*dt));}
-function empty(g){g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;g._coinFormationCursor=1e9;}
+function empty(g){g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;g._coinSectionCursor=1e9;}
 test('street edition starts faster, keeps one level, and uses only supported powers',()=>{let g=game();assert.equal(g.speed,10.4);assert.deepEqual(THEMES,['HONG KONG']);assert.deepEqual(Object.keys(POWER_DURATIONS),['magnet','moon','speedburst','moped','shield','doublechips','jetpack']);assert.equal(g.activatePower('frenzy'),false);assert.equal(g.activatePower('rocket'),false);assert.equal(g.activatePower('giant'),false);assert.equal(g.activatePower('skateboard'),false);assert.equal(g.spawnEntity('chip',1,-30),null);});
 test('power-up selection is weighted, sparse and never repeats immediately',()=>{
  let seed=11;const g=new RunnerGame({random:()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296)}),seen=[];
@@ -201,31 +201,36 @@ test('down action while riding uses the duck timer without dismounting',()=>{
  const g=game();empty(g);g.activatePower('moped');assert.equal(g.input('slide'),true);tick(g,.2);assert.ok(g.player.slide>0);assert.ok(g.powers.has('moped'));tick(g,.6);assert.equal(g.player.slide,0);
 });
 
-test('seeded three-lane chip formations recur every 40 to 50 metres with five to eight chips per line',()=>{
+test('seeded chip sections stay spaced as one non-crossing trail',()=>{
  const make=()=>{let seed=41;const g=new RunnerGame({random:()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296)});g.start({skipIntro:true});return g;};
  const summarize=g=>{
   const groups=new Map();
-  for(const coin of g.entities.filter(e=>e.active&&e.coinFormationId>=0)){
-   if(!groups.has(coin.coinFormationId))groups.set(coin.coinFormationId,[]);
-   groups.get(coin.coinFormationId).push(coin);
+  for(const coin of g.entities.filter(e=>e.active&&e.coinSectionId>=0)){
+   if(!groups.has(coin.coinSectionId))groups.set(coin.coinSectionId,[]);
+   groups.get(coin.coinSectionId).push(coin);
   }
-  return [...groups.entries()].sort((a,b)=>a[0]-b[0]).map(([id,coins])=>({id,pattern:coins[0].formationPattern,
-   base:Math.min(...coins.map(e=>e.spawnDistance)),lanes:[0,1,2].map(lane=>coins.filter(e=>e.formationLane===lane).length)}));
+  return [...groups.entries()].sort((a,b)=>a[0]-b[0]).map(([id,coins])=>{
+   const distances=coins.map(e=>e.spawnDistance),indices=coins.map(e=>e.sequenceIndex);
+   return {id,pattern:coins[0].coinSectionPattern,count:coins.length,center:distances.reduce((sum,value)=>sum+value,0)/distances.length,
+    min:Math.min(...distances),max:Math.max(...distances),indices,lanes:coins.map(e=>e.lane)};
+  });
  };
  const first=summarize(make()),second=summarize(make());
- assert.deepEqual(first,second);assert.ok(first.length>=3);
- for(const formation of first){
-  assert.ok(COIN_FORMATIONS.patterns.includes(formation.pattern));
-  assert.equal(formation.lanes.length,COIN_FORMATIONS.lines);
-  assert.ok(formation.lanes.every(length=>length>=5&&length<=8));
+ assert.deepEqual(first,second);assert.ok(first.length>=2);
+ for(const section of first){
+  assert.ok(['straight','lateral','weave','jump'].includes(section.pattern));
+  assert.ok(section.count>=3&&section.count<=6);
+  assert.equal(new Set(section.indices).size,section.count,'a section contains one trail, not crossing lines');
  }
  for(let index=1;index<first.length;index++){
-  const gap=first[index].base-first[index-1].base;
-  assert.ok(gap>=COIN_FORMATIONS.gapMin-1e-8&&gap<=COIN_FORMATIONS.gapMax+1e-8,gap);
+  const gap=first[index].center-first[index-1].center;
+  assert.ok(gap>=COIN_SECTIONS.gapMin-1e-8,gap);
+  assert.ok(gap<=COIN_SECTIONS.gapMax+30,gap);
+  assert.ok(first[index-1].max<first[index].min,'chip sections do not overlap');
  }
- const jet=make();jet.entities.forEach(e=>e.active=false);jet.activatePower('jetpack');
- assert.deepEqual(jet._spawnCoinFormation(jet.distance+45,999),[]);
- assert.equal(jet.entities.some(e=>e.active&&e.coinFormationId===999),false);
+ const jet=make();jet.entities.forEach(e=>e.active=false);jet.activatePower('jetpack');jet._coinSectionCursor=jet.distance;
+ assert.deepEqual(jet._maybeSpawnCoinSection({safeLane:1,rowId:999,z:-45,y:1,spawnDistance:jet.distance+45}),[]);
+ assert.equal(jet.entities.some(e=>e.active&&e.coinSectionId===999),false);
 });
 
 test('broad roads retain sparse forward cars with at least two open lanes',()=>{

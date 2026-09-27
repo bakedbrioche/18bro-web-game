@@ -102,6 +102,12 @@ test('pause resume and main-menu controls work during the opening, chase and arr
  }
 });
 
+test('Enter skips only the first 1.5 seconds of the opening',()=>{
+ const early=app();early.get('start-run').click();early.key('Enter');assert.equal(early.game.state,'RUNNING');
+ const locked=app();locked.get('start-run').click();locked.game.update(1);locked.game.update(.51);assert.equal(locked.game.state,'STARTING');
+ locked.key('Enter');assert.equal(locked.game.state,'STARTING');for(let time=0;time<INTRO_DURATION&&locked.game.state==='STARTING';time+=.1)locked.game.update(.1);assert.equal(locked.game.state,'RUNNING');
+});
+
 test('held pause keys do not toggle repeatedly and Enter resumes from canvas focus',()=>{
  const a=app();a.get('start-run').click();a.game.start({skipIntro:true});
  a.key('KeyP');assert.equal(a.game.state,'PAUSED');assert.equal(a.get('hud').inert,true);
@@ -187,7 +193,7 @@ test('power art keeps the same decoded image nodes through pause and resume',()=
 });
 
 test('net capture remains visible before the Busted results sequence',()=>{
- const a=app();a.get('start-run').click();a.game.start({skipIntro:true});a.game.entities.forEach(entity=>entity.active=false);a.game._spawnCursor=Infinity;a.game._coinFormationCursor=Infinity;a.game._nextNetPursuitDistance=Infinity;a.game.debug.speedOverride=10;a.game._startNetPursuit();
+ const a=app();a.get('start-run').click();a.game.start({skipIntro:true});a.game.entities.forEach(entity=>entity.active=false);a.game._spawnCursor=Infinity;a.game._coinSectionCursor=Infinity;a.game._nextNetPursuitDistance=Infinity;a.game.debug.speedOverride=10;a.game._startNetPursuit();
  for(let elapsed=0;elapsed<8&&a.game.state==='RUNNING';elapsed+=1/120)a.game.update(1/120);
  assert.equal(a.game.state,'CAUGHT');assert.equal(a.game.crash.kind,'net');assert.equal(a.get('gameover-panel').hidden,true);assert.equal(a.get('hud').hidden,true);
  for(let elapsed=0;elapsed<5&&a.game.state!=='GAME_OVER';elapsed+=1/120)a.game.update(1/120);

@@ -142,3 +142,10 @@ Defer fur rendering, city-wide remodeling, compression infrastructure, and an ex
 1. Confirm whether the official-style wordmark may be an original traced-by-eye vector treatment, subject to brand permission.
 2. Choose desktop/mobile performance targets and the exact release channel.
 3. Confirm the crypto-project public name and destination before release copy is finalized. The community relationship, `18bro.fun` TBU status, and “Run for your chips” tag are confirmed.
+
+### Phase M — spaced chip trails and attached net capture — complete
+
+- Replaced overlapping three-lane chip heaps with one deterministic, non-crossing 3–6-chip trail every 55–80 metres; jump arcs replace that section's ground line instead of layering over it.
+- Expanded each police-net warning to a distance-scaled 3–5 seconds and tied its blink acceleration to the same warning window.
+- Kept the selected officer's net attached through catch, lift, turn, shoulder carry and backward retreat; removed the duplicate world-space capture prop.
+- Limited Enter skipping to the opening cutscene's first 1.5 seconds so a committed intro plays through without accidental late cancellation.

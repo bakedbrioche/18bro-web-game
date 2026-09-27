@@ -3,14 +3,14 @@ import assert from 'node:assert/strict';
 import {RunnerGame,INTRO_DURATION,LANES,MOTION,BARRIERS,POWER_DURATIONS,SHIELD_CHARGES,JETPACK_PHASES} from '../dist/core.mjs';
 import {introPose} from '../dist/choreography.mjs';
 const tick=(g,t)=>{for(let s=0;s<t;s+=1/120)g.update(Math.min(1/120,t-s));};
-function empty(){const g=new RunnerGame();g.start({skipIntro:true});g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;g._coinFormationCursor=1e9;return g;}
+function empty(){const g=new RunnerGame();g.start({skipIntro:true});g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;g._coinSectionCursor=1e9;return g;}
 test('double chips doubles pickups and pauses its timer without changing earlier chips',()=>{
  const g=empty();g._pickup(g.spawnEntity('coin',1,0));g.activatePower('doublechips');g._pickup(g.spawnEntity('coin',1,0));assert.equal(g.coins,3);
  g.pause();tick(g,20);assert.equal(g.powers.active.get('doublechips').remaining,12);
  g.resume();tick(g,12.1);g._pickup(g.spawnEntity('coin',1,0));assert.equal(g.coins,4);
 });
 test('shield grants three timed collision charges and reports each consumed charge',()=>{
- const events=[],g=new RunnerGame({onEvent:e=>events.push(e)});g.start({skipIntro:true});g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;g._coinFormationCursor=1e9;
+ const events=[],g=new RunnerGame({onEvent:e=>events.push(e)});g.start({skipIntro:true});g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;g._coinSectionCursor=1e9;
  g.activatePower('shield');assert.equal(POWER_DURATIONS.shield,15);assert.equal(g.powers.shieldCharges,SHIELD_CHARGES);
  for(let remaining=2;remaining>=0;remaining--){g._hit(g.spawnEntity('blocker',1,0));assert.equal(g.state,'RUNNING');assert.equal(g.powers.shieldCharges,remaining);if(remaining)tick(g,1.2);}
  assert.equal(g.powers.has('shield'),false);
@@ -48,7 +48,7 @@ test('jetpack lifts smoothly, pulls chips, clears hazards and lands exactly when
  g.start({skipIntro:true});assert.equal(g.powers.active.size,0);
 });
 test('jetpack reveals its lane-changing route only after lift-off and removes it at landing',()=>{
- let seed=7;const g=new RunnerGame({random:()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296)});g.start({skipIntro:true});g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;g._coinFormationCursor=1e9;
+ let seed=7;const g=new RunnerGame({random:()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296)});g.start({skipIntro:true});g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;g._coinSectionCursor=1e9;
  g.activatePower('jetpack');assert.equal(g.entities.filter(e=>e.active&&e.flightTrail).length,0);
  assert.ok(g._flightTrailPlan.length>=30);assert.deepEqual([...new Set(g._flightTrailPlan.map(e=>e.lane))].sort(),[0,1,2]);
  tick(g,.1);let visible=g.entities.filter(e=>e.active&&e.flightTrail).sort((a,b)=>a.trailIndex-b.trailIndex);
@@ -59,7 +59,7 @@ test('jetpack reveals its lane-changing route only after lift-off and removes it
  tick(g,2);assert.equal(g.player.y,0);assert.equal(g.player.grounded,true);assert.equal(g.entities.some(e=>e.active&&e.flightTrail),false);
 });
 test('speed burst cannot extend Jetpack chips or trigger a post-landing jump',()=>{
- const events=[];const g=new RunnerGame({onEvent:e=>events.push(e)});g.start({skipIntro:true});g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;g._coinFormationCursor=1e9;
+ const events=[];const g=new RunnerGame({onEvent:e=>events.push(e)});g.start({skipIntro:true});g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;g._coinSectionCursor=1e9;
  g.activatePower('speedburst');g.powers.active.get('speedburst').remaining=2;g.activatePower('jetpack');tick(g,9.9);
  assert.equal(g.powers.has('speedburst'),false);assert.equal(g.powers.has('jetpack'),true);assert.ok(g.player.y>0);
  assert.equal(g.powers.active.get('jetpack').descending,true);assert.equal(g.entities.some(e=>e.active&&e.flightTrail),false);g.player.jumpBuffer=MOTION.jumpBuffer;

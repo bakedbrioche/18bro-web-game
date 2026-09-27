@@ -1,7 +1,7 @@
 /** 18Bro deterministic, DOM-free runner simulation. World approaches +Z; cat stays at Z=0. */
 import { INTRO_DURATION, CAPTURE_DURATION, introPose, capturePose } from './choreography.mjs?v=street-28';
 import { ROUTE, BRANCHES, getRouteProfile, branchOffset, getTrafficPhase, crossStreetsAt } from './route.mjs?v=street-28';
-import { NET_PURSUIT, NetPursuitController } from './net-pursuit.mjs?v=graphics2-1';
+import { NET_PURSUIT, NetPursuitController } from './net-pursuit.mjs?v=graphics2-2';
 export { INTRO_DURATION, CAPTURE_DURATION } from './choreography.mjs?v=street-28';
 export const LANES = Object.freeze([-2.5, 0, 2.5]);
 export const THEMES = Object.freeze(['HONG KONG']);
@@ -17,12 +17,9 @@ export const COIN_SEQUENCES = Object.freeze({
   lengthWeights: Object.freeze({ 3: 1, 4: 3, 5: 3, 6: 1 }),
   patterns: Object.freeze(['straight', 'lateral', 'weave']),
 });
-export const COIN_FORMATIONS = Object.freeze({
-  gapMin: 40,
-  gapMax: 50,
-  lines: 3,
-  lengthWeights: Object.freeze({ 5: 1, 6: 3, 7: 3, 8: 1 }),
-  patterns: Object.freeze(['rows', 'arrow', 'wave']),
+export const COIN_SECTIONS = Object.freeze({
+  gapMin: 55,
+  gapMax: 80,
 });
 export const MOTION = Object.freeze({ laneDuration: .16, jumpDuration: .82, jumpHeight: 2.65, moonJumpDuration: 1.16, moonJumpHeight: 6.1, slideDuration: .72, jumpBuffer: .1, coyoteTime: .08 });
 export const JETPACK_PHASES = Object.freeze({ lift: 1.2, descent: 1.3, visibleChips: 8 });
@@ -170,7 +167,7 @@ export class RunnerGame {
     this.mistakes = 0; this.shieldGrace = 0; this.captureRemaining = 0; this.captureDuration = CAPTURE_DURATION; this.captureProgress = 0; this.crash = null;
     this._spawnCursor = 30; this._rowId = 0; this._poolCursor = 0; this._lastSafeLane = 1;
     this._coinSequenceId = 0; this._lastCoinPattern = null; this._lastCoinLane = null;
-    this._coinFormationIndex = 0; this._coinFormationCursor = this._coinFormationGap(0);
+    this._coinSectionIndex = 0; this._coinSectionCursor = this._coinSectionGap(0);
     this._lastPowerKind = null;
     this._jetpackTrailId = 0; this._jetpackFinalChip = null; this._flightTrailPlan = []; this._flightTrailCursor = 0; this._flightTrailSpacing = 3;
     this.patternHistory = []; this.powers.clear();
@@ -234,8 +231,8 @@ export class RunnerGame {
   seekArea(distance) {
     this.start({skipIntro:true});this.distance=clamp(Number(distance)||ROUTE.start,0,ROUTE.end-1);
     this.time=this.distance/15;this._spawnCursor=this.distance+30;
-    this._coinFormationIndex=Math.floor(this.distance/45);
-    this._coinFormationCursor=this.distance+this._coinFormationGap(this._coinFormationIndex);
+    this._coinSectionIndex=Math.floor(this.distance/67.5);
+    this._coinSectionCursor=this.distance+this._coinSectionGap(this._coinSectionIndex);
     for(const e of this.entities)e.active=false;
     this._branch=null;this._branchEntries=new Set(BRANCHES.filter(b=>b.start<this.distance).map(b=>b.id));
     this._refreshRoute();this._fillAhead();return this.route;
@@ -343,7 +340,7 @@ export class RunnerGame {
       depth: dimensions?.depth || .72, height: dimensions?.height || 1.02, stopped: false, blocked: false, actualApproach: approachFactor,
       variant: 0, hit: false, passed: false, magnetic: false, magnetLatched: false, flightTrail: false, flightTrailId: 0, trailIndex: -1, trailFinal: false,
       jumpArc: false, ordinaryCoin: false, coinSequenceId: -1, coinPattern: null, coinSequenceLength: 0, sequenceIndex: -1,
-      coinFormationId: -1, formationPattern: null, formationLane: -1, age: 0, rowId: -1,
+      coinSectionId: -1, coinSectionPattern: null, age: 0, rowId: -1,
       routeBranch:null,finale:false,anchor:null,yaw:null,crossSpeed:0,vehicleKind:null,crossSlot:-1,crossCadence:0,crossClearTime:0,intersectionFlow:false,
       safeLane: -1, fromLane: lane, toLane: lane, spawnDistance: this.distance - z, ...extra });
     return entity;
@@ -367,47 +364,33 @@ export class RunnerGame {
     this._lastSafeLane = safeLane;
     return result;
   }
-  _coinFormationGap(index) {
-    return mix(COIN_FORMATIONS.gapMin, COIN_FORMATIONS.gapMax, seededUnit(this.routeSeed, index, 17));
+  _coinSectionGap(index) {
+    return mix(COIN_SECTIONS.gapMin, COIN_SECTIONS.gapMax, seededUnit(this.routeSeed, index, 17));
   }
-  _weightedFormationLength(index, lane) {
-    const entries = Object.entries(COIN_FORMATIONS.lengthWeights);
-    const total = entries.reduce((sum, [, weight]) => sum + weight, 0);
-    let roll = seededUnit(this.routeSeed, index, lane + 31) * total;
-    for (const [length, weight] of entries) {
-      roll -= weight;
-      if (roll < 0) return Number(length);
-    }
-    return Number(entries.at(-1)[0]);
-  }
-  _spawnCoinFormation(spawnDistance, formationId = this._coinFormationIndex) {
-    if (this.powers.has('jetpack')) return [];
-    const pattern = COIN_FORMATIONS.patterns[Math.floor(seededUnit(this.routeSeed, formationId, 71) * COIN_FORMATIONS.patterns.length)];
-    const lengths = Array.from({ length: COIN_FORMATIONS.lines }, (_, lane) => this._weightedFormationLength(formationId, lane));
-    const needed = lengths.reduce((sum, length) => sum + length, 0);
-    const available = this.entities.reduce((count, entity) => count + !entity.active, 0);
-    if (available < needed + 32) return [];
-    const step = 2.35;
-    const offsets = pattern === 'rows' ? [0, 0, 0] : pattern === 'arrow' ? [step * 2, 0, step * 2] : [0, step, step * 2];
-    const coins = [];
-    for (let lane = 0; lane < COIN_FORMATIONS.lines; lane++) {
-      for (let index = 0; index < lengths[lane]; index++) {
-        const worldDistance = spawnDistance + offsets[lane] + index * step;
-        const coin = this.spawnEntity('coin', lane, this.distance - worldDistance, {
-          y: 1, ordinaryCoin: true, coinFormationId: formationId, formationPattern: pattern,
-          formationLane: lane, coinSequenceLength: lengths[lane], sequenceIndex: index,
+  _maybeSpawnCoinSection({ safeLane = null, rowId = -1, z, y = 1, spawnDistance, jumpLane = -1 }) {
+    if (this.powers.has('jetpack') || spawnDistance + 1e-8 < this._coinSectionCursor) return [];
+    const sectionId = this._coinSectionIndex++;
+    let coins;
+    if (jumpLane >= 0) {
+      coins = [];
+      for (let index = -2; index <= 2; index++) {
+        const offset = index * .12;
+        const coin = this.spawnEntity('coin', jumpLane, z + this.speed * offset, {
+          rowId, y: .7 + MOTION.jumpHeight * (1 - (2 * offset / MOTION.jumpDuration) ** 2),
+          jumpArc: true, ordinaryCoin: true, coinSectionId: sectionId, coinSectionPattern: 'jump',
+          coinSequenceLength: 5, sequenceIndex: index + 2,
         });
         if (coin) coins.push(coin);
       }
+    } else {
+      coins = this._spawnCoinSequence({ safeLane, rowId, z, y });
+      for (const coin of coins) {
+        coin.coinSectionId = sectionId;
+        coin.coinSectionPattern = coin.coinPattern;
+      }
     }
+    this._coinSectionCursor = spawnDistance + this._coinSectionGap(this._coinSectionIndex);
     return coins;
-  }
-  _fillCoinFormationsAhead(ahead) {
-    while (this._coinFormationCursor < this.distance + ahead) {
-      const formationId = this._coinFormationIndex++;
-      if (!this.powers.has('jetpack')) this._spawnCoinFormation(this._coinFormationCursor, formationId);
-      this._coinFormationCursor += this._coinFormationGap(this._coinFormationIndex);
-    }
   }
   _spawnCoinSequence({ safeLane = null, rowId = -1, z, y = 1 }) {
     const weightedLengths = Object.entries(COIN_SEQUENCES.lengthWeights);
@@ -463,7 +446,7 @@ export class RunnerGame {
   }
   _spawnPattern(spawnDistance) {
     const doorway=BRANCHES.find(b=>Math.abs(spawnDistance-b.start)<12||Math.abs(spawnDistance-b.end)<10);
-    if(doorway){if(!this.powers.has('jetpack'))for(let i=0;i<3;i++)this.spawnEntity('coin',doorway.side<0?0:2,this.distance-spawnDistance-i*2.5);return 18;}
+    if(doorway){const rowId=this._rowId++,safeLane=doorway.side<0?0:2;this._maybeSpawnCoinSection({safeLane,rowId,z:this.distance-spawnDistance,y:1,spawnDistance});return 18;}
     // Broad junctions retain sparse forward traffic as well as signal-driven
     // cross traffic. One car every other 24 m row is less than half the normal
     // road density, while the other lanes always remain open.
@@ -473,7 +456,7 @@ export class RunnerGame {
       const safeLane=lane===0?2:0;
       if(rowId%2===0)this.spawnEntity('traffic',lane,z,{rowId,safeLane,intersectionFlow:true,
         variant:Math.floor(seededUnit(this.routeSeed,rowId,127)*3),fromLane:lane,toLane:lane});
-      if(!this.powers.has('jetpack'))this._spawnCoinSequence({safeLane,rowId,z,y:1});
+      this._maybeSpawnCoinSection({safeLane,rowId,z,y:1,spawnDistance});
       const spacing=24;
       this.patternHistory.push({id:rowId,distance:spawnDistance,spacing,speed:this.speed,tier:this.tier,
         slots:lane===0?['traffic',null,null]:[null,null,'traffic'],safeLane,intersection:true});
@@ -510,17 +493,9 @@ export class RunnerGame {
     }
     // Jetpack owns the only chip route while airborne. Hazards and power
     // pickups keep streaming, but ordinary ground/jump rows resume after landing.
-    if (!this.powers.has('jetpack')) {
-      this._spawnCoinSequence({ safeLane: pattern.safeLane, rowId, z, y: 1 });
-      const jumpLane = pattern.slots.indexOf('jump');
-      if (jumpLane >= 0) {
-        // Samples of the actual jump parabola: the center coin sits above the barrier at the apex.
-        for (let i = -2; i <= 2; i++) {
-          const offset = i * .12;
-          this.spawnEntity('coin', jumpLane, z + this.speed * offset, { rowId, y: .7 + MOTION.jumpHeight * (1 - (2 * offset / MOTION.jumpDuration) ** 2), jumpArc: true });
-        }
-      }
-    }
+    // One scheduled trail owns each reward section. A jump row uses the arc as
+    // that trail instead of layering another line across it.
+    this._maybeSpawnCoinSection({safeLane:pattern.safeLane,rowId,z,y:1,spawnDistance,jumpLane:pattern.slots.indexOf('jump')});
     // Power choices are deliberately sparse. Selection below is weighted so
     // utility powers recur more often than run-changing Jetpack and Shield.
     if (rowId > 0 && rowId % POWER_SPAWN.rowInterval === POWER_SPAWN.rowOffset) {
@@ -535,7 +510,6 @@ export class RunnerGame {
   _fillAhead() {
     const ahead = Math.max(160, this.speed * 6);
     while (this._spawnCursor < this.distance + ahead) this._spawnCursor += this._spawnPattern(this._spawnCursor);
-    this._fillCoinFormationsAhead(ahead);
   }
   _projectSpeed() {
     const base = this.debug.speedOverride != null ? clamp(Number(this.debug.speedOverride) || 10.4, 2, 120) : Math.min(26, 10.4 + this.time * .12);

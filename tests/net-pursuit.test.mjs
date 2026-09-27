@@ -13,7 +13,7 @@ function advanceTo(controller, predicate, context = {}, limit = 20) {
 
 function completeByDodging(controller) {
   let lane = 1;
-  for (let elapsed = 0; elapsed < 45; elapsed += 1 / 120) {
+  for (let elapsed = 0; elapsed < 90; elapsed += 1 / 120) {
     const before = controller.snapshot();
     if (before.phase === 'telegraph' && before.telegraphProgress >= .68) {
       const candidates = before.safety.candidateEscapeLanes;
@@ -55,6 +55,7 @@ test('telegraph follows slowly, accelerates its blink and publishes a fair hazar
   controller.start({ playerLane: 0, distance: 1200 });
   let snapshot = advanceTo(controller, value => value.phase === 'telegraph', { playerLane: 0, distance: 1200 });
   const initialFrequency = snapshot.blinkFrequency;
+  assert.ok(snapshot.safety.strikeIn>=3&&snapshot.safety.strikeIn<=5);
   snapshot = controller.update(.2, { playerLane: 2, distance: 1203 });
   assert.ok(snapshot.targetX > NET_PURSUIT.lanes[0]);
   assert.ok(snapshot.targetX < NET_PURSUIT.lanes[2], 'marker must trail a sudden lane change');
@@ -115,6 +116,8 @@ test('difficulty escalates with distance, caps, and never removes the dodge wind
   const hardTelegraph = advanceTo(hard, value => value.phase === 'telegraph', { distance: 6000 });
   assert.ok(hardTelegraph.safety.strikeIn < easyTelegraph.safety.strikeIn);
   assert.ok(hardTelegraph.safety.strikeIn >= NET_PURSUIT.minimumDodgeSeconds);
+  assert.equal(easyTelegraph.safety.strikeIn,5);
+  assert.equal(hardTelegraph.safety.strikeIn,3);
   const escalated = easy.update(.1, { distance: 60000 });
   assert.equal(escalated.difficulty, 1);
 });
@@ -141,7 +144,7 @@ function emptyRunner(events = []) {
   game.start({ skipIntro: true });
   game.entities.forEach(entity => { entity.active = false; });
   game._spawnCursor = Infinity;
-  game._coinFormationCursor = Infinity;
+  game._coinSectionCursor = Infinity;
   game._nextNetPursuitDistance = Infinity;
   game.debug.speedOverride = 10;
   return game;
@@ -166,7 +169,7 @@ test('RunnerGame schedules pursuits, preserves an escape lane and awards the bon
   assert.equal(otherHazard.active, true);
   otherHazard.active = false;
 
-  for (let elapsed = 0; elapsed < 45 && game.netPursuit.active; elapsed += 1 / 120) {
+  for (let elapsed = 0; elapsed < 90 && game.netPursuit.active; elapsed += 1 / 120) {
     const pursuit = game.netPursuit;
     if (pursuit.phase === 'telegraph' && pursuit.telegraphProgress >= .62) {
       placeRunnerInLane(game, pursuit.safety.candidateEscapeLanes[0]);

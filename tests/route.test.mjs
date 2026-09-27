@@ -4,7 +4,7 @@ import {RunnerGame,INTRO_DURATION,MOTION,INTERSECTION_TRAFFIC,intersectionTraffi
 import {ROUTE,BRANCHES,getRouteProfile,routeCenter,routeSection,crossStreetsAt,getTrafficPhase} from '../dist/route.mjs';
 
 function tick(game,seconds,dt=1/120){for(let time=0;time<seconds-1e-9;time+=dt)game.update(Math.min(dt,seconds-time));}
-function empty(game){for(const e of game.entities)e.active=false;game._spawnCursor=1e9;game._coinFormationCursor=1e9;game._nextNetPursuitDistance=Infinity;}
+function empty(game){for(const e of game.entities)e.active=false;game._spawnCursor=1e9;game._coinSectionCursor=1e9;game._nextNetPursuitDistance=Infinity;}
 
 test('the completed opening stays flat and enters the same uninterrupted running state',()=>{
  const events=[],g=new RunnerGame({onEvent:e=>events.push(e),random:()=>.2});

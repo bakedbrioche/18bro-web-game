@@ -242,28 +242,30 @@ test('magnet is held upright with one centred signal that fades through a roll',
  magnet.visible=false;s.animateCat(cat,0,'run');assert.equal(arm.rotation.z,-.12,'ordinary run restores the arm immediately when Magnet ends');
 });
 
-test('police nets, four-toe target and caught presentation follow a generic pursuit snapshot',()=>{
+test('police nets stay hand-attached through catch, lift, shoulder turn and carry',()=>{
  const s=modelFactory();s.materials=[];s.scene=new THREE.Scene();s.cat=s.makeCat('18bro');s.scene.add(s.cat.root);
  s.cops=[s.makeCop(),s.makeCop()];s.cops.forEach((cop,i)=>{cop.catchNet=s.makeCatchNet(i);s.attachCatchNet(cop,cop.catchNet);s.scene.add(cop.root);});
  s.catchTargetMark=s.makeCatchTargetMark();s.scene.add(s.catchTargetMark);s.captureNet=s.makeCatchNet(2);s.scene.add(s.captureNet);
  s.routeLateralScale=.8;s.routeWorldOffset=new THREE.Vector3(5,.2,0);s.clock=1.25;
- const aim=s.updateNetPursuit({active:true,guardIndex:1,phase:'telegraph',targetX:2,telegraphProgress:.75,blink:.8},1/60,false);
+ const aim=s.updateNetPursuit({active:true,guardIndex:1,phase:'telegraph',targetX:2,telegraphProgress:.75,blink:.8,blinkFrequency:4.2},1/60,false);
  assert.equal(aim.guardIndex,1);assert.ok(s.cops.every(cop=>cop.catchNet.visible&&!cop.baton.visible));assert.equal(s.cops[1].catchNet.userData.presentation.selected,true);
  assert.equal(s.cops[0].catchNet.userData.attachedTo,'procedural_hand_R');assert.equal(s.catchTargetMark.visible,true);
- assert.equal(s.catchTargetMark.userData.toes,4);assert.equal(s.catchTargetMark.userData.cardinalBars,4);assert.ok(s.catchTargetMark.userData.blinkHz>8);
+ assert.equal(s.catchTargetMark.userData.toes,4);assert.equal(s.catchTargetMark.userData.cardinalBars,4);assert.equal(s.catchTargetMark.userData.blinkHz,4.2);
  assert.ok(s.catchTargetMark.position.distanceTo(new THREE.Vector3(6.6,.235,0))<1e-9);
  const before=s.cops[1].catchNet.rotation.x;s.updateNetPursuit({active:true,guardIndex:1,phase:'strike',targetX:2,telegraphProgress:1},1/60,false);
  assert.ok(s.cops[1].catchNet.rotation.x<before-.8,'selected guard swings the net');
- const catY=s.cat.root.position.y,netted=s.updateNetPursuit({active:true,guardIndex:1,phase:'netted',targetX:2,caught:true,captureProgress:.1,capture:{phaseProgress:1}},1/60,false);
- assert.equal(netted.caught,true);assert.equal(s.catchTargetMark.visible,false);assert.ok(s.cops.every(cop=>!cop.catchNet.visible&&!cop.baton.visible));assert.equal(s.captureNet.visible,true);
- assert.deepEqual(s.captureNet.userData.presentation,{phase:'netted',drop:1,lift:0,retreat:0});
+ const selected=s.cops[1],netted=s.updateNetPursuit({active:true,guardIndex:1,phase:'netted',targetX:2,caught:true,captureProgress:.1,capture:{phaseProgress:1}},1/60,false);
+ assert.equal(netted.caught,true);assert.equal(s.catchTargetMark.visible,false);assert.equal(selected.catchNet.visible,true);assert.equal(selected.catchNet.parent,selected.hands[1]);
+ assert.equal(s.cops[0].catchNet.visible,false);assert.equal(s.captureNet.visible,false,'world-space duplicate is never shown');assert.equal(selected.catchNet.userData.presentation.attached,true);
+ selected.root.updateMatrixWorld(true);const hoop=selected.catchNet.getObjectByName('catch_net_hoop'),hoopWorld=new THREE.Vector3();hoop.getWorldPosition(hoopWorld);
+ assert.ok(Math.abs((s.cat.root.position.y+1.05)-hoopWorld.y)<1e-8,'attached hoop encloses the caught cat');
  s.updateNetPursuit({active:true,guardIndex:1,phase:'lift',targetX:2,caught:true,captureProgress:.3,capture:{phaseProgress:.75}},1/60,false);
- assert.equal(s.captureNet.userData.presentation.phase,'lift');assert.ok(s.captureNet.userData.presentation.lift>.8);assert.ok(s.cat.root.position.y>catY);
+ assert.ok(selected.catchNet.userData.presentation.lift>.8);assert.ok(selected.catchNet.userData.presentation.turn>0);
  const carry={active:true,guardIndex:1,phase:'carry',targetX:2,caught:true,captureProgress:.8,capture:{phaseProgress:.5}};
  s.updateNetPursuit(carry,1/60,false);const repeated={cat:s.cat.root.position.clone(),cops:s.cops.map(cop=>cop.root.position.clone())};
  s.updateNetPursuit(carry,1/60,false);assert.ok(s.cat.root.position.distanceTo(repeated.cat)<1e-12);s.cops.forEach((cop,i)=>assert.ok(cop.root.position.distanceTo(repeated.cops[i])<1e-12));
- assert.ok(s.captureNet.userData.presentation.retreat>0,'carry phase walks the net and escort backwards');
- s.updateNetPursuit(null,1/60,false);assert.ok(s.cops.every(cop=>cop.baton.visible),'batons restore after pursuit presentation ends');
+ assert.equal(selected.catchNet.userData.presentation.shoulder,1);assert.ok(selected.catchNet.userData.presentation.retreat>0);assert.equal(selected.catchNet.parent,selected.hands[1]);
+ s.updateNetPursuit(null,1/60,false);assert.ok(s.cops.every(cop=>cop.baton.visible&&!cop.catchNet.visible),'props reset after pursuit presentation ends');
 });
 
 test('shield badges are large, equally spaced, orbit in three seconds and shatter on use',()=>{

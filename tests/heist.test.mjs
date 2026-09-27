@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {RunnerGame, INTRO_DURATION, CAPTURE_DURATION, MOTION, BARRIERS, VEHICLES} from '../dist/core.mjs';
 import {introPose, capturePose, STORE} from '../dist/choreography.mjs';
 const tick=(g,t)=>{for(let left=t;left>1e-8;left-=1/120)g.update(Math.min(left,1/120));};
-function emptyGame(){const g=new RunnerGame();g.start({skipIntro:true});g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;g._coinFormationCursor=1e9;g.debug.speedOverride=10;return g;}
+function emptyGame(){const g=new RunnerGame();g.start({skipIntro:true});g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;g._coinSectionCursor=1e9;g.debug.speedOverride=10;return g;}
 
 test('every normal retry resets into the store before starting the street chase',()=>{
   const g=emptyGame();g.spawnEntity('traffic',1,-.1);tick(g,.1);tick(g,CAPTURE_DURATION);
@@ -32,10 +32,10 @@ test('lane-changing into the side of a passing vehicle is recoverable',()=>{
   assert.equal(g.state,'RUNNING');assert.equal(g.mistakes,1);assert.equal(car.stopped,false);
 });
 test('coin arcs fit the real jump and all five can be collected while clearing a low barrier',()=>{
-  const g=emptyGame();g._makePattern=()=>({slots:[null,'jump',null],safeLane:0});g._spawnPattern(4.1);
+  const g=emptyGame();g._coinSectionCursor=4.1;g._makePattern=()=>({slots:[null,'jump',null],safeLane:0});g._spawnPattern(4.1);
   const arc=g.entities.filter(e=>e.active&&e.jumpArc);assert.equal(arc.length,5);
   assert.equal(Math.max(...arc.map(e=>e.y)),MOTION.jumpHeight+.7);
-  g.entities.filter(e=>e.active&&e.ordinaryCoin).forEach(e=>e.active=false);
+  g.entities.filter(e=>e.active&&e.ordinaryCoin&&!e.jumpArc).forEach(e=>e.active=false);
   g.input('jump');tick(g,.85);assert.equal(g.mistakes,0);assert.equal(g.coins,5);
   assert.ok(BARRIERS.jump.height>1.5&&BARRIERS.jump.height<MOTION.jumpHeight);
 });
@@ -75,7 +75,7 @@ test('moped immediately drops police and preserves the remaining mistake allowan
   g.powers.remove('moped');g._hitAge=100;tick(g,3);assert.equal(g.policeDistance,18);
 });
 test('clear-lane chip routes stay compact and cross the safe lane at the encounter',()=>{
-  const g=emptyGame();g._makePattern=()=>({slots:[null,'blocker',null],safeLane:0});
+  const g=emptyGame();g._coinSectionCursor=30;g._makePattern=()=>({slots:[null,'blocker',null],safeLane:0});
   g._spawnPattern(30);const chips=g.entities.filter(e=>e.active&&e.type==='coin'&&e.ordinaryCoin).sort((a,b)=>a.sequenceIndex-b.sequenceIndex);
   assert.ok(chips.length>=3&&chips.length<=6);
   const centerStart=Math.floor((chips.length-1)/2),centerEnd=Math.ceil((chips.length-1)/2);

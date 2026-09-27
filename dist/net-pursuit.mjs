@@ -17,11 +17,11 @@ export const NET_PURSUIT = Object.freeze({
   attemptsMin: 2,
   attemptsMax: 4,
   approachSeconds: 1.05,
-  telegraphSeconds: Object.freeze({ easy: 1.45, hard: .82 }),
+  telegraphSeconds: Object.freeze({ easy: 5, hard: 3 }),
   strikeSeconds: .26,
   recoverySeconds: Object.freeze({ easy: .58, hard: .38 }),
   retreatSeconds: 1.3,
-  minimumDodgeSeconds: .48,
+  minimumDodgeSeconds: 3,
   catchRadius: .78,
   followSpeed: Object.freeze({ easy: 2.15, hard: 3.35 }),
   captureSeconds: Object.freeze({ netted: .62, lift: .78, carry: 2.4 }),
@@ -280,8 +280,8 @@ export class NetPursuitController {
 
   _blinkState(progress) {
     if (this.phase !== 'telegraph') return { blink: this.phase === 'strike', frequency: 0 };
-    const startFrequency = 1.65 + this.difficulty * .45;
-    const endFrequency = 7.4 + this.difficulty * 1.6;
+    const startFrequency = .8 + this.difficulty * .25;
+    const endFrequency = 5.4 + this.difficulty * 1.6;
     const seconds = this.phaseElapsed;
     const frequency = mix(startFrequency, endFrequency, progress);
     const cycles = startFrequency * seconds + .5 * (endFrequency - startFrequency) * seconds * progress;

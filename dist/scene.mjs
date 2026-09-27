@@ -3,7 +3,7 @@ import { clone as cloneSkeleton } from './vendor/addons/utils/SkeletonUtils.js';
 import { sidewalkPose, CROWD_COUNT } from './crowd.mjs?v=street-28';
 import { INTRO_DURATION, CAPTURE_DURATION, STORE, introPose, capturePose, smooth, slidePose } from './choreography.mjs?v=street-28';
 import { applyMaterialAssets } from './material-assets.mjs?v=street-28';
-import { BARRIERS } from './core.mjs?v=graphics2-3';
+import { BARRIERS } from './core.mjs?v=graphics2-4';
 import { ROUTE, BRANCHES, getRouteProfile, routeCenter, branchOffset } from './route.mjs?v=street-28';
 import { DistrictScene } from './district-scene.mjs?v=street-28';
 import { FURS } from './customization.mjs?v=street-28';
@@ -524,7 +524,7 @@ export class GameScene {
   return mark;
  }
  updateNetPursuit(snapshot,dt=1/60,reducedMotion=false){
-  const phase=String(snapshot?.phase||'idle').toLowerCase(),caught=!!snapshot?.caught||phase==='caught'||phase==='capture'||phase==='carry';
+  const phase=String(snapshot?.phase||'idle').toLowerCase(),caught=!!snapshot?.caught||['netted','lift','carry','caught','capture'].includes(phase);
   const active=!!snapshot&&(snapshot.active!==false)&&(phase!=='idle'||caught),guardIndex=clamp(Math.floor(snapshot?.guardIndex||0),0,1);
   const telegraph=clamp(Number(snapshot?.telegraphProgress)||0,0,1),capture=clamp(Number(snapshot?.captureProgress)||0,0,1);
   const targetX=Number.isFinite(snapshot?.targetX)?snapshot.targetX:(this.cat?.root.position.x||0),targetZ=Number.isFinite(snapshot?.targetZ)?snapshot.targetZ:0;
@@ -532,7 +532,7 @@ export class GameScene {
   if(this.catchTargetMark){
    const show=active&&!caught&&['telegraph','strike','swing'].includes(phase);this.catchTargetMark.visible=show;
    if(show){
-    const mark=this.catchTargetMark,frequency=Number.isFinite(snapshot?.blinkFrequency)?snapshot.blinkFrequency:2+telegraph*telegraph*11;
+    const mark=this.catchTargetMark,frequency=Number.isFinite(snapshot?.blinkFrequency)?snapshot.blinkFrequency:.8+telegraph*telegraph*6.2;
     const generated=.5+.5*Math.sin((this.clock||0)*TAU*frequency);
     const pulse=typeof snapshot?.blink==='boolean'?(snapshot.blink?1:.14):Number.isFinite(snapshot?.blink)?clamp(snapshot.blink,0,1):generated;
     mark.position.set(targetX*routeScale+routeOffset.x,routeOffset.y+.035,targetZ);mark.rotation.y=reducedMotion?0:(this.clock||0)*.18;
@@ -541,31 +541,50 @@ export class GameScene {
     mark.userData.material.color.copy(color);mark.userData.material.opacity=.28+pulse*.65;mark.userData.blinkHz=frequency;mark.userData.telegraphProgress=telegraph;
    }
   }
+  const phaseProgress=Number.isFinite(snapshot?.capture?.phaseProgress)?clamp(snapshot.capture.phaseProgress,0,1):0;
+  const lift=caught?(phase==='netted'?0:phase==='lift'?smooth(phaseProgress):1):0;
+  const turn=caught?(phase==='lift'?smooth((phaseProgress-.34)/.66):phase==='carry'?1:0):0;
+  const retreat=caught&&phase==='carry'?smooth(phaseProgress)*4.5:0;
+  if(caught&&!this._netCaptureBase)this._netCaptureBase={
+   catPosition:this.cat?.root.position.clone()||new THREE.Vector3(targetX*routeScale+routeOffset.x,routeOffset.y,targetZ),
+   catQuaternion:this.cat?.root.quaternion.clone()||new THREE.Quaternion(),
+   copPositions:(this.cops||[]).map(cop=>cop.root.position.clone()),
+  };
+  if(active&&!caught)this._netCaptureBase=null;
+  const base=this._netCaptureBase;
+  let carrier=null,carrierNet=null;
   for(let i=0;i<(this.cops?.length||0);i++){
-   const cop=this.cops[i],net=cop.catchNet;if(cop.baton)cop.baton.visible=!active;if(!net)continue;net.visible=active&&!caught;
+   const cop=this.cops[i],net=cop.catchNet,selected=i===guardIndex;if(cop.baton)cop.baton.visible=!active;if(!net)continue;
+   net.visible=active&&(!caught||selected);
    if(!net.visible)continue;
-   const side=i?1:-1,selected=i===guardIndex,raising=selected?telegraph:.18;
-   const swing=selected&&(phase==='strike'||phase==='swing')?smooth(telegraph):selected?smooth((telegraph-.78)/.22):0;
-   net.position.set(0,-.035+raising*.035,.02-swing*.08);
-   net.rotation.set(-.08-swing*1.12,side*(.05+swing*.18),side*(-.24-raising*.72));
-   net.userData.presentation={selected,raising,swing,phase};
+   const side=i?1:-1;
+   if(!caught){
+    const raising=selected?telegraph:.18,swing=selected&&(phase==='strike'||phase==='swing')?smooth(telegraph):selected?smooth((telegraph-.78)/.22):0;
+    net.position.set(0,-.035+raising*.035,.02-swing*.08);net.rotation.set(-.08-swing*1.12,side*(.05+swing*.18),side*(-.24-raising*.72));
+    net.scale.setScalar(cop.root.userData.modelSet==='refreshed'?1:1.02);net.userData.presentation={selected,raising,swing,phase,attached:true};
+   }else{
+    const carrying=phase==='carry',walk=carrying?.72:phase==='lift'?.18:0;
+    this.animateCop(cop,(this.clock||0)+i*.31,walk,selected,selected?side:0);
+    cop.root.rotation.y=Math.PI*(1-turn);
+    if(!selected){cop.root.position.set(base.catPosition.x-side*1.05,routeOffset.y,base.catPosition.z+1.55+retreat);continue;}
+    const shoulder=phase==='carry'?1:phase==='lift'?smooth(phaseProgress):0;
+    net.position.set(0,-.035,.02);
+    net.rotation.set(-Math.PI/2+(.12+Math.PI/2)*shoulder,side*(.12-.06*shoulder),side*(-.2+1.22*shoulder));
+    net.scale.setScalar((cop.root.userData.modelSet==='refreshed'?1:1.02)*1.55);
+    net.userData.presentation={selected:true,phase,drop:phase==='netted'?smooth(phaseProgress):1,lift,turn,shoulder,retreat,attached:true};
+    carrier=cop;carrierNet=net;
+   }
   }
-  if(this.captureNet){
-   this.captureNet.visible=active&&caught;
-   if(this.captureNet.visible){
-    const phaseProgress=Number.isFinite(snapshot?.capture?.phaseProgress)?clamp(snapshot.capture.phaseProgress,0,1):null;
-    const phased=phaseProgress!==null&&['netted','lift','carry'].includes(phase);
-    const drop=phased?(phase==='netted'?smooth(phaseProgress):1):smooth(capture/.28);
-    const lift=phased?(phase==='netted'?0:phase==='lift'?smooth(phaseProgress):1):smooth((capture-.34)/.36);
-    const retreat=(phased?(phase==='carry'?smooth(phaseProgress):0):smooth((capture-.68)/.32))*4.5;
-    if(!this._netCaptureBase)this._netCaptureBase={catY:this.cat?.root.position.y||0,catZ:this.cat?.root.position.z||0,catRoll:this.cat?.root.rotation.z||0,copZ:(this.cops||[]).map(cop=>cop.root.position.z)};
-    const base=this._netCaptureBase;
-    this.captureNet.rotation.set(-Math.PI/2,0,0);this.captureNet.position.set(targetX*routeScale+routeOffset.x,routeOffset.y+.34+(1-drop)*2.35+lift*.85,targetZ+1.45+retreat);
-    this.captureNet.userData.presentation={phase,drop,lift,retreat};
-    if(this.cat?.root){this.cat.root.position.y=base.catY+lift*.85;this.cat.root.position.z=base.catZ+retreat;this.cat.root.rotation.z=base.catRoll+Math.sin(capture*Math.PI)*.08;}
-    for(let i=0;i<(this.cops?.length||0);i++)this.cops[i].root.position.z=base.copZ[i]+retreat;
-   }else if(active&&!caught)this._netCaptureBase=null;
+  if(caught&&base&&carrier&&carrierNet){
+   const desiredHoop=base.catPosition.clone();desiredHoop.y=base.catPosition.y+1.05+lift*.85;desiredHoop.z=base.catPosition.z+retreat;
+   carrier.root.position.copy(base.copPositions[guardIndex]||base.catPosition).add(new THREE.Vector3(0,0,retreat));
+   carrier.root.updateMatrixWorld(true);
+   const hoop=carrierNet.getObjectByName('catch_net_hoop'),hoopWorld=new THREE.Vector3();hoop.getWorldPosition(hoopWorld);
+   carrier.root.position.add(desiredHoop.clone().sub(hoopWorld));carrier.root.updateMatrixWorld(true);
+   if(this.cat?.root){this.cat.root.position.set(desiredHoop.x,desiredHoop.y-1.05,desiredHoop.z);this.cat.root.quaternion.copy(base.catQuaternion);this.cat.root.rotation.y+=turn*Math.PI;this.cat.root.rotation.z+=Math.sin(capture*Math.PI)*.045;}
   }
+  if(this.captureNet)this.captureNet.visible=false;
+  if(!active){this._netCaptureBase=null;for(const cop of this.cops||[]){if(cop.baton)cop.baton.visible=true;if(cop.catchNet){cop.catchNet.visible=false;this.attachCatchNet(cop,cop.catchNet);}}}
   return {active,phase,guardIndex,telegraphProgress:telegraph,caught,captureProgress:capture};
  }
  makeHat(kind){
@@ -1279,7 +1298,7 @@ export class GameScene {
   this.cat.jetpack.visible=!!game.powers?.has('jetpack')&&!isCaught&&!isOver;const shieldActive=!!game.powers?.has('shield')&&!isCaught&&!isOver,shieldCharges=this.shieldCharges(game);
   this.cat.jetpack.userData.flames.visible=this.cat.jetpack.visible;this.animateJetFlames(this.cat.jetpack,this.clock,reducedMotion);
 
-  this.moped.visible=!!riding;this.stars.visible=(isCaught||isOver)&&!!game.crash;this.shelfBag.visible=isMenu||isStarting&&it<.95;
+  this.moped.visible=!!riding;this.stars.visible=(isCaught||isOver)&&!!game.crash&&game.crash.kind!=='net';this.shelfBag.visible=isMenu||isStarting&&it<.95;
   let goalFov=65;
   if(isMenu||isStarting){
     const pose=introPose(it),dance=pose.dance;

@@ -1,6 +1,6 @@
 import { FURS, HATS, normalizeCustom, equipCustom } from './customization.mjs?v=street-28';
-import { RunnerGame, THEMES, INTRO_DURATION } from './core.mjs?v=graphics2-4';
-import { GameScene } from './scene.mjs?v=graphics2-4';
+import { RunnerGame, THEMES, INTRO_DURATION } from './core.mjs?v=graphics2-5';
+import { GameScene } from './scene.mjs?v=graphics2-5';
 import { ArcadeAudio } from './audio.mjs?v=street-28';
 import { DEFAULT_MODEL_SET, normalizeModelSet } from './model-config.mjs?v=models-1';
 import { DEFAULT_PICTURE_MODE, DEFAULT_FONT_STYLE, normalizePictureMode, normalizeFontStyle } from './presentation-config.mjs?v=presentation-1';

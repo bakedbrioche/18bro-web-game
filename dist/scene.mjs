@@ -3,7 +3,7 @@ import { clone as cloneSkeleton } from './vendor/addons/utils/SkeletonUtils.js';
 import { sidewalkPose, CROWD_COUNT } from './crowd.mjs?v=street-28';
 import { INTRO_DURATION, CAPTURE_DURATION, STORE, introPose, capturePose, smooth, slidePose } from './choreography.mjs?v=street-28';
 import { applyMaterialAssets } from './material-assets.mjs?v=street-28';
-import { BARRIERS } from './core.mjs?v=graphics2-4';
+import { BARRIERS } from './core.mjs?v=graphics2-5';
 import { ROUTE, BRANCHES, getRouteProfile, routeCenter, branchOffset } from './route.mjs?v=street-28';
 import { DistrictScene } from './district-scene.mjs?v=street-28';
 import { FURS } from './customization.mjs?v=street-28';
@@ -15,6 +15,7 @@ const TAU = Math.PI * 2;
 const POWER_TYPES=Object.freeze(['magnet','moon','moped','shield','doublechips','jetpack','speedburst']);
 const SHIELD_ORBIT_SECONDS=3;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const mix=(a,b,t)=>a+(b-a)*t;
 const seeded=(n)=>{let s=n>>>0;return ()=>((s=(s*1664525+1013904223)>>>0)/4294967296)};
 
 export function airborneCameraFollow(powers,height=0){
@@ -125,6 +126,24 @@ export class GameScene {
   const required=['idle','walk','run','chase','alert','clerk','panic','ride','carry','carry_left','carry_right','crouch'],clips=new Map(asset.animations.map(clip=>[clip.name,clip]));
   const roles=['role_police','role_cashier','role_rider'];
   if(required.some(name=>!clips.has(name))||roles.some(name=>!asset.scene.getObjectByName(name)))throw new Error('Authored human is missing required clips or role meshes');
+  // Net pursuit needs running legs and a hand that does not inherit the chase
+  // swing. Build full mixer-owned variants: every non-net-arm track remains the
+  // byte-identical chase track, while the selected arm is held at a measured
+  // low ready pose or the matching authored carry pose. Blending these two
+  // variants raises the actual hand/socket over the complete warning window.
+  const chase=clips.get('chase'),constantTrack=(track,time,duration)=>{
+   const size=track.getValueSize(),value=track.createInterpolant(new Float32Array(size)).evaluate(time),copy=track.clone();
+   copy.times=new Float32Array([0,duration]);copy.values=new Float32Array([...value,...value]);return copy;
+  };
+  for(const side of ['L','R']){
+   const selected=name=>new RegExp(`^(arm|forearm|hand|socket_carry)_${side}\\.`).test(name),carry=clips.get(side==='L'?'carry_left':'carry_right');
+   const readyTime=chase.duration*(side==='L'?7/8:3/8),carryTime=0;
+   for(const [pose,source,time] of [['ready',chase,readyTime],['aim',carry,carryTime]]){
+    const byName=new Map(source.tracks.map(track=>[track.name,track]));
+    const tracks=chase.tracks.map(track=>selected(track.name)?constantTrack(byName.get(track.name)||track,time,chase.duration):track.clone());
+    clips.set(`net_${pose}_${side}`,new THREE.AnimationClip(`net_${pose}_${side}`,chase.duration,tracks,chase.blendMode));
+   }
+  }
   const min=asset.definition.bounds?.min?.[1]||0,max=asset.definition.bounds?.max?.[1]||2.293;
   return {scene:asset.scene,clips,scale:1,min,roles};
  }
@@ -156,6 +175,14 @@ export class GameScene {
   const action=rig.actions[clip]||rig.actions.idle;
   if(rig.clip!==clip){rig.mixer.stopAllAction();action.reset().setLoop(THREE.LoopRepeat,Infinity).play();rig.clip=clip;}
   const duration=action.getClip().duration||1,normal=((phase%TAU)+TAU)%TAU/TAU;action.time=normal*duration;rig.mixer.update(0);rig.scene.visible=!frozen||rig.scene.visible;
+ }
+ updateAuthoredNetArm(person,side=-1,phase=0,raise=0){
+  const rig=person.authored;if(!rig||this.effectiveModelSet!=='refreshed')return;
+  const suffix=side<0?'L':'R',ready=rig.actions[`net_ready_${suffix}`],aim=rig.actions[`net_aim_${suffix}`],key=`net_arm_${suffix}`;
+  if(!ready||!aim)return;
+  if(rig.clip!==key){rig.mixer.stopAllAction();ready.reset().setLoop(THREE.LoopRepeat,Infinity).play();aim.reset().setLoop(THREE.LoopRepeat,Infinity).play();rig.clip=key;}
+  const blend=smooth(clamp(raise,0,1));ready.enabled=true;aim.enabled=true;ready.setEffectiveWeight(1-blend);aim.setEffectiveWeight(blend);
+  const normal=((phase%TAU)+TAU)%TAU/TAU;ready.time=normal*(ready.getClip().duration||1);aim.time=normal*(aim.getClip().duration||1);rig.mixer.update(0);rig.scene.visible=true;
  }
  prepareAuthoredHero(asset){
   const hand=asset.scene.getObjectByName('socket_carry_R'),leftHand=asset.scene.getObjectByName('socket_carry_L'),leftFoot=asset.scene.getObjectByName('foot_L'),rightFoot=asset.scene.getObjectByName('foot_R'),hat=asset.scene.getObjectByName('18bro_hat'),hatSocket=asset.scene.getObjectByName('socket_hat'),backSocket=asset.scene.getObjectByName('socket_back'),hips=asset.scene.getObjectByName('hips');
@@ -523,30 +550,62 @@ export class GameScene {
   mark.traverse(object=>{if(object.isMesh){object.renderOrder=20;object.frustumCulled=false;}});
   return mark;
  }
+ poseProceduralNetArm(cop,side=-1,raise=0){
+  const index=side<0?0:1,arm=cop.arms?.[index],elbow=cop.elbows?.[index];if(!arm||!elbow)return;
+  const amount=smooth(clamp(raise,0,1)),target=new THREE.Vector3(side*mix(.44,.62,amount),mix(1.02,1.48,amount),mix(.18,.43,amount));
+  this.poseLimb(arm,elbow,new THREE.Vector3(0,-.34,.04),target,new THREE.Vector3(side*.35,0,1),1);
+ }
+ poseNetGuardArm(cop,side,phase,raise){
+  if(cop.authored&&this.effectiveModelSet==='refreshed')this.updateAuthoredNetArm(cop,side,phase,raise);
+  else this.poseProceduralNetArm(cop,side,raise);
+ }
+ setNetReadyPose(net,side,raise=0,owner=null){
+  const amount=smooth(clamp(raise,0,1)),ready=new THREE.Quaternion().setFromEuler(new THREE.Euler(mix(.36,.9,amount),0,side*mix(.2,.28,amount)));
+  net.position.set(0,0,0);
+  if(owner&&net.parent){
+   owner.root.updateWorldMatrix(true,true);const ownerWorld=owner.root.getWorldQuaternion(new THREE.Quaternion()),parentWorld=net.parent.getWorldQuaternion(new THREE.Quaternion());
+   net.quaternion.copy(parentWorld.invert().multiply(ownerWorld.multiply(ready)));
+  }else net.quaternion.copy(ready);
+  return net;
+ }
+ orientAttachedNet(net,hoopWorld,normalWorld=new THREE.Vector3(0,0,-1)){
+  const parent=net.parent;if(!parent)return null;parent.updateWorldMatrix(true,false);
+  const hand=parent.localToWorld(new THREE.Vector3()),direction=hoopWorld.clone().sub(hand),distance=Math.max(.001,direction.length()),y=direction.clone().normalize();
+  const z=normalWorld.clone().addScaledVector(y,-normalWorld.dot(y));if(z.lengthSq()<.0001)z.set(0,1,0).addScaledVector(y,-y.y);z.normalize();
+  const x=y.clone().cross(z).normalize();z.copy(x).cross(y).normalize();
+  const matrix=new THREE.Matrix4().makeBasis(x,y,z),worldQuaternion=new THREE.Quaternion().setFromRotationMatrix(matrix),parentQuaternion=parent.getWorldQuaternion(new THREE.Quaternion());
+  const parentScale=parent.getWorldScale(new THREE.Vector3()),uniformScale=Math.max(.001,(parentScale.x+parentScale.y+parentScale.z)/3);
+  net.position.set(0,0,0);net.quaternion.copy(parentQuaternion.invert().multiply(worldQuaternion));net.scale.setScalar(distance/(1.45*uniformScale));net.updateWorldMatrix(false,true);
+  return {hand,distance,scale:net.scale.x};
+ }
  updateNetPursuit(snapshot,dt=1/60,reducedMotion=false){
-  const phase=String(snapshot?.phase||'idle').toLowerCase(),caught=!!snapshot?.caught||['netted','lift','carry','caught','capture'].includes(phase);
-  const active=!!snapshot&&(snapshot.active!==false)&&(phase!=='idle'||caught),guardIndex=clamp(Math.floor(snapshot?.guardIndex||0),0,1);
+  const rawPhase=String(snapshot?.phase||'idle').toLowerCase(),completedCapture=rawPhase==='complete'&&snapshot?.outcome==='caught',phase=completedCapture?'carry':rawPhase;
+  const caught=!!snapshot?.caught||['netted','lift','carry','caught','capture'].includes(phase);
+  const active=!!snapshot&&((snapshot.active!==false&&phase!=='idle')||caught),guardIndex=clamp(Math.floor(snapshot?.guardIndex||0),0,1);
   const telegraph=clamp(Number(snapshot?.telegraphProgress)||0,0,1),capture=clamp(Number(snapshot?.captureProgress)||0,0,1);
-  const targetX=Number.isFinite(snapshot?.targetX)?snapshot.targetX:(this.cat?.root.position.x||0),targetZ=Number.isFinite(snapshot?.targetZ)?snapshot.targetZ:0;
-  const routeScale=this.routeLateralScale??1,routeOffset=this.routeWorldOffset||new THREE.Vector3();
+  const targetX=Number.isFinite(snapshot?.targetX)?snapshot.targetX:(this.cat?.root.position.x||0),targetZ=Number.isFinite(snapshot?.targetZ)?snapshot.targetZ:(this.cat?.root.position.z||0);
+  const routeScale=this.routeLateralScale??1,routeOffset=this.routeWorldOffset||new THREE.Vector3(),targetWorldX=targetX*routeScale+routeOffset.x;
+  if(phase!==this._netPresentationPhase){this._netPresentationPhase=phase;this._netPresentationPhaseStarted=this.clock||0;}
+  const phaseSeconds=Math.max(0,(this.clock||0)-(this._netPresentationPhaseStarted||0)),strikeProgress=phase==='strike'?(reducedMotion?1:smooth(phaseSeconds/.26)):0;
   if(this.catchTargetMark){
    const show=active&&!caught&&['telegraph','strike','swing'].includes(phase);this.catchTargetMark.visible=show;
    if(show){
     const mark=this.catchTargetMark,frequency=Number.isFinite(snapshot?.blinkFrequency)?snapshot.blinkFrequency:.8+telegraph*telegraph*6.2;
     const generated=.5+.5*Math.sin((this.clock||0)*TAU*frequency);
     const pulse=typeof snapshot?.blink==='boolean'?(snapshot.blink?1:.14):Number.isFinite(snapshot?.blink)?clamp(snapshot.blink,0,1):generated;
-    mark.position.set(targetX*routeScale+routeOffset.x,routeOffset.y+.035,targetZ);mark.rotation.y=reducedMotion?0:(this.clock||0)*.18;
+    mark.position.set(targetWorldX,routeOffset.y+.035,targetZ);mark.rotation.y=reducedMotion?0:(this.clock||0)*.18;
     mark.scale.setScalar(1+(reducedMotion?0:pulse*.055));
     const color=telegraph<.5?mark.userData.red.clone().lerp(mark.userData.orange,telegraph*2):mark.userData.orange.clone().lerp(mark.userData.gold,(telegraph-.5)*2);
     mark.userData.material.color.copy(color);mark.userData.material.opacity=.28+pulse*.65;mark.userData.blinkHz=frequency;mark.userData.telegraphProgress=telegraph;
    }
   }
   const phaseProgress=Number.isFinite(snapshot?.capture?.phaseProgress)?clamp(snapshot.capture.phaseProgress,0,1):0;
-  const lift=caught?(phase==='netted'?0:phase==='lift'?smooth(phaseProgress):1):0;
-  const turn=caught?(phase==='lift'?smooth((phaseProgress-.34)/.66):phase==='carry'?1:0):0;
-  const retreat=caught&&phase==='carry'?smooth(phaseProgress)*4.5:0;
+  const lift=caught?(phase==='netted'?0:phase==='lift'?smooth(phaseProgress/.72):1):0;
+  const turn=caught?(phase==='lift'?smooth((phaseProgress-.52)/.48):phase==='carry'?1:0):0;
+  const shoulder=caught&&phase==='carry'?smooth(phaseProgress/.22):0;
+  const retreat=caught&&phase==='carry'?smooth((phaseProgress-.14)/.86)*4.5:0;
   if(caught&&!this._netCaptureBase)this._netCaptureBase={
-   catPosition:this.cat?.root.position.clone()||new THREE.Vector3(targetX*routeScale+routeOffset.x,routeOffset.y,targetZ),
+   catPosition:this.cat?.root.position.clone()||new THREE.Vector3(targetWorldX,routeOffset.y,targetZ),
    catQuaternion:this.cat?.root.quaternion.clone()||new THREE.Quaternion(),
    copPositions:(this.cops||[]).map(cop=>cop.root.position.clone()),
   };
@@ -554,37 +613,52 @@ export class GameScene {
   const base=this._netCaptureBase;
   let carrier=null,carrierNet=null;
   for(let i=0;i<(this.cops?.length||0);i++){
-   const cop=this.cops[i],net=cop.catchNet,selected=i===guardIndex;if(cop.baton)cop.baton.visible=!active;if(!net)continue;
-   net.visible=active&&(!caught||selected);
-   if(!net.visible)continue;
-   const side=i?1:-1;
+   const cop=this.cops[i],net=cop.catchNet,selected=i===guardIndex,side=i?1:-1;if(cop.baton)cop.baton.visible=!active;if(!net)continue;
+   this.attachCatchNet(cop,net,cop.root.userData.modelSet==='refreshed');
+   net.visible=active&&(!caught||selected);if(!net.visible)continue;
    if(!caught){
-    const raising=selected?telegraph:.18,swing=selected&&(phase==='strike'||phase==='swing')?smooth(telegraph):selected?smooth((telegraph-.78)/.22):0;
-    net.position.set(0,-.035+raising*.035,.02-swing*.08);net.rotation.set(-.08-swing*1.12,side*(.05+swing*.18),side*(-.24-raising*.72));
-    net.scale.setScalar(cop.root.userData.modelSet==='refreshed'?1:1.02);net.userData.presentation={selected,raising,swing,phase,attached:true};
+    const aiming=selected&&['telegraph','strike','swing'].includes(phase),raising=aiming?telegraph:0;
+    if(aiming){
+     const close=smooth((telegraph-.08)/.92),goalZ=targetZ+1.48;cop.root.position.z=mix(cop.root.position.z,goalZ,close);
+     this.poseNetGuardArm(cop,side,(this.clock||0)*12,raising);
+    }
+    this.setNetReadyPose(net,side,raising,cop);
+    if(selected&&(phase==='strike'||phase==='swing')){
+     cop.root.updateMatrixWorld(true);net.updateWorldMatrix(true,true);
+     const readyQuaternion=net.quaternion.clone(),readyScale=net.scale.x,hoopTarget=new THREE.Vector3(targetWorldX,(this.cat?.root.position.y||routeOffset.y)+1.05,targetZ);
+     this.orientAttachedNet(net,hoopTarget,new THREE.Vector3(0,0,-1));
+     const strikeQuaternion=net.quaternion.clone(),strikeScale=net.scale.x;net.quaternion.copy(readyQuaternion).slerp(strikeQuaternion,strikeProgress);net.scale.setScalar(mix(readyScale,strikeScale,strikeProgress));
+    }
+    net.userData.presentation={selected,handSide:side,raising,swing:strikeProgress,phase,attached:true,forward:true,stableArm:aiming};
    }else{
-    const carrying=phase==='carry',walk=carrying?.72:phase==='lift'?.18:0;
+    const carrying=phase==='carry',walk=carrying?.74:phase==='lift'?.2:0;
+    const catPosition=base.catPosition.clone().add(new THREE.Vector3(0,lift*.85,retreat));
+    const desiredX=base.catPosition.x+side*(selected?1.35:1.05),desiredZ=base.catPosition.z+retreat+(selected?mix(.12,.82,Math.max(turn,shoulder)):.92);
+    cop.root.position.set(desiredX,routeOffset.y,desiredZ);cop.root.rotation.set(0,Math.PI*(1-turn),0);
     this.animateCop(cop,(this.clock||0)+i*.31,walk,selected,selected?side:0);
-    cop.root.rotation.y=Math.PI*(1-turn);
-    if(!selected){cop.root.position.set(base.catPosition.x-side*1.05,routeOffset.y,base.catPosition.z+1.55+retreat);continue;}
-    const shoulder=phase==='carry'?1:phase==='lift'?smooth(phaseProgress):0;
-    net.position.set(0,-.035,.02);
-    net.rotation.set(-Math.PI/2+(.12+Math.PI/2)*shoulder,side*(.12-.06*shoulder),side*(-.2+1.22*shoulder));
-    net.scale.setScalar((cop.root.userData.modelSet==='refreshed'?1:1.02)*1.55);
-    net.userData.presentation={selected:true,phase,drop:phase==='netted'?smooth(phaseProgress):1,lift,turn,shoulder,retreat,attached:true};
-    carrier=cop;carrierNet=net;
+    if(selected){
+     this.poseNetGuardArm(cop,side,carrying?(this.clock||0)*12:0,phase==='netted'?1:Math.max(lift,shoulder));
+     cop.root.updateMatrixWorld(true);
+     const normal=new THREE.Vector3(0,0,1).applyQuaternion(cop.root.quaternion),hoopTarget=catPosition.clone().add(new THREE.Vector3(0,1.05,0));
+     const attachment=this.orientAttachedNet(net,hoopTarget,normal);
+     net.userData.presentation={selected:true,handSide:side,phase,drop:phase==='netted'?smooth(phaseProgress):1,lift,turn,shoulder,retreat,attached:true,forward:true,stableArm:true,attachment};
+     carrier=cop;carrierNet=net;
+    }
    }
   }
-  if(caught&&base&&carrier&&carrierNet){
-   const desiredHoop=base.catPosition.clone();desiredHoop.y=base.catPosition.y+1.05+lift*.85;desiredHoop.z=base.catPosition.z+retreat;
-   carrier.root.position.copy(base.copPositions[guardIndex]||base.catPosition).add(new THREE.Vector3(0,0,retreat));
-   carrier.root.updateMatrixWorld(true);
-   const hoop=carrierNet.getObjectByName('catch_net_hoop'),hoopWorld=new THREE.Vector3();hoop.getWorldPosition(hoopWorld);
-   carrier.root.position.add(desiredHoop.clone().sub(hoopWorld));carrier.root.updateMatrixWorld(true);
-   if(this.cat?.root){this.cat.root.position.set(desiredHoop.x,desiredHoop.y-1.05,desiredHoop.z);this.cat.root.quaternion.copy(base.catQuaternion);this.cat.root.rotation.y+=turn*Math.PI;this.cat.root.rotation.z+=Math.sin(capture*Math.PI)*.045;}
+  if(caught&&base&&carrier&&carrierNet&&this.cat?.root){
+   this.cat.root.position.copy(base.catPosition).add(new THREE.Vector3(0,lift*.85,retreat));this.cat.root.quaternion.copy(base.catQuaternion);this.cat.root.rotation.y+=turn*Math.PI;
+   if(this.cat.body){
+    this.cat.body.position.y=0;this.cat.body.rotation.set(0,0,0);
+    this.cat.arms?.forEach((arm,i)=>arm.rotation.set(-.72-lift*.28,0,(i?-.2:.2)*(1-lift*.4)));
+    this.cat.legs?.forEach((leg,i)=>leg.rotation.set(-.45-lift*.75+(reducedMotion?0:Math.sin((this.clock||0)*8+i*Math.PI)*.06*lift),0,0));
+   }
   }
   if(this.captureNet)this.captureNet.visible=false;
-  if(!active){this._netCaptureBase=null;for(const cop of this.cops||[]){if(cop.baton)cop.baton.visible=true;if(cop.catchNet){cop.catchNet.visible=false;this.attachCatchNet(cop,cop.catchNet);}}}
+  if(!active){
+   this._netCaptureBase=null;this._netPresentationPhase='idle';this._netPresentationPhaseStarted=this.clock||0;
+   for(const cop of this.cops||[]){if(cop.baton)cop.baton.visible=true;if(cop.catchNet){cop.catchNet.visible=false;this.attachCatchNet(cop,cop.catchNet);}}
+  }
   return {active,phase,guardIndex,telegraphProgress:telegraph,caught,captureProgress:capture};
  }
  makeHat(kind){
@@ -762,8 +836,13 @@ export class GameScene {
   if(person.catchNet)this.attachCatchNet(person,person.catchNet,refreshed);
  }
  attachCatchNet(person,net,refreshed=person.root.userData.modelSet==='refreshed'){
-  const authoredSocket=person.authored?.scene.getObjectByName('socket_carry_R'),parent=refreshed&&authoredSocket?authoredSocket:(person.hands?.[1]||person.root);
-  if(net.parent!==parent)parent.add(net);net.position.set(0,-.035,.02);net.rotation.set(-.08,0,-.24);net.scale.setScalar(refreshed?1:1.02);net.userData.attachedTo=refreshed&&authoredSocket?'socket_carry_R':'procedural_hand_R';return net;
+  // The left-side officer uses the left inward hand and the right-side officer
+  // uses the right inward hand. Mirrored outward lean keeps both hoops ahead of
+  // their owners instead of crossing behind their backs.
+  const side=net.userData.guardIndex===0?-1:1,suffix=side<0?'L':'R',index=side<0?0:1;
+  const authoredSocket=person.authored?.scene.getObjectByName(`socket_carry_${suffix}`),parent=refreshed&&authoredSocket?authoredSocket:(person.hands?.[index]||person.root);
+  if(net.parent!==parent)parent.add(net);net.position.set(0,0,0);net.rotation.set(.36,0,side*.2);net.scale.setScalar(refreshed?1:1.02);
+  net.userData.handSide=side;net.userData.attachedTo=refreshed&&authoredSocket?`socket_carry_${suffix}`:`procedural_hand_${suffix}`;return net;
  }
  applyHumanModelSet(modelSet){for(const person of this.humanRigs||[])this.applyHumanRigModelSet(person,modelSet);}
  makeCop(){const c=this.makePerson(1,true);c.root.scale.setScalar(1.12);return c;}
@@ -1330,20 +1409,22 @@ export class GameScene {
     this.cops.forEach((cop,i)=>{const pos=pose.officers[i];cop.root.visible=!isMenu;cop.root.position.set(pos.x,0,pos.z);cop.root.rotation.y=Math.PI;this.animateCop(cop,this.clock+i*.19,it>3.5?1:.14);});this.chaseZ=2.825;
     if(!isPaused&&isStarting){if(this.lastIntroTime<.95&&it>=.95)this.burst(-11.9,1.1,-3.4,14,0xffdc7b,1.2,.045);if(this.lastIntroTime<3.02&&it>=3.02){this.burst(-6.75,.45,STORE.z+dist,48,0xf3e3be,3.1,.06);for(const side of [-1,1])this.burst(-6.6,1.5,STORE.z+dist+side*1.4,16,0xffffd2,2.6,.035);}this.lastIntroTime=it;}
   }else if(isCaught||isOver){
-    const progress=(game.captureProgress??1)+(isOver?Math.min(8,this.stateTime)/CAPTURE_DURATION:0),px=game.crash?.x??p.x??0;
+    const progress=(game.captureProgress??1)+(isOver?Math.min(8,this.stateTime)/CAPTURE_DURATION:0),px=game.crash?.x??p.x??0,netCapture=game.crash?.kind==='net'&&!!game.netPursuit?.caught;
     this.target.set(px*.35,3.25,8.8);this.cameraTarget.set(px*.3,1.15,-1);goalFov=64;
-    if(!this.captureStarts){
-     const arrival=this.camera.clone(),look=this.cameraTarget.clone();arrival.position.copy(this.target);arrival.fov=goalFov;
-     if(newStreet){
-      arrival.position.x+=offsetX;arrival.position.y+=offsetY;
-      look.x+=(branch?branchOffset(branch,dist+10).x:offsetX)+(routeCenter(dist+16)-worldCurve);look.y+=offsetY;
-      if(branch){arrival.position.z=6.2-branchEase*1.4;arrival.position.y-=1.3*branchEase;look.z=-5;arrival.fov=70;}
+    if(!netCapture){
+     if(!this.captureStarts){
+      const arrival=this.camera.clone(),look=this.cameraTarget.clone();arrival.position.copy(this.target);arrival.fov=goalFov;
+      if(newStreet){
+       arrival.position.x+=offsetX;arrival.position.y+=offsetY;
+       look.x+=(branch?branchOffset(branch,dist+10).x:offsetX)+(routeCenter(dist+16)-worldCurve);look.y+=offsetY;
+       if(branch){arrival.position.z=6.2-branchEase*1.4;arrival.position.y-=1.3*branchEase;look.z=-5;arrival.fov=70;}
+      }
+      arrival.lookAt(look);arrival.updateProjectionMatrix();
+      this.captureStarts=this.captureEntryPositions(px,newStreet?this.routeWorldOffset:new THREE.Vector3(),newStreet?lateralScale:1,arrival);
      }
-     arrival.lookAt(look);arrival.updateProjectionMatrix();
-     this.captureStarts=this.captureEntryPositions(px,newStreet?this.routeWorldOffset:new THREE.Vector3(),newStreet?lateralScale:1,arrival);
-    }
-    const {carriedX,carriedZ,lift,carry}=this.animateCapture(this.cat,this.cops,progress,{...game.crash,x:px},this.captureStarts,reducedMotion);
-    this.stars.position.set(carriedX,1.9+lift*.92,carriedZ);this.stars.children.forEach((star,i)=>{const a=this.clock*3+i*TAU/5;star.position.set(Math.cos(a)*.56,Math.sin(a*2)*.055,Math.sin(a)*.3);star.rotation.set(0,-a*.3,Math.sin(a)*.2);});
+     const {carriedX,carriedZ,lift}=this.animateCapture(this.cat,this.cops,progress,{...game.crash,x:px},this.captureStarts,reducedMotion);
+     this.stars.position.set(carriedX,1.9+lift*.92,carriedZ);this.stars.children.forEach((star,i)=>{const a=this.clock*3+i*TAU/5;star.position.set(Math.cos(a)*.56,Math.sin(a*2)*.055,Math.sin(a)*.3);star.rotation.set(0,-a*.3,Math.sin(a)*.2);});
+    }else this.captureStarts=null;
   }else{
     const px=p.x||0,py=p.y||0;this.cat.root.position.set(px,py+(riding?.08:0),p.hit>0?.65*Math.sin(Math.PI*smooth((1.15-p.hit)/1.15)):0);this.cat.root.rotation.set(0,Math.PI,0);this.animateCat(this.cat,t,riding?'ride':p.anim==='idle'?'menu':'run',p,reducedMotion);
     if(py>.1&&!riding){this.cat.legs[0].rotation.x=-.65;this.cat.legs[1].rotation.x=.45;}

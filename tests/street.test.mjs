@@ -216,7 +216,7 @@ test('seeded chip sections stay spaced as one non-crossing trail',()=>{
   });
  };
  const first=summarize(make()),second=summarize(make());
- assert.deepEqual(first,second);assert.ok(first.length>=2);
+ assert.deepEqual(first,second);assert.ok(first.length>=4,'doubling cadence keeps at least four visible sections in the initial streamed window');
  for(const section of first){
   assert.ok(['straight','lateral','weave','jump'].includes(section.pattern));
   assert.ok(section.count>=3&&section.count<=6);

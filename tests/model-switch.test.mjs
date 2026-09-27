@@ -115,7 +115,17 @@ test('Refreshed model selection applies to guards and the reusable crowd family'
  assert.equal(guard.root.userData.modelSet,'original');assert.equal(pedestrian.root.userData.modelSet,'original');
  assert.equal(await scene.setModelSetPreference('refreshed'),'refreshed');
  assert.equal(guard.root.userData.modelSet,'refreshed');assert.equal(pedestrian.root.userData.modelSet,'refreshed');
- assert.ok(guard.authored&&pedestrian.authored);assert.equal(guard.body.visible,false);assert.equal(pedestrian.body.visible,false);assert.equal(guard.catchNet.userData.attachedTo,'socket_carry_R');assert.equal(guard.catchNet.parent.name,'socket_carry_R');
+ assert.ok(guard.authored&&pedestrian.authored);assert.equal(guard.body.visible,false);assert.equal(pedestrian.body.visible,false);assert.equal(guard.catchNet.userData.attachedTo,'socket_carry_L');assert.equal(guard.catchNet.parent.name,'socket_carry_L');
+ const chase=guard.authored.actions.chase.getClip(),ready=guard.authored.actions.net_ready_L.getClip(),aim=guard.authored.actions.net_aim_L.getClip();
+ for(let i=0;i<chase.tracks.length;i++)if(!/^(arm|forearm|hand|socket_carry)_L[.]/.test(chase.tracks[i].name)){
+  assert.deepEqual([...ready.tracks[i].values],[...chase.tracks[i].values],`ready pose preserves ${chase.tracks[i].name}`);
+  assert.deepEqual([...aim.tracks[i].values],[...chase.tracks[i].values],`aim pose preserves ${chase.tracks[i].name}`);
+ }
+ scene.updateAuthoredNetArm(guard,-1,0,0);guard.root.updateMatrixWorld(true);
+ const socket=guard.authored.scene.getObjectByName('socket_carry_L'),low=socket.getWorldPosition(new THREE.Vector3()).y;
+ const legBones=['leg_L','shin_L','foot_L','leg_R','shin_R','foot_R'].map(name=>guard.authored.scene.getObjectByName(name)),legs=legBones.flatMap(bone=>bone.quaternion.toArray());
+ scene.updateAuthoredNetArm(guard,-1,0,1);guard.root.updateMatrixWorld(true);const high=socket.getWorldPosition(new THREE.Vector3()).y;
+ assert.ok(high>low+.35,`Refreshed net hand rises from ${low} to ${high}`);assert.deepEqual(legBones.flatMap(bone=>bone.quaternion.toArray()),legs,'Refreshed net-arm blend preserves locomotion bones');
  assert.equal(guard.authored.scene.getObjectByName('role_police').visible,true);
  assert.equal(pedestrian.authored.scene.getObjectByName('role_police').visible,false);
  assert.equal(cashier.authored.scene.getObjectByName('role_cashier').visible,true);assert.equal(rider.authored.scene.getObjectByName('role_rider').visible,true);

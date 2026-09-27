@@ -30,7 +30,7 @@ The player steals chips from a Hong Kong convenience store, escapes into a conti
 ## Current product
 
 - One continuous WebGL chase through market, commercial, intersection, and neon districts.
-- Deterministic pickup pressure through one non-crossing 3–6-chip trail every 55–80 metres, sparse wide-road traffic, and capped solvable cross traffic.
+- Deterministic pickup pressure through one non-crossing 3–6-chip trail every 28–36 metres, sparse wide-road traffic, and capped solvable cross traffic.
 - A telegraphed two-officer net pursuit with alternating 2–4 dodge attempts per officer, a distance-scaled 3–5-second warning, hand-attached catch/lift/shoulder-carry choreography, a protected escape lane and a 10,000-score success reward.
 - Keyboard, touch, pause, mute, reduced-motion, and fullscreen controls.
 - Local records, missions, chip balance, fur colors, and hats stored in browser `localStorage`.

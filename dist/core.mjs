@@ -18,8 +18,8 @@ export const COIN_SEQUENCES = Object.freeze({
   patterns: Object.freeze(['straight', 'lateral', 'weave']),
 });
 export const COIN_SECTIONS = Object.freeze({
-  gapMin: 55,
-  gapMax: 80,
+  gapMin: 28,
+  gapMax: 36,
 });
 export const MOTION = Object.freeze({ laneDuration: .16, jumpDuration: .82, jumpHeight: 2.65, moonJumpDuration: 1.16, moonJumpHeight: 6.1, slideDuration: .72, jumpBuffer: .1, coyoteTime: .08 });
 export const JETPACK_PHASES = Object.freeze({ lift: 1.2, descent: 1.3, visibleChips: 8 });
@@ -231,7 +231,7 @@ export class RunnerGame {
   seekArea(distance) {
     this.start({skipIntro:true});this.distance=clamp(Number(distance)||ROUTE.start,0,ROUTE.end-1);
     this.time=this.distance/15;this._spawnCursor=this.distance+30;
-    this._coinSectionIndex=Math.floor(this.distance/67.5);
+    this._coinSectionIndex=Math.floor(this.distance/((COIN_SECTIONS.gapMin+COIN_SECTIONS.gapMax)/2));
     this._coinSectionCursor=this.distance+this._coinSectionGap(this._coinSectionIndex);
     for(const e of this.entities)e.active=false;
     this._branch=null;this._branchEntries=new Set(BRANCHES.filter(b=>b.start<this.distance).map(b=>b.id));

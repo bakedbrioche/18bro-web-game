@@ -149,3 +149,10 @@ Defer fur rendering, city-wide remodeling, compression infrastructure, and an ex
 - Expanded each police-net warning to a distance-scaled 3–5 seconds and tied its blink acceleration to the same warning window.
 - Kept the selected officer's net attached through catch, lift, turn, shoulder carry and backward retreat; removed the duplicate world-space capture prop.
 - Limited Enter skipping to the opening cutscene's first 1.5 seconds so a committed intro plays through without accidental late cancellation.
+### Phase N — doubled chip cadence and single-owner net animation — complete
+
+- Increased ordinary chip-trail cadence to one deterministic 3–6-chip trail every 28–36 metres, more than doubling encounter frequency while retaining one active non-crossing trail and preserving jump-row substitution.
+- Mirrored each officer's net to the inward hand/socket so the pair no longer crosses or reads backward.
+- Added mixer-owned left/right ready and aim variants that preserve the chase gait byte-for-byte outside the selected arm; the armed hand rises progressively over the full warning.
+- Made the pursuit renderer the sole owner of net capture presentation, eliminating the competing ordinary capture pass that disconnected props and deformed the acting guard.
+- Kept the same attached net through strike, catch, lift, turn, shoulder carry and stable final result presentation.

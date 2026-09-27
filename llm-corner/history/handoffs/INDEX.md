@@ -2,6 +2,8 @@
 
 Newest first; the top entry is the next session’s entry point.
 
+- **2026-09-27-doubled-chip-cadence-net-animation.md** - One non-crossing 3–6-chip trail every 28–36m, mirrored progressive net aim and single-owner attached catch/lift/shoulder carry.
+
 - **2026-09-27-spaced-chip-trails-attached-net.md** - One non-crossing 3–6-chip trail every 55–80m, 3–5s pursuit warnings, guard-attached shoulder carry and a 1.5s intro skip window.
 
 - **2026-09-27-continuous-runner-net-pursuit.md** - Continuous fair chip formations, capped solvable traffic, alternating police-net pursuit, 10,000-score escape reward, 60 fps Blender chip APNG and final browser evidence.

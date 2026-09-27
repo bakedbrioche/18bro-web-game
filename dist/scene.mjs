@@ -3,7 +3,7 @@ import { clone as cloneSkeleton } from './vendor/addons/utils/SkeletonUtils.js';
 import { sidewalkPose, CROWD_COUNT } from './crowd.mjs?v=street-28';
 import { INTRO_DURATION, CAPTURE_DURATION, STORE, introPose, capturePose, smooth, slidePose } from './choreography.mjs?v=street-28';
 import { applyMaterialAssets } from './material-assets.mjs?v=street-28';
-import { BARRIERS } from './core.mjs?v=graphics2-5';
+import { BARRIERS } from './core.mjs?v=graphics2-6';
 import { ROUTE, BRANCHES, getRouteProfile, routeCenter, branchOffset } from './route.mjs?v=street-28';
 import { DistrictScene } from './district-scene.mjs?v=street-28';
 import { FURS } from './customization.mjs?v=street-28';
@@ -17,6 +17,15 @@ const SHIELD_ORBIT_SECONDS=3;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const mix=(a,b,t)=>a+(b-a)*t;
 const seeded=(n)=>{let s=n>>>0;return ()=>((s=(s*1664525+1013904223)>>>0)/4294967296)};
+
+export function chipVisualScale(entity={},reducedMotion=false){
+ const age=Math.max(0,Number(entity.age)||0),retiring=!!entity.retiring,duration=Math.max(.001,Number(entity.retireDuration)||.26),retire=Math.max(0,Math.min(1,(Number(entity.retireElapsed)||0)/duration));
+ if(reducedMotion)return retiring?Math.max(.001,1-retire):1;
+ const entrance=Math.min(1,age/.3),spawn=entrance<.52?mix(.035,1.24,smooth(entrance/.52)):mix(1.24,1,smooth((entrance-.52)/.48));
+ if(!retiring)return spawn;
+ const exit=retire<.34?mix(1,1.23,smooth(retire/.34)):mix(1.23,.001,smooth((retire-.34)/.66));
+ return spawn*exit;
+}
 
 export function airborneCameraFollow(powers,height=0){
  const y=Math.max(0,Number.isFinite(height)?height:0),constantPitch=!!powers?.has?.('jetpack')||!!powers?.has?.('moon');
@@ -136,9 +145,9 @@ export class GameScene {
    copy.times=new Float32Array([0,duration]);copy.values=new Float32Array([...value,...value]);return copy;
   };
   for(const side of ['L','R']){
-   const selected=name=>new RegExp(`^(arm|forearm|hand|socket_carry)_${side}\\.`).test(name),carry=clips.get(side==='L'?'carry_left':'carry_right');
-   const readyTime=chase.duration*(side==='L'?7/8:3/8),carryTime=0;
-   for(const [pose,source,time] of [['ready',chase,readyTime],['aim',carry,carryTime]]){
+   const selected=name=>new RegExp(`^(arm|forearm|hand|socket_carry)_${side}\\.`).test(name),alarm=clips.get('panic');
+   const readyTime=chase.duration*(side==='L'?7/8:3/8),aimTime=0;
+   for(const [pose,source,time] of [['ready',chase,readyTime],['aim',alarm,aimTime]]){
     const byName=new Map(source.tracks.map(track=>[track.name,track]));
     const tracks=chase.tracks.map(track=>selected(track.name)?constantTrack(byName.get(track.name)||track,time,chase.duration):track.clone());
     clips.set(`net_${pose}_${side}`,new THREE.AnimationClip(`net_${pose}_${side}`,chase.duration,tracks,chase.blendMode));
@@ -314,6 +323,8 @@ export class GameScene {
   const seven=(c,w,h,hat=false)=>{c.fillStyle='#f5f0df';c.fillRect(0,0,w,h);if(!hat){for(const [i,col]of ['#f47419','#03bc53','#ea172c'].entries()){c.fillStyle=col;c.fillRect(0,10+i*22,w*.34,12);c.fillRect(w*.66,10+i*22,w*.34,12);}}c.fillStyle='#ef771e';c.fillRect(w*.41,h*.16,w*.19,h*.13);pixelText(c,'7',w*.51,h*.44,h*.7,'#df192a');c.fillStyle='#f5f0df';c.fillRect(w*.35,h*.56,w*.3,h*.18);pixelText(c,'ELEVEN',w*.5,h*.64,h*.15,'#126d42');};
   m.capLabel=this.mat(0xffffff,{map:texture((c,w,h)=>seven(c,w,h,true),256,256),flatShading:false});m.cap=this.mat(0xefeddf,{flatShading:false});
   m.chip=this.mat(0xe7bf53);m.chipEdge=this.mat(0xbc852f);m.chipLight=this.mat(0xffdc84);
+  const chipAuraMap=texture((ctx,w,h)=>{ctx.imageSmoothingEnabled=true;const glow=ctx.createRadialGradient(w/2,h/2,0,w/2,h/2,w*.49);glow.addColorStop(0,'rgba(255,251,203,.58)');glow.addColorStop(.18,'rgba(255,225,100,.40)');glow.addColorStop(.48,'rgba(255,181,34,.17)');glow.addColorStop(.76,'rgba(255,138,10,.055)');glow.addColorStop(1,'rgba(255,113,0,0)');ctx.fillStyle=glow;ctx.fillRect(0,0,w,h)},128);chipAuraMap.magFilter=THREE.LinearFilter;chipAuraMap.minFilter=THREE.LinearFilter;chipAuraMap.generateMipmaps=false;
+  m.chipAura=new THREE.SpriteMaterial({map:chipAuraMap,color:0xffd45a,transparent:true,opacity:.48,depthWrite:false,depthTest:true,blending:THREE.AdditiveBlending,toneMapped:false});this.materials.push(m.chipAura);
   m.posters=Array.from({length:4},(_,k)=>this.mat(0xffffff,{map:texture((c,w,h)=>{c.fillStyle=['#f4efba','#d14d38','#157956','#445e98'][k];c.fillRect(0,0,w,h);pixelText(c,['特價','新到','雪糕','優惠'][k],w/2,25,22,k?'#fff1cc':'#bc3328');pixelText(c,['$18','$9.9','18','$7'][k],w/2,60,29,k?'#fff1cc':'#176944');c.fillStyle='#f5e9b3';c.fillRect(6,84,w-12,6);c.fillRect(6,98,w-22,4)},64,128)}));
   m.taxiLabel=this.mat(0xffffff,{map:texture((c,w,h)=>{c.fillStyle='#f4e9c9';c.fillRect(0,0,w,h);pixelText(c,'TAXI',w/2,h/2,22,'#b52924')},128,32)});
   m.shirt=[0xbb5638,0xcfb15d,0x437f8c,0x5466a2,0xd0798b,0x79994c].map(v=>this.mat(v));m.pants=[0x273b4b,0x5f574a,0x455e5c].map(v=>this.mat(v));m.complexions=[0xbf906c,0xc89974,0xd7ab84,0xb18163].map(v=>this.mat(v));
@@ -524,20 +535,32 @@ export class GameScene {
  }
  makeCatchNet(index=0){
   const net=new THREE.Group(),m=this.m;net.name=`police_catch_net_${index}`;net.visible=false;
-  const handle=new THREE.Mesh(new THREE.CylinderGeometry(.045,.06,1.42,6),m.wood);handle.position.y=.71;net.add(handle);
-  const grip=new THREE.Mesh(new THREE.CylinderGeometry(.071,.071,.3,6),m.policeDark);grip.position.y=.18;net.add(grip);
-  const hoop=new THREE.Mesh(new THREE.TorusGeometry(.5,.045,5,12),m.gold);hoop.name='catch_net_hoop';hoop.position.y=1.45;net.add(hoop);
+  // The rigid sack is sized from the runtime hero envelope (about 1.86 high
+  // and 1.30 wide). Animation moves the whole prop from its grip.
+  const handle=new THREE.Mesh(new THREE.CylinderGeometry(.045,.06,1.95,6),m.wood);handle.name='catch_net_handle';handle.position.y=.625;net.add(handle);
+  const grip=new THREE.Mesh(new THREE.CylinderGeometry(.071,.071,.3,6),m.policeDark);grip.name='catch_net_grip';grip.position.y=.18;net.add(grip);
+  const hoopRadius=.76,hoopY=1.58,sackDepth=2.1,segments=10;
+  const hoop=new THREE.Mesh(new THREE.TorusGeometry(hoopRadius,.052,5,segments),m.gold);hoop.name='catch_net_hoop';hoop.position.y=hoopY;net.add(hoop);
   const webMaterial=new THREE.LineBasicMaterial({color:0xf4df9c,transparent:true,opacity:.76,depthWrite:false});this.materials?.push(webMaterial);
-  const positions=[],segments=8,centre=new THREE.Vector3(0,1.12,-.34);
+  const openWeb=new THREE.Group();openWeb.name='catch_net_open_web';net.add(openWeb);
+  const openPositions=[],centre=new THREE.Vector3(0,hoopY-.42,-.5);
   for(let i=0;i<segments;i++){
-   const a=i*TAU/segments,outer=new THREE.Vector3(Math.cos(a)*.48,1.45+Math.sin(a)*.48,0);
-   positions.push(outer.x,outer.y,outer.z,centre.x,centre.y,centre.z);
-   const b=(i+1)*TAU/segments,innerA=new THREE.Vector3(Math.cos(a)*.29,1.34+Math.sin(a)*.29,-.18),innerB=new THREE.Vector3(Math.cos(b)*.29,1.34+Math.sin(b)*.29,-.18);
-   positions.push(innerA.x,innerA.y,innerA.z,innerB.x,innerB.y,innerB.z);
+   const a=i*TAU/segments,b=(i+1)*TAU/segments,outer=new THREE.Vector3(Math.cos(a)*hoopRadius,hoopY+Math.sin(a)*hoopRadius,0),next=new THREE.Vector3(Math.cos(b)*hoopRadius,hoopY+Math.sin(b)*hoopRadius,0);
+   openPositions.push(outer.x,outer.y,outer.z,centre.x,centre.y,centre.z,outer.x,outer.y,outer.z,next.x,next.y,next.z);
   }
-  const webGeometry=new THREE.BufferGeometry();webGeometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
-  const web=new THREE.LineSegments(webGeometry,webMaterial);web.name='catch_net_web';net.add(web);
-  net.userData.guardIndex=index;net.userData.lowPoly=true;net.userData.hoopSegments=segments;return net;
+  const openGeometry=new THREE.BufferGeometry();openGeometry.setAttribute('position',new THREE.Float32BufferAttribute(openPositions,3));const web=new THREE.LineSegments(openGeometry,webMaterial);web.name='catch_net_web';openWeb.add(web);
+  const sack=new THREE.Group();sack.name='catch_net_sack';sack.visible=false;net.add(sack);
+  const sackPositions=[],rings=[{z:0,r:.76},{z:-.45,r:.76},{z:-1,r:.7},{z:-1.55,r:.5},{z:-sackDepth,r:.14}];
+  for(let ring=0;ring<rings.length;ring++)for(let i=0;i<segments;i++){
+   const a=i*TAU/segments,b=(i+1)*TAU/segments,current=rings[ring],next=rings[Math.min(ring+1,rings.length-1)];
+   const p=new THREE.Vector3(Math.cos(a)*current.r,hoopY+Math.sin(a)*current.r,current.z),q=new THREE.Vector3(Math.cos(b)*current.r,hoopY+Math.sin(b)*current.r,current.z);
+   sackPositions.push(p.x,p.y,p.z,q.x,q.y,q.z);
+   if(ring<rings.length-1){const down=new THREE.Vector3(Math.cos(a)*next.r,hoopY+Math.sin(a)*next.r,next.z);sackPositions.push(p.x,p.y,p.z,down.x,down.y,down.z);}
+  }
+  const sackGeometry=new THREE.BufferGeometry();sackGeometry.setAttribute('position',new THREE.Float32BufferAttribute(sackPositions,3));const bag=new THREE.LineSegments(sackGeometry,webMaterial);bag.name='catch_net_bag_lattice';sack.add(bag);
+  const bagCenter=new THREE.Object3D();bagCenter.name='catch_net_bag_center';bagCenter.position.set(0,hoopY,-sackDepth*.5);net.add(bagCenter);
+  const payloadRoot=new THREE.Object3D();payloadRoot.name='catch_net_payload_root';payloadRoot.position.set(0,hoopY,-1.96);net.add(payloadRoot);
+  net.userData.guardIndex=index;net.userData.lowPoly=true;net.userData.hoopSegments=segments;net.userData.hoopRadius=hoopRadius;net.userData.sackDepth=sackDepth;net.userData.heroEnvelope={height:1.86,headWidth:1.3};net.userData.openWeb=openWeb;net.userData.sack=sack;net.userData.bagCenter=bagCenter;net.userData.payloadRoot=payloadRoot;net.userData.baseScale=1;return net;
  }
  makeCatchTargetMark(){
   const mark=new THREE.Group();mark.name='police_catch_target';mark.visible=false;
@@ -572,94 +595,75 @@ export class GameScene {
   const parent=net.parent;if(!parent)return null;parent.updateWorldMatrix(true,false);
   const hand=parent.localToWorld(new THREE.Vector3()),direction=hoopWorld.clone().sub(hand),distance=Math.max(.001,direction.length()),y=direction.clone().normalize();
   const z=normalWorld.clone().addScaledVector(y,-normalWorld.dot(y));if(z.lengthSq()<.0001)z.set(0,1,0).addScaledVector(y,-y.y);z.normalize();
-  const x=y.clone().cross(z).normalize();z.copy(x).cross(y).normalize();
-  const matrix=new THREE.Matrix4().makeBasis(x,y,z),worldQuaternion=new THREE.Quaternion().setFromRotationMatrix(matrix),parentQuaternion=parent.getWorldQuaternion(new THREE.Quaternion());
-  const parentScale=parent.getWorldScale(new THREE.Vector3()),uniformScale=Math.max(.001,(parentScale.x+parentScale.y+parentScale.z)/3);
-  net.position.set(0,0,0);net.quaternion.copy(parentQuaternion.invert().multiply(worldQuaternion));net.scale.setScalar(distance/(1.45*uniformScale));net.updateWorldMatrix(false,true);
+  const x=y.clone().cross(z).normalize();z.copy(x).cross(y).normalize();const matrix=new THREE.Matrix4().makeBasis(x,y,z),worldQuaternion=new THREE.Quaternion().setFromRotationMatrix(matrix),parentQuaternion=parent.getWorldQuaternion(new THREE.Quaternion());
+  net.position.set(0,0,0);net.quaternion.copy(parentQuaternion.invert().multiply(worldQuaternion));net.scale.setScalar(net.userData.baseScale||1);net.updateWorldMatrix(false,true);
   return {hand,distance,scale:net.scale.x};
  }
+ setNetCaptureMode(net,captured=false){
+  if(net.userData.openWeb)net.userData.openWeb.visible=!captured;if(net.userData.sack)net.userData.sack.visible=captured;net.userData.captured=captured;return net;
+ }
+ setNetWorldFrame(net,shaftWorld,bagDownWorld=new THREE.Vector3(0,-1,0)){
+  const parent=net.parent;if(!parent)return null;parent.updateWorldMatrix(true,false);
+  const y=shaftWorld.clone().normalize(),down=bagDownWorld.clone().addScaledVector(y,-bagDownWorld.dot(y));
+  if(down.lengthSq()<.0001)down.set(0,-1,0).addScaledVector(y,y.y);down.normalize();
+  const z=down.clone().negate(),x=y.clone().cross(z).normalize();z.copy(x).cross(y).normalize();
+  const worldQuaternion=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(x,y,z)),parentQuaternion=parent.getWorldQuaternion(new THREE.Quaternion());
+  net.position.set(0,0,0);net.quaternion.copy(parentQuaternion.invert().multiply(worldQuaternion));net.scale.setScalar(net.userData.baseScale||1);net.updateWorldMatrix(false,true);
+  const payload=net.userData.payloadRoot||net.getObjectByName('catch_net_payload_root'),hoop=net.getObjectByName('catch_net_hoop');
+  return {payloadWorld:payload?.getWorldPosition(new THREE.Vector3())||null,hoopWorld:hoop?.getWorldPosition(new THREE.Vector3())||null,shaftWorld:y,bagDownWorld:down,scale:net.scale.x};
+ }
  updateNetPursuit(snapshot,dt=1/60,reducedMotion=false){
-  const rawPhase=String(snapshot?.phase||'idle').toLowerCase(),completedCapture=rawPhase==='complete'&&snapshot?.outcome==='caught',phase=completedCapture?'carry':rawPhase;
-  const caught=!!snapshot?.caught||['netted','lift','carry','caught','capture'].includes(phase);
-  const active=!!snapshot&&((snapshot.active!==false&&phase!=='idle')||caught),guardIndex=clamp(Math.floor(snapshot?.guardIndex||0),0,1);
-  const telegraph=clamp(Number(snapshot?.telegraphProgress)||0,0,1),capture=clamp(Number(snapshot?.captureProgress)||0,0,1);
-  const targetX=Number.isFinite(snapshot?.targetX)?snapshot.targetX:(this.cat?.root.position.x||0),targetZ=Number.isFinite(snapshot?.targetZ)?snapshot.targetZ:(this.cat?.root.position.z||0);
+  if(!snapshot&&this._netCaptureExited){for(const cop of this.cops||[])cop.root.visible=true;if(this.cat?.root)this.cat.root.visible=true;this._netCaptureExited=false;}
+  const rawPhase=String(snapshot?.phase||'idle').toLowerCase(),completedCapture=rawPhase==='complete'&&snapshot?.outcome==='caught';
+  if(completedCapture&&this._netExitStarted==null)this._netExitStarted=this.clock||0;if(!completedCapture)this._netExitStarted=null;
+  const exitSeconds=completedCapture?Math.max(0,(this.clock||0)-(this._netExitStarted||0)):0,exitDuration=3.25,exited=completedCapture&&exitSeconds>=exitDuration;
+  const phase=completedCapture?'carry':rawPhase,caught=!!snapshot?.caught||['netted','lift','carry','caught','capture'].includes(phase),active=!!snapshot&&!exited&&((snapshot.active!==false&&phase!=='idle')||caught),guardIndex=clamp(Math.floor(snapshot?.guardIndex||0),0,1);
+  const telegraph=clamp(Number(snapshot?.telegraphProgress)||0,0,1),capture=clamp(Number(snapshot?.captureProgress)||0,0,1),targetX=Number.isFinite(snapshot?.targetX)?snapshot.targetX:(this.cat?.root.position.x||0),targetZ=Number.isFinite(snapshot?.targetZ)?snapshot.targetZ:(this.cat?.root.position.z||0);
   const routeScale=this.routeLateralScale??1,routeOffset=this.routeWorldOffset||new THREE.Vector3(),targetWorldX=targetX*routeScale+routeOffset.x;
-  if(phase!==this._netPresentationPhase){this._netPresentationPhase=phase;this._netPresentationPhaseStarted=this.clock||0;}
-  const phaseSeconds=Math.max(0,(this.clock||0)-(this._netPresentationPhaseStarted||0)),strikeProgress=phase==='strike'?(reducedMotion?1:smooth(phaseSeconds/.26)):0;
+  if(rawPhase!==this._netPresentationPhase){this._netPresentationPhase=rawPhase;this._netPresentationPhaseStarted=this.clock||0;}const phaseSeconds=Math.max(0,(this.clock||0)-(this._netPresentationPhaseStarted||0)),strikeProgress=phase==='strike'?(reducedMotion?1:smooth(phaseSeconds/.26)):0;
   if(this.catchTargetMark){
    const show=active&&!caught&&['telegraph','strike','swing'].includes(phase);this.catchTargetMark.visible=show;
-   if(show){
-    const mark=this.catchTargetMark,frequency=Number.isFinite(snapshot?.blinkFrequency)?snapshot.blinkFrequency:.8+telegraph*telegraph*6.2;
-    const generated=.5+.5*Math.sin((this.clock||0)*TAU*frequency);
-    const pulse=typeof snapshot?.blink==='boolean'?(snapshot.blink?1:.14):Number.isFinite(snapshot?.blink)?clamp(snapshot.blink,0,1):generated;
-    mark.position.set(targetWorldX,routeOffset.y+.035,targetZ);mark.rotation.y=reducedMotion?0:(this.clock||0)*.18;
-    mark.scale.setScalar(1+(reducedMotion?0:pulse*.055));
-    const color=telegraph<.5?mark.userData.red.clone().lerp(mark.userData.orange,telegraph*2):mark.userData.orange.clone().lerp(mark.userData.gold,(telegraph-.5)*2);
-    mark.userData.material.color.copy(color);mark.userData.material.opacity=.28+pulse*.65;mark.userData.blinkHz=frequency;mark.userData.telegraphProgress=telegraph;
-   }
+   if(show){const mark=this.catchTargetMark,frequency=Number.isFinite(snapshot?.blinkFrequency)?snapshot.blinkFrequency:.8+telegraph*telegraph*6.2,generated=.5+.5*Math.sin((this.clock||0)*TAU*frequency),pulse=typeof snapshot?.blink==='boolean'?(snapshot.blink?1:.14):Number.isFinite(snapshot?.blink)?clamp(snapshot.blink,0,1):generated;mark.position.set(targetWorldX,routeOffset.y+.035,targetZ);mark.rotation.y=reducedMotion?0:(this.clock||0)*.18;mark.scale.setScalar(1+(reducedMotion?0:pulse*.055));const color=telegraph<.5?mark.userData.red.clone().lerp(mark.userData.orange,telegraph*2):mark.userData.orange.clone().lerp(mark.userData.gold,(telegraph-.5)*2);mark.userData.material.color.copy(color);mark.userData.material.opacity=.28+pulse*.65;mark.userData.blinkHz=frequency;mark.userData.telegraphProgress=telegraph;}
   }
-  const phaseProgress=Number.isFinite(snapshot?.capture?.phaseProgress)?clamp(snapshot.capture.phaseProgress,0,1):0;
-  const lift=caught?(phase==='netted'?0:phase==='lift'?smooth(phaseProgress/.72):1):0;
-  const turn=caught?(phase==='lift'?smooth((phaseProgress-.52)/.48):phase==='carry'?1:0):0;
-  const shoulder=caught&&phase==='carry'?smooth(phaseProgress/.22):0;
-  const retreat=caught&&phase==='carry'?smooth((phaseProgress-.14)/.86)*4.5:0;
-  if(caught&&!this._netCaptureBase)this._netCaptureBase={
-   catPosition:this.cat?.root.position.clone()||new THREE.Vector3(targetWorldX,routeOffset.y,targetZ),
-   catQuaternion:this.cat?.root.quaternion.clone()||new THREE.Quaternion(),
-   copPositions:(this.cops||[]).map(cop=>cop.root.position.clone()),
-  };
-  if(active&&!caught)this._netCaptureBase=null;
-  const base=this._netCaptureBase;
-  let carrier=null,carrierNet=null;
+  const phaseProgress=Number.isFinite(snapshot?.capture?.phaseProgress)?clamp(snapshot.capture.phaseProgress,0,1):0,lift=caught?(phase==='netted'?0:phase==='lift'?smooth(phaseProgress):1):0,turn=caught?(phase==='lift'?smooth((phaseProgress-.65)/.35):phase==='carry'?1:0):0;
+  const captureTravel=caught&&(phase==='carry'?smooth(phaseProgress)*2.35:0),travel=captureTravel+(completedCapture?exitSeconds*3.65:0);
+  if(caught&&!this._netCaptureBase)this._netCaptureBase={catPosition:this.cat?.root.position.clone()||new THREE.Vector3(targetWorldX,routeOffset.y,targetZ),catQuaternion:this.cat?.root.quaternion.clone()||new THREE.Quaternion(),cops:(this.cops||[]).map(cop=>({position:cop.root.position.clone(),quaternion:cop.root.quaternion.clone()}))};
+  if(active&&!caught)this._netCaptureBase=null;const base=this._netCaptureBase;let carrier=null,carrierNet=null,catTarget=null;
   for(let i=0;i<(this.cops?.length||0);i++){
    const cop=this.cops[i],net=cop.catchNet,selected=i===guardIndex,side=i?1:-1;if(cop.baton)cop.baton.visible=!active;if(!net)continue;
-   this.attachCatchNet(cop,net,cop.root.userData.modelSet==='refreshed');
-   net.visible=active&&(!caught||selected);if(!net.visible)continue;
+   const handSide=caught&&!selected?side:-side;this.attachCatchNet(cop,net,cop.root.userData.modelSet==='refreshed',handSide);net.visible=active;if(!net.visible)continue;cop.root.visible=true;
    if(!caught){
-    const aiming=selected&&['telegraph','strike','swing'].includes(phase),raising=aiming?telegraph:0;
-    if(aiming){
-     const close=smooth((telegraph-.08)/.92),goalZ=targetZ+1.48;cop.root.position.z=mix(cop.root.position.z,goalZ,close);
-     this.poseNetGuardArm(cop,side,(this.clock||0)*12,raising);
-    }
-    this.setNetReadyPose(net,side,raising,cop);
-    if(selected&&(phase==='strike'||phase==='swing')){
-     cop.root.updateMatrixWorld(true);net.updateWorldMatrix(true,true);
-     const readyQuaternion=net.quaternion.clone(),readyScale=net.scale.x,hoopTarget=new THREE.Vector3(targetWorldX,(this.cat?.root.position.y||routeOffset.y)+1.05,targetZ);
-     this.orientAttachedNet(net,hoopTarget,new THREE.Vector3(0,0,-1));
-     const strikeQuaternion=net.quaternion.clone(),strikeScale=net.scale.x;net.quaternion.copy(readyQuaternion).slerp(strikeQuaternion,strikeProgress);net.scale.setScalar(mix(readyScale,strikeScale,strikeProgress));
-    }
-    net.userData.presentation={selected,handSide:side,raising,swing:strikeProgress,phase,attached:true,forward:true,stableArm:aiming};
-   }else{
-    const carrying=phase==='carry',walk=carrying?.74:phase==='lift'?.2:0;
-    const catPosition=base.catPosition.clone().add(new THREE.Vector3(0,lift*.85,retreat));
-    const desiredX=base.catPosition.x+side*(selected?1.35:1.05),desiredZ=base.catPosition.z+retreat+(selected?mix(.12,.82,Math.max(turn,shoulder)):.92);
-    cop.root.position.set(desiredX,routeOffset.y,desiredZ);cop.root.rotation.set(0,Math.PI*(1-turn),0);
-    this.animateCop(cop,(this.clock||0)+i*.31,walk,selected,selected?side:0);
+    this.setNetCaptureMode(net,false);const aiming=selected&&['telegraph','strike','swing'].includes(phase),raising=aiming?telegraph:0;if(aiming){const close=smooth((telegraph-.08)/.92),goalZ=targetZ+1.48;cop.root.position.z=mix(cop.root.position.z,goalZ,close);this.poseNetGuardArm(cop,handSide,(this.clock||0)*12,raising);}this.setNetReadyPose(net,handSide,raising,cop);
+    if(selected&&(phase==='strike'||phase==='swing')){cop.root.updateMatrixWorld(true);net.updateWorldMatrix(true,true);const readyQuaternion=net.quaternion.clone(),hoopTarget=new THREE.Vector3(targetWorldX,(this.cat?.root.position.y||routeOffset.y)+1.92,targetZ);this.orientAttachedNet(net,hoopTarget,new THREE.Vector3(0,0,-1));const strikeQuaternion=net.quaternion.clone();net.quaternion.copy(readyQuaternion).slerp(strikeQuaternion,strikeProgress);}
+    net.userData.presentation={selected,handSide,raising,swing:strikeProgress,phase,attached:true,forward:true,stableArm:aiming,scale:net.scale.x};
+   }else if(base){
+    const settle=phase==='netted'?smooth(phaseProgress):1,actorTurn=selected?turn:(phase==='netted'?smooth(phaseProgress)*.18:phase==='lift'?mix(.18,1,smooth(phaseProgress)):1),source=base.cops?.[i]||{position:cop.root.position.clone(),quaternion:cop.root.quaternion.clone()},formation=new THREE.Vector3(base.catPosition.x+side*(selected?1.22:1.72),routeOffset.y,base.catPosition.z+travel+(selected ? .48 : 1.0));
+    cop.root.position.copy(source.position).lerp(formation,settle);const targetQ=new THREE.Quaternion().setFromEuler(new THREE.Euler(0,Math.PI*(1-actorTurn),0));cop.root.quaternion.copy(source.quaternion).slerp(targetQ,settle);
+    const gait=(travel+i*.34+phaseProgress*.58)*.42,carrying=phase==='carry',walking=phase==='netted'?(selected ? .06 : .28):phase==='lift'?(selected ? .1 : .42):.82;
+    this.animateCop(cop,gait,walking,carrying,handSide);
     if(selected){
-     this.poseNetGuardArm(cop,side,carrying?(this.clock||0)*12:0,phase==='netted'?1:Math.max(lift,shoulder));
-     cop.root.updateMatrixWorld(true);
-     const normal=new THREE.Vector3(0,0,1).applyQuaternion(cop.root.quaternion),hoopTarget=catPosition.clone().add(new THREE.Vector3(0,1.05,0));
-     const attachment=this.orientAttachedNet(net,hoopTarget,normal);
-     net.userData.presentation={selected:true,handSide:side,phase,drop:phase==='netted'?smooth(phaseProgress):1,lift,turn,shoulder,retreat,attached:true,forward:true,stableArm:true,attachment};
-     carrier=cop;carrierNet=net;
+     if(!carrying)this.poseNetGuardArm(cop,handSide,gait*12,.55+.45*lift);
+     this.setNetCaptureMode(net,true);
+     const shaft=carrying?new THREE.Vector3(-side*.93,0,-.36).normalize():new THREE.Vector3(-side,.08*(1-lift),-.08).normalize(),attachment=this.setNetWorldFrame(net,shaft,new THREE.Vector3(0,-1,0));
+     if(attachment?.payloadWorld){const desired=attachment.payloadWorld;catTarget=base.catPosition.clone().lerp(desired,phase==='netted'?smooth(phaseProgress):1);}
+     net.userData.presentation={selected:true,handSide,phase,planted:phase!=='carry',lift,turn,shoulder:carrying?1:0,travel,exitSeconds,attached:true,forward:true,stableArm:true,attachment,scale:net.scale.x};carrier=cop;carrierNet=net;
+    }else{
+     this.setNetCaptureMode(net,false);
+     // The escort carries the empty hoop in his outer hand, low and behind the
+     // group, so it never crosses the carrier, sack or his own face.
+     const shaft=new THREE.Vector3(side*.74,.24,-.63).normalize(),attachment=this.setNetWorldFrame(net,shaft,new THREE.Vector3(0,-1,0));
+     net.userData.presentation={selected:false,escort:true,handSide,phase,turn:actorTurn,shoulder:carrying?1:0,travel,exitSeconds,attached:true,forward:false,stableArm:true,attachment,scale:net.scale.x};
     }
    }
   }
-  if(caught&&base&&carrier&&carrierNet&&this.cat?.root){
-   this.cat.root.position.copy(base.catPosition).add(new THREE.Vector3(0,lift*.85,retreat));this.cat.root.quaternion.copy(base.catQuaternion);this.cat.root.rotation.y+=turn*Math.PI;
-   if(this.cat.body){
-    this.cat.body.position.y=0;this.cat.body.rotation.set(0,0,0);
-    this.cat.arms?.forEach((arm,i)=>arm.rotation.set(-.72-lift*.28,0,(i?-.2:.2)*(1-lift*.4)));
-    this.cat.legs?.forEach((leg,i)=>leg.rotation.set(-.45-lift*.75+(reducedMotion?0:Math.sin((this.clock||0)*8+i*Math.PI)*.06*lift),0,0));
-   }
+  if(caught&&base&&carrier&&carrierNet&&this.cat?.root&&catTarget){
+   this.cat.root.position.copy(catTarget);
+   const swing=reducedMotion?0:Math.sin((this.clock||0)*3.1)*Math.PI/30*lift;this.cat.root.quaternion.copy(base.catQuaternion).premultiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0,turn*Math.PI,swing)));
+   if(this.cat.body){this.cat.body.position.y=0;this.cat.body.rotation.set(0,0,0);this.cat.arms?.forEach((arm,i)=>arm.rotation.set(-.72-lift*.28,0,(i?-.2:.2)*(1-lift*.4)));this.cat.legs?.forEach((leg,i)=>leg.rotation.set(-.45-lift*.75+(reducedMotion?0:Math.sin((this.clock||0)*8+i*Math.PI)*.06*lift),0,0));}
   }
-  if(this.captureNet)this.captureNet.visible=false;
-  if(!active){
-   this._netCaptureBase=null;this._netPresentationPhase='idle';this._netPresentationPhaseStarted=this.clock||0;
-   for(const cop of this.cops||[]){if(cop.baton)cop.baton.visible=true;if(cop.catchNet){cop.catchNet.visible=false;this.attachCatchNet(cop,cop.catchNet);}}
-  }
-  return {active,phase,guardIndex,telegraphProgress:telegraph,caught,captureProgress:capture};
+  if(this.captureNet)this.captureNet.visible=false;this._netCaptureExited=exited;
+  if(!active){this._netCaptureBase=null;this._netPresentationPhase='idle';this._netPresentationPhaseStarted=this.clock||0;for(const cop of this.cops||[]){if(cop.baton)cop.baton.visible=true;if(cop.catchNet){cop.catchNet.visible=false;this.setNetCaptureMode(cop.catchNet,false);this.attachCatchNet(cop,cop.catchNet);}if(exited)cop.root.visible=false;}if(exited&&this.cat?.root)this.cat.root.visible=false;}
+  return {active,phase,rawPhase,guardIndex,telegraphProgress:telegraph,caught,captureProgress:capture,exitSeconds,exited};
  }
  makeHat(kind){
   const g=new THREE.Group(),m=this.m;g.position.set(0,.63,-.04);
@@ -835,14 +839,14 @@ export class GameScene {
   person.body.visible=!refreshed;if(person.authored)person.authored.scene.visible=refreshed;person.root.userData.modelSet=refreshed?'refreshed':'original';
   if(person.catchNet)this.attachCatchNet(person,person.catchNet,refreshed);
  }
- attachCatchNet(person,net,refreshed=person.root.userData.modelSet==='refreshed'){
-  // The left-side officer uses the left inward hand and the right-side officer
-  // uses the right inward hand. Mirrored outward lean keeps both hoops ahead of
-  // their owners instead of crossing behind their backs.
-  const side=net.userData.guardIndex===0?-1:1,suffix=side<0?'L':'R',index=side<0?0:1;
+ attachCatchNet(person,net,refreshed=person.root.userData.modelSet==='refreshed',handSideOverride=null){
+  // Pursuit aim and capture use the hand nearest 18Bro. During the exit the
+  // escort transfers his empty net to the outer hand so its hoop clears the
+  // carrier, payload, face and torso silhouette.
+  const guardSide=net.userData.guardIndex===0?-1:1,handSide=handSideOverride??-guardSide,suffix=handSide<0?'L':'R',index=handSide<0?0:1;
   const authoredSocket=person.authored?.scene.getObjectByName(`socket_carry_${suffix}`),parent=refreshed&&authoredSocket?authoredSocket:(person.hands?.[index]||person.root);
-  if(net.parent!==parent)parent.add(net);net.position.set(0,0,0);net.rotation.set(.36,0,side*.2);net.scale.setScalar(refreshed?1:1.02);
-  net.userData.handSide=side;net.userData.attachedTo=refreshed&&authoredSocket?`socket_carry_${suffix}`:`procedural_hand_${suffix}`;return net;
+  if(net.parent!==parent)parent.add(net);net.position.set(0,0,0);net.rotation.set(.36,0,handSide*.2);net.scale.setScalar(refreshed?1:1.02);
+  net.userData.handSide=handSide;net.userData.baseScale=refreshed?1:1.02;net.userData.attachedTo=refreshed&&authoredSocket?`socket_carry_${suffix}`:`procedural_hand_${suffix}`;return net;
  }
  applyHumanModelSet(modelSet){for(const person of this.humanRigs||[])this.applyHumanRigModelSet(person,modelSet);}
  makeCop(){const c=this.makePerson(1,true);c.root.scale.setScalar(1.12);return c;}
@@ -912,7 +916,10 @@ export class GameScene {
  makeEntity(type,id=0){
   const g=new THREE.Group(),m=this.m,bx=(mat,x,y,z,sx,sy,sz,rz=0)=>this.boxMesh(g,mat,x,y,z,sx,sy,sz,rz);
   if(this.effectiveModelSet==='refreshed'&&POWER_TYPES.includes(type))return this.makeAuthoredPowerup(type)||g;
-  if(type==='coin'){const crisp=this.makeCrisp();crisp.rotation.set(.15,0,-.3);g.add(crisp);}
+  if(type==='coin'){
+   const aura=new THREE.Sprite(m.chipAura);aura.name='chip_golden_aura';aura.position.set(0,0,-.12);aura.scale.set(.9,.9,1);aura.renderOrder=1;g.add(aura);
+   const crisp=this.makeCrisp();crisp.rotation.set(.15,0,-.3);crisp.traverse(object=>{if(object.isMesh)object.renderOrder=2;});g.add(crisp);g.userData.chipAura=aura;
+  }
   else if(type==='crossTraffic')return this.makeRouteVehicle(id%4);
   else if(type==='traffic')return this.makeCar(id);
   else if(type==='scooter')return this.makeMoped(id,true);
@@ -1445,7 +1452,7 @@ export class GameScene {
     if(branch){this.target.z=6.2-branchEase*1.4;this.target.y-=1.3*branchEase;this.cameraTarget.z=-5;goalFov=70;}
     if(this.stars.visible){this.stars.position.x=this.stars.position.x*lateralScale+offsetX;this.stars.position.y+=offsetY;}
   }
-  this.extraCops.forEach((cop,i)=>{const pressure=smooth(((route.night||0)-.42)/.58);cop.root.visible=newStreet&&!isCaught&&!isOver&&state!=='ARCADE'&&pressure>0;const retreat=Math.max(0,this.chaseZ-12.6);cop.root.position.set(offsetX+(i?1:-1)*2.25*lateralScale,offsetY,12-pressure*9+i*.7+retreat);cop.root.rotation.y=Math.PI;this.animateCop(cop,t+i*.4,game.speed>0?.85:0);});
+  this.extraCops.forEach((cop,i)=>{const pressure=smooth(((route.night||0)-.42)/.58);cop.root.visible=newStreet&&!isCaught&&!isOver&&state!=='ARCADE'&&!game.netPursuit?.active&&pressure>0;const retreat=Math.max(0,this.chaseZ-12.6);cop.root.position.set(offsetX+(i?1:-1)*2.25*lateralScale,offsetY,12-pressure*9+i*.7+retreat);cop.root.rotation.y=Math.PI;this.animateCop(cop,t+i*.4,game.speed>0?.85:0);});
   for(const slot of this.entities.values())slot.group.visible=false;
   for(const e of game.entities||[]){
     if(!e.active||isMenu||e.z < -170)continue;
@@ -1454,11 +1461,12 @@ export class GameScene {
     if(!slot.variants.has(variantKey)){const mesh=type==='crossTraffic'?(e.vehicleKind==='scooter'?this.makeMoped(e.id,true):this.makeRouteVehicle(e.vehicleKind==='bus'?2:e.vehicleKind==='van'?1:e.vehicleKind==='police'?3:0)):this.makeEntity(type,e.id);slot.group.add(mesh);slot.variants.set(variantKey,mesh);}
     if(slot.type!==variantKey){for(const [key,mesh] of slot.variants)mesh.visible=key===variantKey;slot.type=variantKey;}
     const visualZ=e.z+(isStarting?dist:0),s=dist-visualZ,entityBranch=e.routeBranch||null,branchPose=entityBranch?branchOffset(entityBranch,s):{x:e.finale?getRouteProfile(s).offsetX:0,y:0};
-    const sameBranch=!!entityBranch&&entityBranch===route.branch,scale=sameBranch?lateralScale:1;
-    slot.group.visible=!(type==='crossTraffic'&&e.x>20.7);slot.group.scale.set(scale,1,1);
+    const sameBranch=!!entityBranch&&entityBranch===route.branch,scale=sameBranch?lateralScale:1,coinScale=type==='coin'?chipVisualScale(e,reducedMotion):1;
+    slot.group.visible=!(type==='crossTraffic'&&e.x>20.7);slot.group.scale.set(scale*coinScale,coinScale,coinScale);
     slot.group.position.set(e.x*scale+routeCenter(s)-worldCurve+(branchPose.x||0),(e.y||0)+(branchPose.y||0),visualZ);
     slot.group.rotation.set(0,e.yaw??(type==='coin'?t*2:0),0);
     const mesh=slot.variants.get(variantKey);if(!freeze)mesh.userData.wheels?.forEach(w=>w.rotation.x+=dt*(game.speed||0)*Math.max(0,(e.actualApproach??e.approachFactor)-1)*3.3);if(mesh.userData.rider)this.updateAuthoredHuman(mesh.userData.rider,'ride',this.clock*5,freeze);if(isPower)this.animatePowerup(mesh,type,t,e.id,reducedMotion);
+    if(type==='coin'&&mesh.userData.chipAura){const aura=mesh.userData.chipAura;aura.scale.set(.9,.9,1);aura.material.opacity=reducedMotion?.42:.42+Math.sin(this.clock*3.2+e.id*.37)*.035;aura.visible=coinScale>.02;}
   }
   if(!isPaused){this.camera.position.lerp(this.target,isMenu?1:1-Math.exp(-dt*(isStarting?8:9)));this.camera.lookAt(this.cameraTarget);this.camera.fov+=(goalFov-this.camera.fov)*(1-Math.exp(-dt*9));this.camera.updateProjectionMatrix();}
   if((moon||riding)&&!freeze&&this.clock-(this.lastBoost||0)>.05){this.lastBoost=this.clock;this.burst(this.cat.root.position.x,this.cat.root.position.y+.4,.9,reducedMotion?2:5,moon?0xffd44f:0x71f9ed,2,.05);}
@@ -1466,6 +1474,7 @@ export class GameScene {
   this.updateEffects(game,isPaused?0:dt,isPaused||isOver,reducedMotion);
   this.updateNetPursuit(game.netPursuit||game.copPursuit||null,isPaused?0:dt,reducedMotion);
   this.updateAuthoredHero(game,dt,{skin,fur,hat,menu,reducedMotion});
+  if(this._netCaptureExited){this.cat.root.visible=false;if(this.authoredHero)this.authoredHero.root.visible=false;}else if(!game.netPursuit?.caught)this.cat.root.visible=true;
   const magnetSliding=(p.slide||0)>0||p.anim==='slide'||p.anim==='roll';
   if(this.effectiveModelSet==='refreshed'&&this.authoredHero)this.animateMagnet(this.authoredHero.magnet,this.clock,reducedMotion,magnetSliding,dt);
   else this.animateMagnet(this.cat.magnet,this.clock,reducedMotion,magnetSliding,dt);

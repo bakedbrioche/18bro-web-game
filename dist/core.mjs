@@ -340,7 +340,7 @@ export class RunnerGame {
       depth: dimensions?.depth || .72, height: dimensions?.height || 1.02, stopped: false, blocked: false, actualApproach: approachFactor,
       variant: 0, hit: false, passed: false, magnetic: false, magnetLatched: false, flightTrail: false, flightTrailId: 0, trailIndex: -1, trailFinal: false,
       jumpArc: false, ordinaryCoin: false, coinSequenceId: -1, coinPattern: null, coinSequenceLength: 0, sequenceIndex: -1,
-      coinSectionId: -1, coinSectionPattern: null, age: 0, rowId: -1,
+      coinSectionId: -1, coinSectionPattern: null, age: 0, retiring: false, retireElapsed: 0, retireDuration: 0, rowId: -1,
       routeBranch:null,finale:false,anchor:null,yaw:null,crossSpeed:0,vehicleKind:null,crossSlot:-1,crossCadence:0,crossClearTime:0,intersectionFlow:false,
       safeLane: -1, fromLane: lane, toLane: lane, spawnDistance: this.distance - z, ...extra });
     return entity;
@@ -511,12 +511,18 @@ export class RunnerGame {
     const ahead = Math.max(160, this.speed * 6);
     while (this._spawnCursor < this.distance + ahead) this._spawnCursor += this._spawnPattern(this._spawnCursor);
   }
-  _projectSpeed() {
+  _projectSpeed(multiplier = this.powers.speedMultiplier) {
     const base = this.debug.speedOverride != null ? clamp(Number(this.debug.speedOverride) || 10.4, 2, 120) : Math.min(26, 10.4 + this.time * .12);
-    const multiplier = this.powers.speedMultiplier;
     let speed = base * multiplier * (this._slowRemaining > 0 ? .7 : 1);
     if (this.distance >= ROUTE.start && this.debug.speedOverride == null) speed = Math.min(speed, this._routeProfile(this.distance).speedLimit * multiplier);
     return speed;
+  }
+  _remainingJetpackTravel(flight = this.powers.active.get('jetpack')) {
+    if (!flight) return 0;
+    const cruise = Math.max(0, flight.remaining - JETPACK_PHASES.descent);
+    const burst = this.powers.active.get('speedburst');
+    const burstSeconds = burst ? Math.min(cruise, Math.max(0, burst.remaining)) : 0;
+    return this._projectSpeed(1.6) * burstSeconds + this._projectSpeed(1) * (cruise - burstSeconds);
   }
   _nextPowerKind() {
     const choices=Object.entries(POWER_SPAWN.weights).filter(([kind])=>kind!==this._lastPowerKind);
@@ -525,15 +531,20 @@ export class RunnerGame {
     for(const [candidate,weight] of choices){roll-=weight;if(roll<0){kind=candidate;break;}}
     this._lastPowerKind=kind;return kind;
   }
-  _clearGroundCoinsAhead() {
-    for (const e of this.entities) if (e.active && e.type === 'coin' && !e.flightTrail && e.z < 3) e.active = false;
+  _retireEntity(entity, duration = .26) {
+    if (!entity?.active || entity.retiring) return false;
+    entity.retiring = true;entity.retireElapsed = 0;entity.retireDuration = Math.max(.12, duration);entity.hit = true;entity.magnetic = false;entity.magnetLatched = false;
+    return true;
   }
-  _clearFlightTrail() {
-    for (const e of this.entities) if (e.active && e.flightTrail && e.flightTrailId === this._jetpackTrailId) e.active = false;
+  _clearGroundCoinsAhead() {
+    for (const e of this.entities) if (e.active && e.type === 'coin' && !e.flightTrail && e.z < 3) this._retireEntity(e);
+  }
+  _clearFlightTrail(retire = false) {
+    for (const e of this.entities) if (e.active && e.flightTrail && e.flightTrailId === this._jetpackTrailId) retire ? this._retireEntity(e) : e.active = false;
     this._jetpackFinalChip = null;this._flightTrailPlan=[];this._flightTrailCursor=0;
   }
   _finishJetpackLanding() {
-    this._clearFlightTrail();
+    this._clearFlightTrail(true);
     const p=this.player;
     p.y=0;p.vy=0;p.grounded=true;p.coyote=MOTION.coyoteTime;p.jumpBuffer=0;p.slide=0;
     p.jumpApex=MOTION.jumpHeight;p.jumpGravity=GRAVITY;p.roofEntityId=null;p.anim='run';
@@ -571,10 +582,13 @@ export class RunnerGame {
   _spawnFlightTrailWindow(firstDistance=null,trailId=this._jetpackTrailId) {
     const flight=this.powers.active.get('jetpack');
     if(!flight||flight.descending||flight.remaining<=JETPACK_PHASES.descent||!this._flightTrailPlan.length||this.player.y<=.05)return;
-    const active=this.entities.filter(e=>e.active&&e.flightTrail&&e.flightTrailId===trailId&&e.z<3).sort((a,b)=>a.z-b.z);
+    const active=this.entities.filter(e=>e.active&&!e.retiring&&e.flightTrail&&e.flightTrailId===trailId&&e.z<3).sort((a,b)=>a.z-b.z);
     let farthest=active[0]?.z??-Math.max(3.5,firstDistance||this._flightTrailSpacing);
+    const reachable=this._remainingJetpackTravel(flight)+.7;
     while(active.length<JETPACK_PHASES.visibleChips&&this._flightTrailCursor<this._flightTrailPlan.length){
-      const step=this._flightTrailPlan[this._flightTrailCursor++],z=active.length?farthest-this._flightTrailSpacing:farthest;
+      const z=active.length?farthest-this._flightTrailSpacing:farthest;
+      if(Math.max(0,-z)>reachable)break;
+      const step=this._flightTrailPlan[this._flightTrailCursor++];
       const coin=this.spawnEntity('coin',step.lane,z,{y:step.y,flightTrail:true,flightTrailId:trailId,trailIndex:step.index,trailFinal:step.final});
       if(!coin){this._flightTrailCursor--;break;}active.push(coin);farthest=z;if(step.final)this._jetpackFinalChip=coin;
     }
@@ -629,7 +643,7 @@ export class RunnerGame {
     }
     if(this.powers.has('jetpack')){
       const flight=this.powers.active.get('jetpack'),landingTime=flight.remaining;
-      if(landingTime<=JETPACK_PHASES.descent&&!flight.descending){flight.descending=true;this._clearFlightTrail();}
+      if(landingTime<=JETPACK_PHASES.descent&&!flight.descending)flight.descending=true;
       const blend=Math.min(1,flight.elapsed/JETPACK_PHASES.lift,landingTime/JETPACK_PHASES.descent);
       const target=9*blend*blend*(3-2*blend);
       p.y+=(target-p.y)*(1-Math.exp(-dt*12));p.vy=0;p.grounded=false;
@@ -682,6 +696,7 @@ export class RunnerGame {
       if (!e.active) continue;
       e.age += dt;
       e.previousZ = e.z;
+      if(e.retiring){e.retireElapsed=Math.min(e.retireDuration,e.retireElapsed+dt);e.z+=movement*e.approachFactor;if(e.retireElapsed>=e.retireDuration)e.active=false;continue;}
       const oldX = e.x;
       if(!e.stopped){if(e.type==='crossTraffic'){e.z=this.distance-e.anchor;e.x+=e.crossSpeed*dt;}else e.z=HAZARDS.has(e.type)?e.nextZ:e.z+movement*e.approachFactor;}
       const jetpackActive=this.powers.has('jetpack');
@@ -743,14 +758,15 @@ export class RunnerGame {
           this.emit('dodge', { streak: this.dodgeStreak, bonus });
         }
       }
-      if (e.z > (e.flightTrail?3:9)) e.active = false;
+      if (e.z > (e.flightTrail?3:9)) e.type==='coin' ? this._retireEntity(e) : e.active = false;
     }
     if(this.powers.has('jetpack'))this._spawnFlightTrailWindow();
     if (this.state === 'RUNNING') this._fillAhead();
   }
   _pickup(entity) {
-    entity.active = false; entity.hit = true;
+    entity.hit = true;
     const kind = entity.type;
+    if(kind==='coin')this._retireEntity(entity);else entity.active=false;
     if (kind === 'coin') { const count=this.powers.has('doublechips')?2:1;this.coins+=count; this.score += 10 * count * this.powers.scoreMultiplier; }
     else this.powers.activate(kind);
     this.emit('pickup', { kind, id: entity.id, x: entity.x, y: entity.y, chips: this.chips, coins: this.coins });

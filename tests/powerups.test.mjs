@@ -54,18 +54,18 @@ test('jetpack reveals its lane-changing route only after lift-off and removes it
  tick(g,.1);let visible=g.entities.filter(e=>e.active&&e.flightTrail).sort((a,b)=>a.trailIndex-b.trailIndex);
  assert.ok(g.player.y>.05);assert.equal(visible.length,8);assert.deepEqual(visible.map(e=>e.trailIndex),[0,1,2,3,4,5,6,7]);
  assert.ok(visible.every(e=>e.y>2.1));assert.equal(new Set(visible.map(e=>e.flightTrailId)).size,1);
- for(let second=0;second<8;second++){tick(g,1);visible=g.entities.filter(e=>e.active&&e.flightTrail&&e.z<3);assert.ok(visible.length>=6&&visible.length<=8,(second+1)+'s: '+visible.length+' visible');}
+ for(let second=0;second<8;second++){tick(g,1);visible=g.entities.filter(e=>e.active&&!e.retiring&&e.flightTrail&&e.z<3);assert.ok(visible.length>=1&&visible.length<=8,(second+1)+'s: '+visible.length+' visible');}
  assert.ok(g._flightTrailCursor>8,'new route chips are revealed as the player advances');
- tick(g,2);assert.equal(g.player.y,0);assert.equal(g.player.grounded,true);assert.equal(g.entities.some(e=>e.active&&e.flightTrail),false);
+ tick(g,2);assert.equal(g.player.y,0);assert.equal(g.player.grounded,true);assert.ok(g.entities.filter(e=>e.active&&e.flightTrail).every(e=>e.retiring));tick(g,.3);assert.equal(g.entities.some(e=>e.active&&e.flightTrail),false);
 });
 test('speed burst cannot extend Jetpack chips or trigger a post-landing jump',()=>{
  const events=[];const g=new RunnerGame({onEvent:e=>events.push(e)});g.start({skipIntro:true});g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;g._coinSectionCursor=1e9;
  g.activatePower('speedburst');g.powers.active.get('speedburst').remaining=2;g.activatePower('jetpack');tick(g,9.9);
  assert.equal(g.powers.has('speedburst'),false);assert.equal(g.powers.has('jetpack'),true);assert.ok(g.player.y>0);
- assert.equal(g.powers.active.get('jetpack').descending,true);assert.equal(g.entities.some(e=>e.active&&e.flightTrail),false);g.player.jumpBuffer=MOTION.jumpBuffer;
+ assert.equal(g.powers.active.get('jetpack').descending,true);g.player.jumpBuffer=MOTION.jumpBuffer;
  tick(g,.11);assert.equal(g.powers.has('jetpack'),false);assert.equal(g.player.y,0);assert.equal(g.player.vy,0);
  assert.equal(g.player.grounded,true);assert.equal(g.player.anim,'run');assert.equal(g.player.jumpBuffer,0);
- assert.equal(g.entities.some(e=>e.active&&e.flightTrail),false);assert.equal(g._flightTrailPlan.length,0);
+ assert.ok(g.entities.filter(e=>e.active&&e.flightTrail).every(e=>e.retiring));assert.equal(g._flightTrailPlan.length,0);
  assert.equal(events.findLast(e=>e.type==='powerend'&&e.kind==='jetpack')?.reason,'expired');
  tick(g,.5);assert.equal(g.player.y,0);assert.equal(g.player.anim,'run');
 });
@@ -73,13 +73,14 @@ test('jetpack removes and suppresses ordinary chips without suppressing hazards 
  const g=empty(),ahead=g.spawnEntity('coin',0,-20),behind=g.spawnEntity('coin',2,4);
  const hazard=g.spawnEntity('blocker',0,-25),power=g.spawnEntity('shield',2,-24);
  g.activatePower('magnet');g.activatePower('jetpack');
- assert.equal(ahead.active,false);assert.equal(behind.active,true);assert.equal(hazard.active,true);assert.equal(power.active,true);
+ assert.equal(ahead.active,true);assert.equal(ahead.retiring,true);assert.equal(behind.active,true);assert.equal(hazard.active,true);assert.equal(power.active,true);
  g._rowId=3;g._spawnPattern(80);
  assert.equal(g.entities.some(e=>e.active&&e.rowId===3&&e.type==='coin'&&!e.flightTrail),false);
  assert.ok(g.entities.some(e=>e.active&&e.rowId===3&&['blocker','jump','slide','traffic','scooter'].includes(e.type)));
  assert.ok(g.entities.some(e=>e.active&&e.rowId===3&&Object.hasOwn(POWER_DURATIONS,e.type)));
  const ordinary=g.spawnEntity('coin',0,-.5,{y:2.2});ordinary.magnetLatched=true;const x=ordinary.x;
  tick(g,.05);assert.equal(ordinary.active,true);assert.equal(ordinary.x,x);assert.equal(ordinary.x,LANES[0]);assert.equal(ordinary.magnetic,false);
+ tick(g,.3);assert.equal(ahead.active,false,'cleared ground chips finish their visual retirement');
 });
 test('moped exposes mount, stunt-jump and randomized side-dodge animation state',()=>{
  const g=empty();g.activatePower('moped');assert.ok(g.player.mopedMount>0);
@@ -106,15 +107,25 @@ test('Jetpack chip generation stops at descent while flight ends on its own time
  const g=empty();g.debug.speedOverride=14;g.activatePower('jetpack');
  tick(g,POWER_DURATIONS.jetpack-JETPACK_PHASES.descent-.02);
  assert.equal(g.powers.active.get('jetpack').descending,false);
- assert.ok(g.entities.some(e=>e.active&&e.flightTrail));
+ const survivor=g.spawnEntity('coin',1,-12,{y:8,flightTrail:true,flightTrailId:g._jetpackTrailId,trailIndex:999}),before=[survivor],cursor=g._flightTrailCursor;
  tick(g,.04);
  const flight=g.powers.active.get('jetpack');
  assert.ok(flight);assert.equal(flight.descending,true);assert.ok(g.player.y>0);
- assert.equal(g.entities.some(e=>e.active&&e.flightTrail),false);
- assert.equal(g._flightTrailPlan.length,0);
- g._spawnFlightTrailWindow();assert.equal(g.entities.some(e=>e.active&&e.flightTrail),false);
+ assert.ok(before.some(e=>e.active&&!e.retiring),'already-visible flight chips survive the descent boundary');
+ assert.equal(g._flightTrailCursor,cursor);g._spawnFlightTrailWindow();assert.equal(g._flightTrailCursor,cursor,'descent cannot reveal another chip');
  tick(g,JETPACK_PHASES.descent);
  assert.equal(g.powers.has('jetpack'),false);assert.equal(g.player.y,0);assert.equal(g.player.grounded,true);
+ assert.ok(g.entities.filter(e=>e.active&&e.flightTrail).every(e=>e.retiring));tick(g,.3);assert.equal(g.entities.some(e=>e.active&&e.flightTrail),false);
+});
+
+test('Jetpack reach budget integrates only the remaining Speed Burst time',()=>{
+ const g=empty();g.debug.speedOverride=14;g.activatePower('jetpack');const flight=g.powers.active.get('jetpack');flight.remaining=6;
+ const normal=g._projectSpeed(1),boosted=g._projectSpeed(1.6),cruise=6-JETPACK_PHASES.descent;
+ assert.ok(Math.abs(g._remainingJetpackTravel(flight)-normal*cruise)<1e-9);
+ g.activatePower('speedburst');g.powers.active.get('speedburst').remaining=2;
+ assert.ok(Math.abs(g._remainingJetpackTravel(flight)-(boosted*2+normal*(cruise-2)))<1e-9);
+ g.powers.active.get('speedburst').remaining=20;
+ assert.ok(Math.abs(g._remainingJetpackTravel(flight)-boosted*cruise)<1e-9);
 });
 
 test('Double Chips changes chip value without changing Jetpack distance or duration',()=>{

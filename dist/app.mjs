@@ -1,6 +1,6 @@
 import { FURS, HATS, normalizeCustom, equipCustom } from './customization.mjs?v=street-28';
-import { RunnerGame, THEMES, INTRO_DURATION } from './core.mjs?v=graphics2-5';
-import { GameScene } from './scene.mjs?v=graphics2-5';
+import { RunnerGame, THEMES, INTRO_DURATION } from './core.mjs?v=graphics2-6';
+import { GameScene } from './scene.mjs?v=graphics2-6';
 import { ArcadeAudio } from './audio.mjs?v=street-28';
 import { DEFAULT_MODEL_SET, normalizeModelSet } from './model-config.mjs?v=models-1';
 import { DEFAULT_PICTURE_MODE, DEFAULT_FONT_STYLE, normalizePictureMode, normalizeFontStyle } from './presentation-config.mjs?v=presentation-1';
@@ -32,7 +32,13 @@ const clerkLines=[
   'Stop that cat! He is running off with the snacks!',
   'Officers! The cat with the chips! Get him!'
 ];
-let clerkLineIndex=Math.floor(Math.random()*clerkLines.length),clerkSpoke=false,resultShown=false;
+const pursuitRewardTags=Object.freeze([
+  'NET MISS! BRO LIVES!',
+  'COPS WHIFF! CHIPS SAFE!',
+  'NET DODGED! SNACKS SECURED!',
+  'TOO SLOW! 18BRO GOES!'
+]);
+let clerkLineIndex=Math.floor(Math.random()*clerkLines.length),clerkSpoke=false,resultShown=false,lastPursuitRewardTag=-1;
 const powerPills=new Map();
 const clerkCaption=document.createElement('div');clerkCaption.id='clerk-caption';clerkCaption.className='clerk-caption';clerkCaption.hidden=true;clerkCaption.setAttribute('aria-live','polite');shell.append(clerkCaption);
 
@@ -52,7 +58,13 @@ function applyModelPreference(){
 function applySettings(){setAudio();document.body.classList.toggle('reduced-motion',save.settings.reducedMotion);document.body.classList.toggle('font-sticker',save.settings.fontStyle==='sticker');document.body.dataset.picture=save.settings.quality;resize();applyModelPreference();}
 function toast(text,seconds=2.8){$('toast').textContent=text;toastTime=seconds;$('toast').classList.add('visible');}
 function banner(text,seconds=1.6,kind=''){$('run-banner').textContent=text;$('run-banner').className=`run-banner ${kind}`;bannerTime=seconds;}
-function showPursuitReward(bonus){const value=Math.max(0,Math.floor(Number(bonus)||0)),reward=$('pursuit-reward'),addition=$('hud-score-bonus');$('pursuit-reward-score').textContent=`+${value.toLocaleString()} SCORE`;addition.textContent=`+${value.toLocaleString()}`;reward.hidden=false;reward.classList.remove('show');addition.classList.remove('show');void reward.offsetWidth;reward.classList.add('show');addition.classList.add('show');pursuitRewardTime=2.8;scoreBonusTime=2.2;}
+function showPursuitReward(bonus,requestedTag){
+ const value=Math.max(0,Math.floor(Number(bonus)||0)),reward=$('pursuit-reward'),addition=$('hud-score-bonus');
+ const requested=Number.isInteger(Number(requestedTag))?Math.abs(Math.floor(Number(requestedTag)))%pursuitRewardTags.length:(lastPursuitRewardTag+1)%pursuitRewardTags.length;
+ const tagIndex=requested===lastPursuitRewardTag?(requested+1)%pursuitRewardTags.length:requested,message=pursuitRewardTags[tagIndex];
+ lastPursuitRewardTag=tagIndex;reward.dataset.message=message;reward.setAttribute('aria-label',message+' Plus '+value.toLocaleString()+' score');
+ $('pursuit-reward-score').textContent='+'+value.toLocaleString()+' SCORE';addition.textContent='+'+value.toLocaleString();reward.hidden=false;reward.classList.remove('show');addition.classList.remove('show');void reward.offsetWidth;reward.classList.add('show');addition.classList.add('show');pursuitRewardTime=2.8;scoreBonusTime=2.2;
+}
 function loadPowerIcon(img,type,owner){
  const source=powerIcons[type];if(!source)return;
  if(img.dataset.iconSource===source&&!owner.classList.contains('icon-missing'))return;
@@ -108,7 +120,7 @@ function beginResultSequence(bank){
  else{updateResultSequence(start);$('gameover-card').focus({preventScroll:true});}
 }
 function showGameOver(){if(resultShown)return;hidePowerPickup();resultShown=true;const bank=bankRun();bannerTime=0;$('run-banner').textContent='';audio.play('gameover');syncState();beginResultSequence(bank);}
-function returnToMenu(){hidePowerPickup();clearResultSequence();bankRun();game.menu();syncState();$('start-run').focus({preventScroll:true});}function handleEvent(e){scene?.handleEvent(e);switch(e.type){case 'state':if(scene){syncState();}break;case 'jump':audio.play('jump');break;case 'slide':audio.play('slide');break;case 'pickup':audio.play(e.kind==='coin'?'coin':'power');if(e.kind!=='coin')showPowerPickup(e.kind);break;case 'hit':audio.play('hit');audio.play('whistle');$('hit-flash').classList.remove('hit');void $('hit-flash').offsetWidth;$('hit-flash').classList.add('hit');break;case 'shieldbreak':audio.play('hit');break;case 'crash':audio.play('hit');audio.play('whistle');bannerTime=0;$('run-banner').textContent='';toastTime=0;$('toast').classList.remove('visible');if(e.kind!=='net')showGameOver();break;case 'power':if(!e.refresh)runPowers++;break;case 'gameover':showGameOver();break;case 'routecomplete':bankRun();syncState();break;case 'nettelegraph':audio.play('whistle');break;case 'netpursuitsuccess':audio.play('confirm');showPursuitReward(e.bonus);break;case 'dodge':break;case 'smash':audio.play('hit');break;}}
+function returnToMenu(){hidePowerPickup();clearResultSequence();bankRun();game.menu();syncState();$('start-run').focus({preventScroll:true});}function handleEvent(e){scene?.handleEvent(e);switch(e.type){case 'state':if(scene){syncState();}break;case 'jump':audio.play('jump');break;case 'slide':audio.play('slide');break;case 'pickup':audio.play(e.kind==='coin'?'coin':'power');if(e.kind!=='coin')showPowerPickup(e.kind);break;case 'hit':audio.play('hit');audio.play('whistle');$('hit-flash').classList.remove('hit');void $('hit-flash').offsetWidth;$('hit-flash').classList.add('hit');break;case 'shieldbreak':audio.play('hit');break;case 'crash':audio.play('hit');audio.play('whistle');bannerTime=0;$('run-banner').textContent='';toastTime=0;$('toast').classList.remove('visible');if(e.kind!=='net')showGameOver();break;case 'power':if(!e.refresh)runPowers++;break;case 'gameover':showGameOver();break;case 'routecomplete':bankRun();syncState();break;case 'nettelegraph':audio.play('whistle');break;case 'netpursuitsuccess':audio.play('confirm');showPursuitReward(e.bonus,e.tagIndex);break;case 'dodge':break;case 'smash':audio.play('hit');break;}}
 function createPowerPill(type){
  const card=document.createElement('div');card.className=`power-pill power-${type}`;card.title=powerNames[type];
  const frame=document.createElement('span');frame.className='power-icon-frame';frame.setAttribute('aria-hidden','true');

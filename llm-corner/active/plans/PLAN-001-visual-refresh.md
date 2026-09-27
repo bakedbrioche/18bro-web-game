@@ -156,3 +156,20 @@ Defer fur rendering, city-wide remodeling, compression infrastructure, and an ex
 - Added mixer-owned left/right ready and aim variants that preserve the chase gait byte-for-byte outside the selected arm; the armed hand rises progressively over the full warning.
 - Made the pursuit renderer the sole owner of net capture presentation, eliminating the competing ordinary capture pass that disconnected props and deformed the acting guard.
 - Kept the same attached net through strike, catch, lift, turn, shoulder carry and stable final result presentation.
+
+### Phase O — rigid sack capture and graceful chips — complete
+
+- Rebuilt the police prop as one fixed-scale net with open and connected-sack states plus a hero-sized payload socket; 18Bro now follows that socket while the sack stays world-down instead of stretching the whole prop.
+- Split capture presentation into raised aim, planted catch, vertical lift and shoulder carry, cached actor transforms at impact, delayed the turn until the load is secure, and made both guards exit fully after the result appears.
+- Changed authored net aim to a raised panic-derived arm pose while preserving chase locomotion outside the selected arm chain.
+- Budgeted Jetpack reveals from remaining cruise distance and only the remaining Speed Burst overlap. Descent stops generation without deleting already-visible chips; landing retires leftovers cleanly.
+- Added a shared chip entrance/exit overshoot and a subtle camera-facing gold billboard, with a non-bouncy Reduced Motion path.
+- Archived the user-supplied four-panel pose reference and prompt in the ignored dated image-generation workbench; the shipped implementation is rebuilt in Three.js.
+
+
+### Phase P - pursuit presentation closeout - complete
+
+- Sized the rigid net to the real hero envelope, attached 18Bro to a dedicated payload socket and moved the escort net to the outer hand for a clear two-officer exit silhouette.
+- Replaced chip aura geometry with one non-spinning radial-gradient sprite that always faces the camera.
+- Scaled escape rewards from chase duration, resolved attempts and capped difficulty; added four non-repeating themed reward tags and a Reduced Motion-safe orange/green chase card.
+- Added an original generated chase favicon, retained prompt/source provenance in the ignored workbench and embedded the exact runtime PNG in standalone export.

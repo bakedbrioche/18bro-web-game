@@ -14,6 +14,14 @@ const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(
 export const NET_PURSUIT = Object.freeze({
   lanes: Object.freeze([-2.5, 0, 2.5]),
   bonus: 10000,
+  reward: Object.freeze({
+    base: 4000,
+    perAttempt: 1100,
+    perSecond: 320,
+    difficultyScale: .65,
+    roundTo: 250,
+    tagCount: 4,
+  }),
   attemptsMin: 2,
   attemptsMax: 4,
   approachSeconds: 1.05,
@@ -55,6 +63,21 @@ export function netPursuitDifficulty(distance = 0) {
   return clamp(Math.max(0, finite(distance)) / NET_PURSUIT.difficultyDistance);
 }
 
+/**
+ * Score an escaped pursuit from its actual deterministic choreography.
+ * Longer chases, more net attempts and later-run difficulty all contribute;
+ * the original 10,000-point award remains the minimum for a completed escape.
+ */
+export function netPursuitReward({ elapsedSeconds = 0, attemptsResolved = 0, difficulty = 0 } = {}) {
+  const rules = NET_PURSUIT.reward;
+  const durationValue = Math.max(0, finite(elapsedSeconds)) * rules.perSecond;
+  const attemptValue = Math.max(0, Math.floor(finite(attemptsResolved))) * rules.perAttempt;
+  const difficultyMultiplier = 1 + clamp(finite(difficulty)) * rules.difficultyScale;
+  const raw = (rules.base + durationValue + attemptValue) * difficultyMultiplier;
+  const rounded = Math.round(raw / rules.roundTo) * rules.roundTo;
+  return Math.max(NET_PURSUIT.bonus, rounded);
+}
+
 export class NetPursuitController {
   constructor({ seed = 18, onEvent = () => {}, lanes = NET_PURSUIT.lanes } = {}) {
     if (!Array.isArray(lanes) || lanes.length < 2 || lanes.some(value => !Number.isFinite(value))) {
@@ -65,6 +88,7 @@ export class NetPursuitController {
     this.seed = normalizeSeed(seed);
     this._rngState = this.seed;
     this._events = [];
+    this._lastRewardTag = -1;
     this.reset();
   }
 
@@ -88,6 +112,7 @@ export class NetPursuitController {
     this.caught = false;
     this.outcome = null;
     this.bonusAwarded = 0;
+    this.rewardTagIndex = -1;
     this.captureElapsed = 0;
     this._events.length = 0;
     return this.snapshot();
@@ -215,8 +240,21 @@ export class NetPursuitController {
     this.phaseElapsed = 0;
     this.phaseDuration = 0;
     this.outcome = 'dodged';
-    this.bonusAwarded = NET_PURSUIT.bonus;
-    this._emit('netpursuitsuccess', { bonus: NET_PURSUIT.bonus, attemptsResolved: this.attemptsResolved });
+    const elapsedSeconds = this.elapsed;
+    const chaseDistance = Math.max(0, this.distance - this.startDistance);
+    this.bonusAwarded = netPursuitReward({ elapsedSeconds, attemptsResolved: this.attemptsResolved, difficulty: this.difficulty });
+    let tagIndex = Math.floor(this._random() * NET_PURSUIT.reward.tagCount);
+    if (tagIndex === this._lastRewardTag) tagIndex = (tagIndex + 1) % NET_PURSUIT.reward.tagCount;
+    this._lastRewardTag = tagIndex;
+    this.rewardTagIndex = tagIndex;
+    this._emit('netpursuitsuccess', {
+      bonus: this.bonusAwarded,
+      attemptsResolved: this.attemptsResolved,
+      elapsedSeconds,
+      chaseDistance,
+      difficulty: this.difficulty,
+      tagIndex,
+    });
   }
 
   _finishCapture() {
@@ -359,6 +397,12 @@ export class NetPursuitController {
       safety: this._safetySnapshot(),
       outcome: this.outcome,
       bonus: this.bonusAwarded,
+      reward: {
+        bonus: this.bonusAwarded,
+        tagIndex: this.rewardTagIndex,
+        elapsedSeconds: this.elapsed,
+        chaseDistance: Math.max(0, this.distance - this.startDistance),
+      },
     });
   }
 

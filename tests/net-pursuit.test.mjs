@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { NET_PURSUIT, NetPursuitController, netPursuitDifficulty } from '../dist/net-pursuit.mjs';
+import { NET_PURSUIT, NetPursuitController, netPursuitDifficulty, netPursuitReward } from '../dist/net-pursuit.mjs';
 import { LANES, NET_PURSUIT_SCHEDULE, RunnerGame } from '../dist/core.mjs';
 
 function advanceTo(controller, predicate, context = {}, limit = 20) {
@@ -90,17 +90,33 @@ test('a locked net strike separates netted, lift and carry capture timing', () =
   assert.equal(events.at(-1).type, 'netcapturecomplete');
 });
 
-test('dodging every attempt retreats once and awards exactly 10000 points', () => {
+test('pursuit reward scales with chase length, attempts and difficulty and rotates its tag', () => {
+  const short = netPursuitReward({ elapsedSeconds: 12, attemptsResolved: 4, difficulty: 0 });
+  const long = netPursuitReward({ elapsedSeconds: 35, attemptsResolved: 8, difficulty: 0 });
+  const hard = netPursuitReward({ elapsedSeconds: 12, attemptsResolved: 4, difficulty: 1 });
+  assert.ok(short >= NET_PURSUIT.bonus);
+  assert.ok(long >= short + 10000, 'long chase should materially outscore short chase: ' + short + ' -> ' + long);
+  assert.ok(hard > short, 'late-run difficulty should increase an otherwise identical reward');
+
   const events = [];
   const controller = new NetPursuitController({ seed: 27, onEvent: event => events.push(event) });
   controller.start({ playerLane: 1 });
-  const snapshot = completeByDodging(controller);
-  assert.equal(snapshot.outcome, 'dodged');
-  assert.equal(snapshot.bonus, 10000);
-  assert.equal(snapshot.attempts.remaining[0], 0);
-  assert.equal(snapshot.attempts.remaining[1], 0);
+  const first = completeByDodging(controller);
+  const firstEvent = events.find(event => event.type === 'netpursuitsuccess');
+  assert.equal(first.outcome, 'dodged');
+  assert.equal(first.bonus, firstEvent.bonus);
+  assert.equal(first.reward.tagIndex, firstEvent.tagIndex);
+  assert.equal(first.reward.elapsedSeconds, firstEvent.elapsedSeconds);
+  assert.ok(firstEvent.chaseDistance > 0);
+  assert.equal(firstEvent.attemptsResolved, first.attempts.resolved);
   assert.equal(events.filter(event => event.type === 'netpursuitretreat').length, 1);
-  assert.deepEqual(events.filter(event => event.type === 'netpursuitsuccess').map(event => event.bonus), [10000]);
+  assert.ok(firstEvent.tagIndex >= 0 && firstEvent.tagIndex < NET_PURSUIT.reward.tagCount);
+
+  controller.start({ playerLane: 1 });
+  const second = completeByDodging(controller);
+  const successEvents = events.filter(event => event.type === 'netpursuitsuccess');
+  assert.equal(successEvents.length, 2);
+  assert.notEqual(second.reward.tagIndex, first.reward.tagIndex, 'success copy must not repeat consecutively');
 });
 
 test('difficulty escalates with distance, caps, and never removes the dodge window', () => {
@@ -134,6 +150,7 @@ test('presentation snapshots match the scene contract, serialize and reject muta
   assert.equal(Object.isFrozen(snapshot.attempts), true);
   assert.equal(Object.isFrozen(snapshot.attempts.totals), true);
   assert.equal(Object.isFrozen(snapshot.safety), true);
+  assert.equal(Object.isFrozen(snapshot.reward), true);
   assert.throws(() => { snapshot.targetX = 99; }, TypeError);
   assert.throws(() => { snapshot.safety.keepClearLanes.push(2); }, TypeError);
 });

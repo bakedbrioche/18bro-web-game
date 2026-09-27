@@ -20,8 +20,17 @@ The magnet is held from the lower bridge of its U shape in a straight paw raised
 Three-Paw Guard renders as a true sphere with three equatorial four-toe paw-shield
 badges, rotates them once every three seconds, and plays a short break animation when each protected collision consumes a badge. The power expires after fifteen seconds.
 Jetpack owns a fixed ten-second airborne-only chip route with a progressive six-to-eight
-chip look-ahead. Its route is removed at expiry and landing restores the ordinary run
-state without carrying jump input or flight chips into the street phase.
+chip look-ahead. Reveal distance integrates remaining cruise time with only the remaining
+Speed Burst overlap. Descent creates no new chips while already-visible chips remain
+collectible; landing retires leftovers with the shared bounce-to-zero lifecycle and restores
+the ordinary run without carrying jump input or flight chips into the street phase.
+
+Police net capture uses a fixed-scale prop with separate open-web and connected-sack
+states plus a named payload socket sized to the hero envelope. The same prop performs
+raised aim, planted catch, vertical lift and shoulder carry. The cat follows the payload
+position while local -Z remains world-down; the escort transfers its empty net to the
+outer hand. Both guards leave at one pace and hide after a bounded exit. Runtime capture
+never rescales the shaft/web or lets the ordinary crash renderer write the same roots.
 
 Ground chip sequences use deterministic seeded 3–6 chip paths with straight, lateral and weave forms. Length weights are 1:3:3:1, and each obstacle route crosses its safe lane at the central chips. Moon Boots and Jetpack lift the camera position and look target together so vertical movement does not change camera pitch.
 

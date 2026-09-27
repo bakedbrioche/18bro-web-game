@@ -199,14 +199,26 @@ test('net capture remains visible before the Busted results sequence',()=>{
  for(let elapsed=0;elapsed<5&&a.game.state!=='GAME_OVER';elapsed+=1/120)a.game.update(1/120);
  assert.equal(a.game.state,'GAME_OVER');assert.equal(a.get('gameover-panel').hidden,false);assert.equal(a.document.activeElement,a.get('gameover-card'));
 });
-test('net-pursuit reward is themed, accessible and paired with a temporary score addition',()=>{
- const a=app();a.get('start-run').click();a.game.start({skipIntro:true});a.game.emit('netpursuitsuccess',{bonus:10000});
- assert.equal(a.get('pursuit-reward').hidden,false);assert.equal(a.get('pursuit-reward').classList.contains('show'),true);
- assert.equal(a.get('pursuit-reward-score').textContent,'+10,000 SCORE');assert.equal(a.get('hud-score-bonus').textContent,'+10,000');
+test('net-pursuit reward rotates themed copy and uses an accessible chase card with a bouncy score addition',()=>{
+ const a=app();a.get('start-run').click();a.game.start({skipIntro:true});a.game.emit('netpursuitsuccess',{bonus:14250,tagIndex:2});
+ const reward=a.get('pursuit-reward');
+ assert.equal(reward.hidden,false);assert.equal(reward.classList.contains('show'),true);
+ assert.equal(reward.dataset.message,'NET DODGED! SNACKS SECURED!');
+ assert.match(reward.getAttribute('aria-label'),/NET DODGED! SNACKS SECURED! Plus 14,250 score/);
+ assert.equal(a.get('pursuit-reward-score').textContent,'+14,250 SCORE');assert.equal(a.get('hud-score-bonus').textContent,'+14,250');
  assert.equal(a.get('hud-score-bonus').classList.contains('show'),true);
- const html=fs.readFileSync(new URL('../dist/index.html',import.meta.url),'utf8'),css=fs.readFileSync(new URL('../dist/style.css',import.meta.url),'utf8');
- assert.match(html,/id="pursuit-reward"[^>]+role="status"/);assert.match(html,/NET MISS! 18BRO LIVES!/);
- assert.match(css,/[.]pursuit-reward[.]show\{animation:pursuit-reward-in/);assert.match(css,/body[.]reduced-motion [.]pursuit-reward[.]show\{animation:none/);
+ a.game.emit('netpursuitsuccess',{bonus:16000,tagIndex:2});
+ assert.equal(reward.dataset.message,'TOO SLOW! 18BRO GOES!','repeated event tag advances to fresh copy');
+ const html=fs.readFileSync(new URL('../dist/index.html',import.meta.url),'utf8');
+ const source=fs.readFileSync(new URL('../dist/app.mjs',import.meta.url),'utf8');
+ const css=fs.readFileSync(new URL('../dist/style.css',import.meta.url),'utf8');
+ assert.match(html,/id="pursuit-reward"[^>]+role="status"/);
+ for(const tag of ['NET MISS! BRO LIVES!','COPS WHIFF! CHIPS SAFE!','NET DODGED! SNACKS SECURED!','TOO SLOW! 18BRO GOES!'])assert.match(source,new RegExp(tag.replace(/[!?]/g,'\\$&')));
+ assert.match(css,/[.]pursuit-reward::after\{[^}]*content:attr\(data-message\)/s);
+ assert.match(css,/[.]pursuit-reward[.]show\{animation:pursuit-reward-card/);
+ assert.match(css,/[.]score-bonus[.]show\{animation:score-bonus-pop/);
+ assert.match(css,/@keyframes score-bonus-pop\{[^}]*scale\([.]18\)[\s\S]*scale\(1[.]22\)[\s\S]*scale\([.]91\)[\s\S]*scale\(1[.]07\)/);
+ assert.match(css,/body[.]reduced-motion [.]score-bonus[.]show\{animation:none/);
 });
 test('Busted results count up in stages and reduced motion resolves immediately',()=>{
  const animated=app();caught(animated);

@@ -28,6 +28,10 @@ test('Refreshed hero stays active through every pose and cosmetic',async()=>{
  assert.equal(scene.effectiveModelSet,'refreshed');assert.equal(scene.authoredHero.root.visible,true);
  assert.deepEqual(scene.authoredHero.root.position.toArray(),[1,2,3]);
  assert.equal(scene.authoredHero.packet.parent,scene.authoredHero.hand);
+ const expression=scene.authoredHero.expression,normalFace=Array.from(expression.position.array),normalLids=Array.from(expression.lidPosition.array),authoredMeshCount=scene.authoredHero.asset.scene.children.filter(child=>child.isMesh).length;
+ assert.equal(expression.mode,'existing-authored-face-vertices');assert.ok(expression.vertexCount>300);assert.equal(expression.lids.length,2);assert.equal(expression.lidVertexCount,124);assert.equal(scene.authoredHero.root.getObjectByName('18bro_refreshed_panic_face'),undefined,'Refreshed surprise adds no duplicate eye overlay');
+ scene.applyAuthoredSurprise(scene.authoredHero,1);assert.notDeepEqual(Array.from(expression.position.array),normalFace);assert.notDeepEqual(Array.from(expression.lidPosition.array),normalLids,'existing fur eyelids lift to expose the surprised eyes');
+ scene.applyAuthoredSurprise(scene.authoredHero,0);assert.deepEqual(Array.from(expression.position.array),normalFace,'Refreshed face restores its exact authored vertices');assert.deepEqual(Array.from(expression.lidPosition.array),normalLids,'Refreshed eyelids restore their exact authored vertices');assert.equal(scene.authoredHero.asset.scene.children.filter(child=>child.isMesh).length,authoredMeshCount);assert.equal(scene.authoredHero.capMark.userData.mark,'seven-inspired');assert.equal(scene.authoredHero.capMark.userData.frontSign,1);assert.equal(scene.authoredHero.capMark.parent,scene.authoredHero.hatSocket);
  assert.equal(scene.authoredHero.magnet.parent,scene.authoredHero.leftHand);
  assert.equal(scene.authoredHero.root.getObjectByName('18bro_magnet_raised_arm'),undefined,'authored hero must not gain a duplicate display arm');
  assert.equal(scene.authoredHero.magnet.userData.gripAtBottom,true);assert.equal(scene.authoredHero.magnet.userData.raisedToPlayerRight,true);
@@ -59,7 +63,7 @@ test('Refreshed hero stays active through every pose and cosmetic',async()=>{
  for(const fur of ['black','cream','ginger','silver','pink','gold'])for(const hat of ['cap','none','beanie','sombrero','bucket','crown']){
   scene.updateAuthoredHero(game,1/60,{skin:'18bro',fur,hat});
   assert.equal(scene.effectiveModelSet,'refreshed');assert.equal(scene.authoredHero.root.visible,true);
-  assert.equal(scene.authoredHero.hat.visible,hat==='cap');
+  assert.equal(scene.authoredHero.hat.visible,hat==='cap');assert.equal(scene.authoredHero.capMark.visible,hat==='cap');
   for(const [kind,accessory] of scene.authoredHero.hats)assert.equal(accessory.visible,kind===hat);
  }
  game.state='CAUGHT';scene.updateAuthoredHero(game,1/60,{skin:'18bro',fur:'gold',hat:'crown'});
@@ -126,6 +130,7 @@ test('Refreshed model selection applies to guards and the reusable crowd family'
  const legBones=['leg_L','shin_L','foot_L','leg_R','shin_R','foot_R'].map(name=>guard.authored.scene.getObjectByName(name)),legs=legBones.flatMap(bone=>bone.quaternion.toArray());
  scene.updateAuthoredNetArm(guard,1,0,1);guard.root.updateMatrixWorld(true);const high=socket.getWorldPosition(new THREE.Vector3()).y;
  assert.ok(high>low+.35,`Refreshed net hand rises from ${low} to ${high}`);assert.deepEqual(legBones.flatMap(bone=>bone.quaternion.toArray()),legs,'Refreshed net-arm blend preserves locomotion bones');
+ scene.updateAuthoredHuman(guard,'carry_right',.5);scene.attachCatchNet(guard,guard.catchNet,true,1);const shoulderFrame=scene.netShoulderFrame(guard,guard.catchNet,1);assert.ok(shoulderFrame.contactDistance<1e-6);assert.ok(shoulderFrame.gripToShoulder>.2&&shoulderFrame.gripToShoulder<.7,'Refreshed carry socket remains close enough to rest the pole on the shoulder');
  assert.equal(guard.authored.scene.getObjectByName('role_police').visible,true);
  assert.equal(pedestrian.authored.scene.getObjectByName('role_police').visible,false);
  assert.equal(cashier.authored.scene.getObjectByName('role_cashier').visible,true);assert.equal(rider.authored.scene.getObjectByName('role_rider').visible,true);

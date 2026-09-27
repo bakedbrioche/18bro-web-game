@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {RunnerGame, INTRO_DURATION, CAPTURE_DURATION, MOTION, BARRIERS, VEHICLES} from '../dist/core.mjs';
-import {introPose, capturePose, STORE} from '../dist/choreography.mjs';
+import {introPose, capturePose, STORE, introPanicActive, introPanicAmount} from '../dist/choreography.mjs';
 const tick=(g,t)=>{for(let left=t;left>1e-8;left-=1/120)g.update(Math.min(left,1/120));};
 function emptyGame(){const g=new RunnerGame();g.start({skipIntro:true});g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;g._coinSectionCursor=1e9;g.debug.speedOverride=10;return g;}
 
@@ -46,6 +46,7 @@ test('later tiers grow denser with a majority of vehicles and a reserved escape 
 });
 test('store motion is continuous, packets attach before the dance and doors burst before exit',()=>{
   assert.equal(introPose(.94).packetHeld,false);assert.equal(introPose(.95).packetHeld,true);
+  assert.equal(introPanicActive(.94),false);assert.equal(introPanicActive(.95),true);assert.equal(introPanicActive(3.149),true);assert.equal(introPanicActive(3.15),false);assert.equal(introPanicAmount(.95),0);assert.equal(introPanicAmount(1.07),1);assert.ok(introPanicAmount(3.05)>0&&introPanicAmount(3.05)<1);assert.equal(introPanicAmount(3.15),0);
   assert.ok(Math.abs(introPose(1.55).dance)>.5);
   for(let t=0;t<INTRO_DURATION;t+=.001){const a=introPose(t),b=introPose(t+.001);assert.ok(Math.abs(a.x-b.x)<.015);assert.ok(Math.abs(a.yaw-b.yaw)<.015);if(Math.abs(a.x-(STORE.x+.49))<.08)assert.ok(Math.abs(a.z-a.distance-STORE.z)<.5);if(a.x>STORE.x+.49)assert.equal(a.doors,1);}
   const end=introPose(INTRO_DURATION);assert.equal(end.x,0);assert.equal(end.chase,1);

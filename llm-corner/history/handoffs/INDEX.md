@@ -2,6 +2,8 @@
 
 Newest first; the top entry is the next session’s entry point.
 
+- **2026-09-28-final-pursuit-heist-presentation.md** - Shoulder-contact net carry, existing-face heist surprise, one sealed chip packet, split pursuit reward and peeking-18Bro favicon.
+
 - **2026-09-27-pursuit-capture-reward-polish.md** - Hero-sized payload-socket net capture, bounded two-guard exit, billboard chip glow, scaled pursuit rewards and embedded chase favicon.
 
 - **2026-09-27-doubled-chip-cadence-net-animation.md** - One non-crossing 3–6-chip trail every 28–36m, mirrored progressive net aim and single-owner attached catch/lift/shoulder carry.

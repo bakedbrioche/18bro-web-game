@@ -133,69 +133,58 @@ body.reduced-motion .results-sequenced .result-final-rule{animation:none}
 @media(prefers-reduced-motion:reduce){.results-sequenced .result-final-rule{animation:none}.gameover .result-final-rule{opacity:1;visibility:visible;transform:none}}
 .power-pickup>span.power-icon-fallback{display:grid;flex-direction:initial;line-height:1}
 
-body.reduced-motion .pursuit-reward.show{animation:none;opacity:1;transform:translate3d(-50%,0,0) rotate(-2deg)}body.reduced-motion .score-bonus{transition:none}
-@media(prefers-reduced-motion:reduce){.pursuit-reward.show{animation:none;opacity:1;transform:translate3d(-50%,0,0) rotate(-2deg)}.score-bonus{transition:none}}
+body.reduced-motion .score-bonus{transition:none}
 
-/* Pursuit escape reward: an original orange/green chase card with a net-grid accent. */
+/* Pursuit escape reward: two supplied chase-art profiles join like a classic versus banner. */
 .pursuit-reward{
- display:flex;flex-direction:column;isolation:isolate;overflow:hidden;
- width:min(480px,calc(100% - 34px));min-width:0;padding:16px 24px 14px;
- border:3px solid #fff1bd;border-radius:5px;
- background:
-  radial-gradient(circle at 91% 18%,#f6d26b 0 4px,transparent 5px),
-  linear-gradient(112deg,#e65320 0 46%,#f4a634 46% 50%,#123f35 50% 100%);
- box-shadow:0 7px 0 #35160d,0 0 0 2px #172b21,0 14px 30px #05080799;
- text-shadow:3px 3px #35160d;
+ display:block;isolation:isolate;overflow:visible;width:min(540px,calc(100% - 28px));height:190px;min-width:0;padding:0;
+ border:0;background:transparent;box-shadow:none;text-shadow:3px 3px #35160d;opacity:0;
 }
 .pursuit-reward::before{
- content:'';position:absolute;z-index:-1;left:-22px;top:-42px;width:155px;height:155px;
- border:7px solid #ffe8a6;border-radius:50%;opacity:.26;transform:rotate(-16deg);
- background:
-  repeating-linear-gradient(0deg,transparent 0 13px,#ffe8a6 14px 16px),
-  repeating-linear-gradient(90deg,transparent 0 13px,#ffe8a6 14px 16px);
+ content:'';position:absolute;z-index:-2;inset:-34px -52px;border-radius:50%;opacity:0;transform:scale(.72);
+ background:radial-gradient(ellipse at center,#ffe98980 0 18%,#f0a42f52 31%,#75df9e24 48%,transparent 70%);
+ filter:blur(3px);pointer-events:none;
 }
-.pursuit-reward strong{display:none}
-.pursuit-reward::after{
- content:attr(data-message);order:0;display:block;position:relative;z-index:1;
- font-size:clamp(28px,4vw,52px);line-height:.88;letter-spacing:1.4px;color:#fff5ce;
+.pursuit-panel{
+ position:absolute;z-index:-1;top:0;bottom:0;width:54%;overflow:hidden;margin:0;padding:0;border:3px solid #fff1bd;
+ background:#0b1715;box-shadow:0 8px 0 #35160d,0 0 0 2px #172b21,0 15px 32px #050807b8;
 }
-.pursuit-reward span{
- order:1;position:relative;z-index:1;align-self:center;margin-top:9px;padding:3px 14px 4px;
- border:2px solid #f5e59a;background:#0e2d28;color:#aef27b;
- box-shadow:3px 3px 0 #35160d;font-size:clamp(22px,2.7vw,34px);
+.pursuit-panel img{display:block;width:100%;height:100%;object-fit:cover;filter:saturate(1.05) contrast(1.04)}
+.pursuit-panel::after{content:'';position:absolute;inset:0;background:linear-gradient(0deg,#06100bd1 0,#07100a3b 54%,#2711083d 100%);pointer-events:none}
+.pursuit-panel-guard{left:0;clip-path:polygon(0 0,100% 0,84% 100%,0 100%);transform:translate3d(-72%,0,0) rotate(-3deg)}
+.pursuit-panel-cat{right:0;clip-path:polygon(16% 0,100% 0,100% 100%,0 100%);transform:translate3d(72%,0,0) rotate(3deg)}
+.pursuit-reward strong{
+ display:block;position:absolute;z-index:3;left:7%;right:7%;top:50%;transform:translateY(-62%) scale(.82);opacity:0;
+ font-size:clamp(29px,4vw,51px);line-height:.9;letter-spacing:1.5px;text-align:center;color:#fff5ce;
+ text-shadow:4px 4px #35160d,-2px -2px #102f28,0 0 14px #e66e26;
 }
-.pursuit-reward.show{animation:pursuit-reward-card 2.8s cubic-bezier(.22,.8,.2,1) both}
-@keyframes pursuit-reward-card{
- 0%{opacity:0;transform:translate3d(-50%,-32px,0) rotate(-4deg) scale(.72)}
- 10%{opacity:1;transform:translate3d(-50%,3px,0) rotate(-1deg) scale(1.07)}
- 18%{transform:translate3d(-50%,0,0) rotate(-2deg) scale(.98)}
- 27%,76%{opacity:1;transform:translate3d(-50%,0,0) rotate(-2deg) scale(1)}
- 100%{opacity:0;transform:translate3d(-50%,-12px,0) rotate(-1deg) scale(1.035)}
+.pursuit-reward #pursuit-reward-score{
+ display:block;position:absolute;z-index:3;left:50%;bottom:12px;transform:translate3d(-50%,10px,0) scale(.76);opacity:0;
+ width:max-content;max-width:80%;margin:0;padding:3px 15px 4px;border:2px solid #f5e59a;background:#0e2d28e8;color:#aef27b;
+ box-shadow:3px 3px 0 #35160d;font-size:clamp(22px,2.7vw,34px);text-align:center;
 }
+.pursuit-reward.show{animation:pursuit-reward-card 2.8s linear both}
+.pursuit-reward.show::before{animation:pursuit-reward-aura 2.8s ease-out both}
+.pursuit-reward.show .pursuit-panel-guard{animation:pursuit-panel-left 2.8s cubic-bezier(.18,.9,.2,1) both}
+.pursuit-reward.show .pursuit-panel-cat{animation:pursuit-panel-right 2.8s cubic-bezier(.18,.9,.2,1) both}
+.pursuit-reward.show strong{animation:pursuit-message-in 2.8s cubic-bezier(.18,.85,.2,1) both}
+.pursuit-reward.show #pursuit-reward-score{animation:pursuit-score-in 2.8s cubic-bezier(.18,.85,.2,1) both}
+@keyframes pursuit-reward-card{0%{opacity:0}4%,84%{opacity:1}100%{opacity:0}}
+@keyframes pursuit-panel-left{0%{transform:translate3d(-72%,0,0) rotate(-3deg)}13%{transform:translate3d(2%,0,0) rotate(.8deg)}19%,86%{transform:none}100%{transform:translate3d(-8%,-5px,0)}}
+@keyframes pursuit-panel-right{0%{transform:translate3d(72%,0,0) rotate(3deg)}13%{transform:translate3d(-2%,0,0) rotate(-.8deg)}19%,86%{transform:none}100%{transform:translate3d(8%,-5px,0)}}
+@keyframes pursuit-reward-aura{0%,11%{opacity:0;transform:scale(.72)}19%{opacity:1;transform:scale(1.08)}29%{opacity:.62;transform:scale(.98)}40%,78%{opacity:.76;transform:scale(1.025)}100%{opacity:0;transform:scale(1.12)}}
+@keyframes pursuit-message-in{0%,15%{opacity:0;transform:translateY(-62%) scale(.72)}22%{opacity:1;transform:translateY(-62%) scale(1.09)}29%,84%{opacity:1;transform:translateY(-62%) scale(1)}100%{opacity:0;transform:translateY(-67%) scale(1.03)}}
+@keyframes pursuit-score-in{0%,21%{opacity:0;transform:translate3d(-50%,10px,0) scale(.76)}28%{opacity:1;transform:translate3d(-50%,-2px,0) scale(1.08)}35%,84%{opacity:1;transform:translate3d(-50%,0,0) scale(1)}100%{opacity:0;transform:translate3d(-50%,-5px,0) scale(1.02)}}
 .score-bonus{
  font-size:clamp(29px,3.4vw,43px);line-height:.8;font-weight:700;color:#ffd15a;
  opacity:0;transform-origin:right center;transform:translate3d(.5em,0,0) scale(.18);
  text-shadow:3px 3px #5b2413,0 0 10px #f09b2b80;transition:none;
 }
 .score-bonus.show{animation:score-bonus-pop 2.2s cubic-bezier(.18,.78,.2,1) both}
-@keyframes score-bonus-pop{
- 0%{opacity:0;transform:translate3d(.55em,.2em,0) scale(.18)}
- 13%{opacity:1;transform:translate3d(-.04em,-.04em,0) scale(1.22)}
- 24%{transform:translate3d(.02em,.015em,0) scale(.91)}
- 36%{transform:translate3d(-.01em,-.01em,0) scale(1.07)}
- 48%,82%{opacity:1;transform:translate3d(0,0,0) scale(1)}
- 100%{opacity:0;transform:translate3d(-.14em,-.08em,0) scale(1.04)}
-}
-body.reduced-motion .pursuit-reward.show{
- animation:none;opacity:1;transform:translate3d(-50%,0,0) rotate(-2deg) scale(1);
-}
-body.reduced-motion .score-bonus.show{animation:none;opacity:1;transform:none}
-@media(prefers-reduced-motion:reduce){
- .pursuit-reward.show{animation:none;opacity:1;transform:translate3d(-50%,0,0) rotate(-2deg) scale(1)}
- .score-bonus.show{animation:none;opacity:1;transform:none}
-}
-@media(max-width:620px){
- .pursuit-reward{top:16%;padding:13px 16px 12px}
- .pursuit-reward::after{font-size:clamp(25px,8.1vw,38px)}
- .score-line{gap:6px}.score-bonus{font-size:clamp(25px,7vw,34px)}
-}
+@keyframes score-bonus-pop{0%{opacity:0;transform:translate3d(.55em,.2em,0) scale(.18)}13%{opacity:1;transform:translate3d(-.04em,-.04em,0) scale(1.22)}24%{transform:translate3d(.02em,.015em,0) scale(.91)}36%{transform:translate3d(-.01em,-.01em,0) scale(1.07)}48%,82%{opacity:1;transform:translate3d(0,0,0) scale(1)}100%{opacity:0;transform:translate3d(-.14em,-.08em,0) scale(1.04)}}
+body.reduced-motion .pursuit-reward.show{animation:none;opacity:1}
+body.reduced-motion .pursuit-reward.show::before{animation:none;opacity:.65;transform:none}
+body.reduced-motion .pursuit-reward.show .pursuit-panel,body.reduced-motion .pursuit-reward.show strong,body.reduced-motion .pursuit-reward.show #pursuit-reward-score{animation:none;opacity:1}
+body.reduced-motion .pursuit-reward.show .pursuit-panel{transform:none}body.reduced-motion .pursuit-reward.show strong{transform:translateY(-62%)}body.reduced-motion .pursuit-reward.show #pursuit-reward-score{transform:translateX(-50%)}body.reduced-motion .score-bonus.show{animation:none;opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){.pursuit-reward.show{animation:none;opacity:1}.pursuit-reward.show::before{animation:none;opacity:.65;transform:none}.pursuit-reward.show .pursuit-panel,.pursuit-reward.show strong,.pursuit-reward.show #pursuit-reward-score{animation:none;opacity:1}.pursuit-reward.show .pursuit-panel{transform:none}.pursuit-reward.show strong{transform:translateY(-62%)}.pursuit-reward.show #pursuit-reward-score{transform:translateX(-50%)}.score-bonus.show{animation:none;opacity:1;transform:none}}
+@media(max-width:620px){.pursuit-reward{top:16%;height:160px}.pursuit-reward strong{font-size:clamp(25px,8.1vw,38px)}.pursuit-reward #pursuit-reward-score{bottom:9px}.score-line{gap:6px}.score-bonus{font-size:clamp(25px,7vw,34px)}}

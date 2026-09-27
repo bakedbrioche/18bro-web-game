@@ -3,6 +3,8 @@ export const INTRO_DURATION=5.1;
 export const CAPTURE_DURATION=4;
 export const STORE=Object.freeze({x:-7.2,z:-5,width:15,depth:10.6});
 export const smooth=v=>{v=Math.max(0,Math.min(1,v));return v*v*(3-2*v);};
+export const introPanicAmount=seconds=>Number.isFinite(seconds)?smooth((seconds-.95)/.12)*(1-smooth((seconds-2.98)/.17)):0;
+export const introPanicActive=seconds=>Number.isFinite(seconds)&&seconds>=.95&&seconds<3.15;
 const lerp=(a,b,t)=>a+(b-a)*t;
 function hermite(a,b,va,vb,t,duration){
   t=Math.max(0,Math.min(1,t));

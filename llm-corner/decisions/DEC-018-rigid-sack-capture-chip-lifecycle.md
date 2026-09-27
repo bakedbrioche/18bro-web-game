@@ -1,8 +1,9 @@
 # DEC-018 - Payload-socket capture, billboard chip glow and pursuit rewards
 
 Date: 2026-09-27
-Status: ACCEPTED
+Status: SUPERSEDED
 Supersedes: DEC-017's stretched net targeting and indefinite completed-capture presentation; DEC-010's immediate Jetpack-route deletion
+Superseded by: DEC-019 for final net/heist presentation and DEC-020 for final reward/favicon presentation
 
 ## Context
 

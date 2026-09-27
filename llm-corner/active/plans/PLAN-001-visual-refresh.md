@@ -173,3 +173,16 @@ Defer fur rendering, city-wide remodeling, compression infrastructure, and an ex
 - Replaced chip aura geometry with one non-spinning radial-gradient sprite that always faces the camera.
 - Scaled escape rewards from chase duration, resolved attempts and capped difficulty; added four non-repeating themed reward tags and a Reduced Motion-safe orange/green chase card.
 - Added an original generated chase favicon, retained prompt/source provenance in the ignored workbench and embedded the exact runtime PNG in standalone export.
+
+### Phase Q - readable pursuit prop and opening heist emotion - complete
+
+- Present only the currently acting guard's net, using a sagging square open lattice and one tapered payload sack after capture; keep the escort clear while both guards share the bounded exit.
+- Replace the flat stolen packet with one rounded sealed-pillow mesh, integrated crimp bands and two modeled CHIPS panels shared by Original and Refreshed models.
+- Animate and exactly restore each model family's existing eyes, eyelids, pupils, brows and mouth from packet contact through the store exit; add no duplicate panic-face mesh. Cover the old cap diamond with a readable orange/red/green seven-inspired mark.
+
+### Phase R - final pursuit and heist presentation - complete
+
+- Derive the acting net's carry frame through the selected guard's real shoulder anchor, preserve one fixed-scale sack and keep the escort clear; both guards finish a bounded exit.
+- Join two compact crops of the supplied chase illustration into a diagonal old-arcade pursuit-success banner with shadow, achievement aura, four non-repeating messages and a static Reduced Motion fallback.
+- Replace the busy chase favicon with a 128 x 128 orange peeking-18Bro cap mark, archive the previous favicon and prior code-rendered reward card, and embed the current UI images in standalone export.
+- Preserve the supplied chase/capture references and generation provenance in the ignored dated image workbench.

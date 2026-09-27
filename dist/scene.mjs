@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three.module.js';
 import { clone as cloneSkeleton } from './vendor/addons/utils/SkeletonUtils.js';
 import { sidewalkPose, CROWD_COUNT } from './crowd.mjs?v=street-28';
-import { INTRO_DURATION, CAPTURE_DURATION, STORE, introPose, capturePose, smooth, slidePose } from './choreography.mjs?v=street-28';
+import { INTRO_DURATION, CAPTURE_DURATION, STORE, introPose, capturePose, smooth, slidePose, introPanicAmount } from './choreography.mjs?v=street-28';
 import { applyMaterialAssets } from './material-assets.mjs?v=street-28';
 import { BARRIERS } from './core.mjs?v=graphics2-6';
 import { ROUTE, BRANCHES, getRouteProfile, routeCenter, branchOffset } from './route.mjs?v=street-28';
@@ -224,13 +224,14 @@ export class GameScene {
   // geometry instead of cloning references that cosmetic changes later dispose.
   const jetpack=this.makeJetpack();jetpack.position.set(0,0,0);jetpack.rotation.set(0,0,0);jetpack.scale.setScalar(.8/scale);backSocket.add(jetpack);const jetFlames=jetpack.getObjectByName('jet_flames');
   const shield=this.makeShield();shield.position.y=1.05;root.add(shield);
+  const expression=this.prepareAuthoredExpression(asset),capMark=this.makeSevenMark(hatSocket,true);
   asset.scene.updateMatrixWorld(true);
   const cloneWearable=(name,parent)=>{const source=this.authoredPowerupTemplate?.wearables.get(name);if(!source)throw new Error(`Authored hero cannot attach ${name}`);const wearable=source.clone(true);wearable.name=`18bro_${name}`;wearable.position.set(0,0,0);wearable.scale.setScalar(1);const sceneQ=new THREE.Quaternion(),parentQ=new THREE.Quaternion();asset.scene.getWorldQuaternion(sceneQ);parent.getWorldQuaternion(parentQ);wearable.quaternion.copy(sceneQ.invert().multiply(parentQ).invert());wearable.visible=false;parent.add(wearable);return wearable;};
   // The magnet stays on the authored grip socket. Its attachment rotation
   // cancels the fixed mixer-owned hold chain so the U remains upright.
   const magnet=cloneWearable('wearable_magnet',leftHand);magnet.position.set(0,0,0);magnet.quaternion.copy(magnetArmQuaternion).multiply(magnetForearmQuaternion).multiply(leftHand.quaternion).invert();magnet.scale.setScalar(1.16);magnet.userData.gripAtBottom=true;magnet.userData.raisedToPlayerRight=true;this.addMagnetWaves(magnet);
   const moonBootL=cloneWearable('wearable_moon_L',leftFoot),moonBootR=cloneWearable('wearable_moon_R',rightFoot);
-  return {root,asset,mixer,actions,magnetActions,magnetClips,magnetArmQuaternion,magnetForearmQuaternion,holdAngle,hand,leftHand,leftFoot,rightFoot,hat,hatSocket,backSocket,hats,jetpack,jetFlames,shield,magnet,moonBoots:[moonBootL,moonBootR],hips,furMaterials,assetScale:scale,clip:null,action:null,actionKey:'',magnetHeld:false,packet:null,packetSource:null,look:null};
+  return {root,asset,mixer,actions,magnetActions,magnetClips,magnetArmQuaternion,magnetForearmQuaternion,holdAngle,hand,leftHand,leftFoot,rightFoot,hat,hatSocket,backSocket,hats,jetpack,jetFlames,shield,expression,capMark,magnet,moonBoots:[moonBootL,moonBootR],hips,furMaterials,assetScale:scale,clip:null,action:null,actionKey:'',magnetHeld:false,packet:null,packetSource:null,look:null};
  }
  restoreOriginalHero(){
   if(this._hiddenHeroMeshes){for(const [object,visible] of this._hiddenHeroMeshes)object.visible=visible;this._hiddenHeroMeshes=null;}
@@ -254,7 +255,7 @@ export class GameScene {
     if(material.map!==nextMap){material.map=nextMap;material.needsUpdate=true;}
     material.color.set(nextMap?0xffffff:coat.color);
    }
-   hero.hat.visible=hat==='cap';for(const [kind,accessory] of hero.hats)accessory.visible=hat===kind;hero.look=look;
+   hero.hat.visible=hat==='cap';hero.capMark.visible=hat==='cap';for(const [kind,accessory] of hero.hats)accessory.visible=hat===kind;hero.look=look;
   }
   const selection=selectHeroAnimation(game,{menu,previousState:this._modelLastState,reducedMotion});
   const clip=selection.clip,magnetHeld=!!this.cat.magnet.visible,actionKey=`${clip}:${magnetHeld?'magnet':'base'}`;
@@ -268,9 +269,10 @@ export class GameScene {
   const action=hero.action;action.setEffectiveTimeScale(selection.rate);
   if(selection.sample!==null){hero.mixer.update(selection.frozen?0:Math.max(0,Math.min(dt,.05)));action.time=selection.sample*action.getClip().duration;hero.mixer.update(0);}
   else hero.mixer.update(selection.frozen?0:Math.max(0,Math.min(dt,.05)));
+  this.applyAuthoredSurprise(hero,this.cat.expression?.amount||0);
   if(hero.packetSource!==this.cat.bag){
    hero.packet?.removeFromParent();hero.packet=this.cat.bag.clone(true);hero.packet.name='18bro_refreshed_packet';
-   hero.hand.add(hero.packet);hero.packet.position.set(0,0,0);hero.packet.rotation.set(0,0,-.12);hero.packet.scale.setScalar(1/hero.assetScale);hero.packetSource=this.cat.bag;
+   hero.hand.add(hero.packet);hero.packet.position.set(0,0,0);hero.packet.rotation.set(0,Math.PI,-.12);hero.packet.scale.setScalar(1/hero.assetScale);hero.packetSource=this.cat.bag;
   }
   hero.packet.visible=this.cat.bag.visible;
   hero.jetpack.visible=this.cat.jetpack.visible;if(hero.jetFlames){hero.jetFlames.visible=hero.jetpack.visible;this.animateJetFlames(hero.jetpack,this.clock,false);}hero.shield.visible=this.cat.shield.visible;hero.magnet.visible=this.cat.magnet.visible;hero.moonBoots.forEach(boot=>boot.visible=this.cat.moonBoots.some(item=>item.visible));
@@ -280,7 +282,7 @@ export class GameScene {
  disposeCharacterModels(){
   this._modelDisposed=true;this._modelGeneration=(this._modelGeneration||0)+1;this.restoreOriginalHero();
   const hero=this.authoredHero;
-  if(hero){hero.mixer.stopAllAction();hero.mixer.uncacheRoot(hero.asset.scene);hero.root.removeFromParent();hero.asset.dispose();this.authoredHero=null;}
+  if(hero){hero.mixer.stopAllAction();hero.mixer.uncacheRoot(hero.asset.scene);hero.expression?.geometry?.dispose();hero.expression?.lidGeometry?.dispose();hero.root.removeFromParent();hero.asset.dispose();this.authoredHero=null;}
   for(const person of this.humanRigs||[]){const rig=person.authored;if(!rig)continue;rig.mixer.stopAllAction();rig.mixer.uncacheRoot(rig.scene);for(const material of rig.materials||[])material.dispose();rig.scene.removeFromParent();person.authored=null;}
   this.authoredHumanAsset?.dispose();this.authoredHumanAsset=null;this.authoredHumanTemplate=null;
   this.authoredPowerupAsset?.dispose();this.authoredPowerupAsset=null;this.authoredPowerupTemplate=null;
@@ -446,7 +448,66 @@ export class GameScene {
   const b=new Batch(),rand=seeded(1877),m=this.m;for(let i=0;i<38;i++){const x=(rand()-.5)*160,z=-72-rand()*50,h=26+rand()*40,w=3+rand()*5;b.add(this.box,m.skyGlass,x,h/2,z,w,h,w*.8);for(const s of [-1,1])b.add(this.box,m.skyTrim,x+s*w*.45,h/2,z+w*.41,.075,h,.08);for(let y=6;y<h;y+=6)b.add(this.box,m.skyTrim,x,y,z+w*.42,w,.035,.035);if(i%3===0){b.add(this.box,m.skyGlass,x,h+2,z,w*.7,4,w*.6);b.add(this.cylinder,m.skyTrim,x,h+7,z,.15,10,.15);for(let y=10;y<h-6;y+=9)b.add(this.box,m.skyTrim,x,y,z+w*.44,w*1.3,.1,.1,0,0,i%2?.63:-.63);}}return b.group();
  }
  ellipsoid(parent,mat,x,y,z,sx,sy,sz){const mesh=new THREE.Mesh(this.sphere,mat);mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);parent.add(mesh);return mesh;}
- makeCat(skin,look={}){
+ makeSevenMark(parent,authored=false){
+  const g=new THREE.Group(),front=1;g.name=authored?'18bro_refreshed_cap_mark':'18bro_cap_mark';parent.add(g);
+  g.position.set(0,authored ? .16 : .29,authored ? .435 : .485);g.scale.setScalar(authored ? .82 : .72);
+  this.roundedMesh(g,this.m.white,0,0,0,.31,.25,.025,.035);
+  this.boxMesh(g,this.m.orange,-.035,.062,front*.095,.16,.045,.018);
+  this.boxMesh(g,this.m.red,.035,.032,front*.1,.17,.05,.019);
+  this.boxMesh(g,this.m.red,.055,-.035,front*.105,.052,.16,.02,-.28);
+  this.boxMesh(g,this.m.green,0,-.096,front*.098,.18,.032,.018);
+  for(const x of [-.055,0,.055])this.ellipsoid(g,this.m.green,x,-.073,front*.11,.018,.014,.009);
+  g.userData.mark='seven-inspired';g.userData.geometryOnly=true;g.userData.frontSign=front;g.userData.palette=['orange','red','green','cream'];return g;
+ }
+ prepareProceduralExpression(parts){
+  const all=[...parts.eyes,...parts.pupils,...parts.lids,...parts.brows,parts.mouth];
+  const bases=new Map(all.map(object=>[object,{position:object.position.clone(),scale:object.scale.clone(),rotation:object.rotation.clone()}]));
+  return {mode:'existing-procedural-face',amount:0,...parts,bases};
+ }
+ applyCatSurprise(cat,amount=0){
+  const expression=cat?.expression;if(!expression)return;const a=clamp(Number(amount)||0,0,1);expression.amount=a;
+  const restore=(object)=>{const base=expression.bases.get(object);object.position.copy(base.position);object.scale.copy(base.scale);object.rotation.copy(base.rotation);return base;};
+  expression.eyes.forEach(eye=>{const b=restore(eye);eye.scale.y=b.scale.y*(1+.28*a);});
+  expression.pupils.forEach(pupil=>{const b=restore(pupil);pupil.scale.x=b.scale.x*(1-.16*a);pupil.scale.y=b.scale.y*(1-.2*a);pupil.position.y=b.position.y-.015*a;});
+  expression.lids.forEach(lid=>{const b=restore(lid);lid.position.y=b.position.y+.16*a;lid.scale.y=b.scale.y*(1-.5*a);});
+  expression.brows.forEach((brow,index)=>{const b=restore(brow),side=index?1:-1;brow.position.y=b.position.y+.12*a;brow.rotation.z=b.rotation.z+side*.34*a;});
+  const mouthBase=restore(expression.mouth);expression.mouth.scale.x=mouthBase.scale.x*(1-.45*a);expression.mouth.scale.y=mouthBase.scale.y*(1+2.8*a);
+ }
+ prepareAuthoredExpression(asset){
+  const mesh=asset.scene.getObjectByName('18bro_face'),lidMesh=asset.scene.getObjectByName('18bro_fur');if(!mesh?.isSkinnedMesh||!mesh.geometry?.attributes?.position||!mesh.geometry?.attributes?.uv)return {mode:'authored-face-unavailable',amount:0};
+  const geometry=mesh.geometry.clone();mesh.geometry=geometry;const position=geometry.attributes.position,uv=geometry.attributes.uv,original=Float32Array.from(position.array);
+  const groups={eyes:[[],[]],pupils:[[],[]],brows:[[],[]],mouth:[]},tile=(u,v,x,y)=>Math.abs(u-x)<.035&&Math.abs(v-y)<.035;
+  for(let i=0;i<position.count;i++){
+   const u=uv.getX(i),v=uv.getY(i),x=position.getX(i),side=x<0?0:1;
+   if(tile(u,v,.625,.875))groups.eyes[side].push(i);
+   else if(tile(u,v,.875,.875))groups.pupils[side].push(i);
+   else if(tile(u,v,.375,.875))groups.brows[side].push(i);
+   else if(tile(u,v,.125,.375))groups.mouth.push(i);
+  }
+  const center=(indices,array=original)=>{const out=new THREE.Vector2();for(const i of indices)out.set(out.x+array[i*3],out.y+array[i*3+1]);return indices.length?out.multiplyScalar(1/indices.length):out;};
+  const centers={eyes:groups.eyes.map(indices=>center(indices)),pupils:groups.pupils.map(indices=>center(indices)),brows:groups.brows.map(indices=>center(indices)),mouth:center(groups.mouth)};
+  let lidGeometry=null,lidPosition=null,lidOriginal=null,lids=[],lidCenters=[];
+  if(lidMesh?.isSkinnedMesh&&lidMesh.geometry?.attributes?.position&&lidMesh.geometry.index){
+   lidGeometry=lidMesh.geometry.clone();lidMesh.geometry=lidGeometry;lidPosition=lidGeometry.attributes.position;lidOriginal=Float32Array.from(lidPosition.array);
+   const links=Array.from({length:lidPosition.count},()=>[]),index=lidGeometry.index.array;
+   for(let i=0;i<index.length;i+=3){const triangle=[index[i],index[i+1],index[i+2]];for(let a=0;a<3;a++)for(let b=a+1;b<3;b++){links[triangle[a]].push(triangle[b]);links[triangle[b]].push(triangle[a]);}}
+   const seen=new Uint8Array(lidPosition.count),components=[];
+   for(let seed=0;seed<lidPosition.count;seed++)if(!seen[seed]){const stack=[seed],indices=[];seen[seed]=1;while(stack.length){const vertex=stack.pop();indices.push(vertex);for(const adjacent of links[vertex])if(!seen[adjacent]){seen[adjacent]=1;stack.push(adjacent);}}components.push(indices);}
+   lids=components.filter(indices=>{if(indices.length<50||indices.length>75)return false;let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity,minZ=Infinity,maxZ=-Infinity;for(const i of indices){const x=lidOriginal[i*3],y=lidOriginal[i*3+1],z=lidOriginal[i*3+2];minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);minZ=Math.min(minZ,z);maxZ=Math.max(maxZ,z);}const x=(minX+maxX)/2,y=(minY+maxY)/2,z=(minZ+maxZ)/2;return Math.abs(x)>.2&&Math.abs(x)<.4&&y>1.9&&y<2.05&&z>.5&&z<.58;}).sort((a,b)=>center(a,lidOriginal).x-center(b,lidOriginal).x);
+   lidCenters=lids.map(indices=>center(indices,lidOriginal));
+  }
+  return {mode:'existing-authored-face-vertices',mesh,geometry,position,original,groups,centers,lidMesh,lidGeometry,lidPosition,lidOriginal,lids,lidCenters,amount:0,vertexCount:groups.eyes.flat().length+groups.pupils.flat().length+groups.brows.flat().length+groups.mouth.length,lidVertexCount:lids.flat().length};
+ }
+ applyAuthoredSurprise(hero,amount=0){
+  const expression=hero?.expression;if(!expression?.position)return;const a=clamp(Number(amount)||0,0,1),array=expression.position.array,source=expression.original;array.set(source);
+  const transform=(indices,center,sx,sy,dx=0,dy=0)=>{for(const i of indices){const j=i*3,x=source[j],y=source[j+1];array[j]=mix(x,center.x+(x-center.x)*sx+dx,a);array[j+1]=mix(y,center.y+(y-center.y)*sy+dy,a);}};
+  expression.groups.eyes.forEach((indices,index)=>transform(indices,expression.centers.eyes[index],1.08,1.36));
+  expression.groups.pupils.forEach((indices,index)=>transform(indices,expression.centers.pupils[index],.8,.76,0,-.018));
+  expression.groups.brows.forEach((indices,index)=>transform(indices,expression.centers.brows[index],1,1,(index?1:-1)*.022,.075));
+  transform(expression.groups.mouth,expression.centers.mouth,.32,1.9,0,-.014);
+  expression.position.needsUpdate=true;
+  if(expression.lidPosition&&expression.lidOriginal){const lidArray=expression.lidPosition.array,lidSource=expression.lidOriginal;lidArray.set(lidSource);expression.lids.forEach((indices,index)=>{const center=expression.lidCenters[index];for(const i of indices){const j=i*3,y=lidSource[j+1];lidArray[j+1]=mix(y,center.y+(y-center.y)*.48+.16,a);}});expression.lidPosition.needsUpdate=true;}
+  expression.amount=a; } makeCat(skin,look={}){
   const root=new THREE.Group(),body=new THREE.Group(),m=this.m;root.add(body);
   const fur=FURS.find(f=>f.id===look.fur);
   this.furMaterials??=new Map();if(fur&&!this.furMaterials.has(fur.id))this.furMaterials.set(fur.id,new THREE.MeshLambertMaterial({color:fur.color,flatShading:true}));
@@ -454,28 +515,28 @@ export class GameScene {
   this.ellipsoid(body,suit,0,.65,0,.83,.96,.7);
   const head=new THREE.Group();head.position.set(0,1.4,.04);body.add(head);
   this.ellipsoid(head,coat,0,0,0,1.68,1.34,1.22);this.ellipsoid(head,coat,-.43,-.23,.17,.78,.7,.9);this.ellipsoid(head,coat,.43,-.23,.17,.78,.7,.9);
+  const eyes=[],pupils=[],lids=[],brows=[];
   for(const side of [-1,1]){
     const ear=new THREE.Group();ear.position.set(side*.54,.28,-.03);ear.rotation.z=-side*.16;head.add(ear);
     const shape=new THREE.Shape();shape.moveTo(-.3,0);shape.quadraticCurveTo(-.34,.06,-.25,.55);shape.quadraticCurveTo(-.2,.76,-.09,.67);shape.lineTo(.29,.13);shape.quadraticCurveTo(.33,0,.19,-.03);shape.closePath();
     // The inset is a scaled copy of the outer ear silhouette, with a broad black rim on every edge.
     const outer=new THREE.Mesh(new THREE.ExtrudeGeometry(shape,{depth:.13,bevelEnabled:true,bevelSegments:2,steps:1,bevelSize:.045,bevelThickness:.035,curveSegments:7}),coat);if(side>0)outer.scale.x=-1;ear.add(outer);
     const inset=new THREE.Mesh(new THREE.ShapeGeometry(shape,7),side<0?m.earRed:m.earGreen);inset.scale.set(side>0?-.66:.66,.64,1);inset.position.set(side<0?-.015:.015,.085,.174);ear.add(inset);
-    this.ellipsoid(head,m.eye,side*.355,-.12,.625,.5,.45,.065);
-    this.ellipsoid(head,m.pupil,side*.34,-.065,.665,.245,.285,.025);
-    const lid=this.ellipsoid(head,coat,side*.355,.085,.66,.57,.25,.12);lid.rotation.z=-side*.16;
-    const brow=this.ellipsoid(head,m.brow,side*.36,.165,.695,.66,.14,.13);brow.rotation.z=-side*.23;
+    const eye=this.ellipsoid(head,m.eye,side*.355,-.12,.625,.5,.45,.065);eye.name='18bro_eye_'+(side<0?'L':'R');eyes.push(eye);
+    const pupil=this.ellipsoid(head,m.pupil,side*.34,-.065,.665,.245,.285,.025);pupil.name='18bro_pupil_'+(side<0?'L':'R');pupils.push(pupil);
+    const lid=this.ellipsoid(head,coat,side*.355,.085,.66,.57,.25,.12);lid.name='18bro_eyelid_'+(side<0?'L':'R');lid.rotation.z=-side*.16;lids.push(lid);
+    const brow=this.ellipsoid(head,m.brow,side*.36,.165,.695,.66,.14,.13);brow.name='18bro_brow_'+(side<0?'L':'R');brow.rotation.z=-side*.23;brows.push(brow);
   }
   const nose=new THREE.Mesh(new THREE.SphereGeometry(.5,12,8),m.orange);nose.position.set(0,-.27,.682);nose.scale.set(.24,.17,.19);nose.rotation.z=Math.PI;head.add(nose);
-  this.ellipsoid(head,m.pupil,0,-.395,.606,.12,.025,.035);
+  const mouth=this.ellipsoid(head,m.pupil,0,-.395,.606,.12,.025,.035);mouth.name='18bro_mouth';
+  const expression=this.prepareProceduralExpression({eyes,pupils,lids,brows,mouth});
   const cap=new THREE.Group();cap.position.set(0,.6,-.04);cap.rotation.z=.025;head.add(cap);
   const hatColor=skin==='police'?m.policeDark:m.capGreen;
   const dome=new THREE.Mesh(new THREE.SphereGeometry(.48,20,12,0,TAU,0,1.59),hatColor);dome.scale.set(1.14,.77,1);cap.add(dome);
   const panel=new THREE.Mesh(new THREE.SphereGeometry(.485,12,9,.45,Math.PI-.9,.12,1.36),m.cap);panel.scale.set(1.14,.77,1);cap.add(panel);
   const brimShape=new THREE.Shape();brimShape.moveTo(-.49,.17);brimShape.quadraticCurveTo(-.7,.68,-.45,.83);brimShape.quadraticCurveTo(0,.98,.45,.83);brimShape.quadraticCurveTo(.7,.68,.49,.17);brimShape.quadraticCurveTo(0,.32,-.49,.17);
   const brim=new THREE.Mesh(new THREE.ExtrudeGeometry(brimShape,{depth:.042,steps:1,bevelEnabled:true,bevelSegments:2,bevelSize:.023,bevelThickness:.012,curveSegments:10}),hatColor);brim.rotation.x=Math.PI/2;brim.position.y=.03;cap.add(brim);
-  // The logo uses a curved decal following the cap surface, with only 1 mm of offset.
-  const decalGeo=new THREE.SphereGeometry(.486,28,18,Math.PI/2-.43,.86,.40,.99);
-  const label=new THREE.Mesh(decalGeo,m.capLabel);label.scale.set(1.14,.77,1);cap.add(label);
+  const capMark=this.makeSevenMark(cap,false);
   this.ellipsoid(cap,hatColor,0,.382,0,.12,.06,.12);
   if(look.hat&&look.hat!=='cap'){
    cap.visible=false;const hat=this.makeHat(look.hat);head.add(hat);
@@ -486,13 +547,13 @@ export class GameScene {
   const legs=[],arms=[];
   for(const side of [-1,1]){const leg=new THREE.Group();leg.position.set(side*.24,.4,0);body.add(leg);this.ellipsoid(leg,coat,0,-.13,0,.3,.48,.34);this.ellipsoid(leg,skin==='astronaut'?m.white:coat,0,-.31,.11,.36,.21,.48);legs.push(leg);const arm=new THREE.Group();arm.position.set(side*.45,.96,0);body.add(arm);this.ellipsoid(arm,suit,0,-.2,0,.31,.55,.34);this.ellipsoid(arm,coat,0,-.43,.035,.32,.3,.33);arm.rotation.z=side*.12;arms.push(arm);}
   const tail=new THREE.Mesh(new THREE.CylinderGeometry(.07,.11,.8,10),coat);tail.position.set(.14,.66,-.53);tail.rotation.x=-.75;body.add(tail);
-  const bag=new THREE.Group();this.makePacket(bag);bag.position.set(0,-.42,.09);bag.rotation.z=-.12;arms[1].add(bag);
+  const bag=new THREE.Group();this.makePacket(bag);bag.position.set(0,-.42,.09);bag.rotation.set(0,Math.PI,-.12);arms[1].add(bag);
   const magnet=new THREE.Group();magnet.name='magnet_wearable';magnet.position.set(0,-.49,.08);magnet.userData.gripAtBottom=true;magnet.userData.raisedToPlayerRight=true;arms[0].add(magnet);const magnetArc=new THREE.Mesh(new THREE.TorusGeometry(.28,.075,8,20,Math.PI),m.red);magnetArc.position.y=.28;magnetArc.rotation.z=Math.PI;magnet.add(magnetArc);for(const side of [-1,1])this.boxMesh(magnet,side<0?m.red:m.cyan,side*.28,.29,0,.14,.22,.15);this.addMagnetWaves(magnet);magnet.visible=false;
   const moonBoots=legs.map((leg,index)=>{const boot=new THREE.Group();boot.name=`moon_boot_${index?'R':'L'}`;boot.position.set(0,-.34,.14);leg.add(boot);this.roundedMesh(boot,m.blue,0,0,0,.48,.3,.56,.08);this.boxMesh(boot,m.cyan,0,.1,.18,.4,.08,.12);this.ellipsoid(boot,m.lamp,0,-.11,.21,.28,.06,.13);boot.visible=false;return boot;});
   const jetpack=this.makeJetpack();jetpack.position.set(0,.85,-.46);jetpack.scale.setScalar(.8);body.add(jetpack);jetpack.visible=false;
   const shield=this.makeShield();root.add(shield);shield.position.y=1.05;
   shield.visible=false;
-  return {root,body,head,legs,arms,tail,bag,magnet,moonBoots,jetpack,shield};
+  return {root,body,head,legs,arms,tail,bag,expression,capMark,magnet,moonBoots,jetpack,shield};
  }
  makeShield(){
   const shield=new THREE.Group();shield.name='shield_aura';const trackedMaterials=this.materials||(this.materials=[]),ownedMaterials=[],track=(...materials)=>{trackedMaterials.push(...materials);ownedMaterials.push(...materials);};shield.userData.ownedMaterials=ownedMaterials;
@@ -539,18 +600,21 @@ export class GameScene {
   // and 1.30 wide). Animation moves the whole prop from its grip.
   const handle=new THREE.Mesh(new THREE.CylinderGeometry(.045,.06,1.95,6),m.wood);handle.name='catch_net_handle';handle.position.y=.625;net.add(handle);
   const grip=new THREE.Mesh(new THREE.CylinderGeometry(.071,.071,.3,6),m.policeDark);grip.name='catch_net_grip';grip.position.y=.18;net.add(grip);
-  const hoopRadius=.76,hoopY=1.58,sackDepth=2.1,segments=10;
-  const hoop=new THREE.Mesh(new THREE.TorusGeometry(hoopRadius,.052,5,segments),m.gold);hoop.name='catch_net_hoop';hoop.position.y=hoopY;net.add(hoop);
-  const webMaterial=new THREE.LineBasicMaterial({color:0xf4df9c,transparent:true,opacity:.76,depthWrite:false});this.materials?.push(webMaterial);
+  const hoopRadius=.71,hoopY=1.52,sackDepth=2.02,segments=16;
+  const hoop=new THREE.Mesh(new THREE.TorusGeometry(hoopRadius,.047,6,segments),m.gold);hoop.name='catch_net_hoop';hoop.position.y=hoopY;net.add(hoop);
+  const webMaterial=new THREE.LineBasicMaterial({color:0xffefb4,transparent:true,opacity:.58,depthWrite:false});this.materials?.push(webMaterial);
   const openWeb=new THREE.Group();openWeb.name='catch_net_open_web';net.add(openWeb);
-  const openPositions=[],centre=new THREE.Vector3(0,hoopY-.42,-.5);
-  for(let i=0;i<segments;i++){
-   const a=i*TAU/segments,b=(i+1)*TAU/segments,outer=new THREE.Vector3(Math.cos(a)*hoopRadius,hoopY+Math.sin(a)*hoopRadius,0),next=new THREE.Vector3(Math.cos(b)*hoopRadius,hoopY+Math.sin(b)*hoopRadius,0);
-   openPositions.push(outer.x,outer.y,outer.z,centre.x,centre.y,centre.z,outer.x,outer.y,outer.z,next.x,next.y,next.z);
+  // Sagging horizontal and vertical chords form a readable butterfly-net mesh.
+  // Radial spokes and concentric rings both looked like wheels when seen head-on.
+  const openPositions=[],gridStep=.2;
+  for(let offset=-.6;offset<=.6001;offset+=gridStep){
+   const extent=Math.sqrt(Math.max(0,hoopRadius*hoopRadius-offset*offset)),sag=.34*(1-Math.abs(offset)/hoopRadius);
+   openPositions.push(offset,hoopY-extent,0,offset,hoopY,-sag,offset,hoopY,-sag,offset,hoopY+extent,0);
+   openPositions.push(-extent,hoopY+offset,0,0,hoopY+offset,-sag,0,hoopY+offset,-sag,extent,hoopY+offset,0);
   }
   const openGeometry=new THREE.BufferGeometry();openGeometry.setAttribute('position',new THREE.Float32BufferAttribute(openPositions,3));const web=new THREE.LineSegments(openGeometry,webMaterial);web.name='catch_net_web';openWeb.add(web);
   const sack=new THREE.Group();sack.name='catch_net_sack';sack.visible=false;net.add(sack);
-  const sackPositions=[],rings=[{z:0,r:.76},{z:-.45,r:.76},{z:-1,r:.7},{z:-1.55,r:.5},{z:-sackDepth,r:.14}];
+  const sackPositions=[],rings=[{z:0,r:hoopRadius},{z:-.3,r:.70},{z:-.68,r:.68},{z:-1.06,r:.61},{z:-1.42,r:.48},{z:-1.73,r:.31},{z:-sackDepth,r:.1}];
   for(let ring=0;ring<rings.length;ring++)for(let i=0;i<segments;i++){
    const a=i*TAU/segments,b=(i+1)*TAU/segments,current=rings[ring],next=rings[Math.min(ring+1,rings.length-1)];
    const p=new THREE.Vector3(Math.cos(a)*current.r,hoopY+Math.sin(a)*current.r,current.z),q=new THREE.Vector3(Math.cos(b)*current.r,hoopY+Math.sin(b)*current.r,current.z);
@@ -559,8 +623,8 @@ export class GameScene {
   }
   const sackGeometry=new THREE.BufferGeometry();sackGeometry.setAttribute('position',new THREE.Float32BufferAttribute(sackPositions,3));const bag=new THREE.LineSegments(sackGeometry,webMaterial);bag.name='catch_net_bag_lattice';sack.add(bag);
   const bagCenter=new THREE.Object3D();bagCenter.name='catch_net_bag_center';bagCenter.position.set(0,hoopY,-sackDepth*.5);net.add(bagCenter);
-  const payloadRoot=new THREE.Object3D();payloadRoot.name='catch_net_payload_root';payloadRoot.position.set(0,hoopY,-1.96);net.add(payloadRoot);
-  net.userData.guardIndex=index;net.userData.lowPoly=true;net.userData.hoopSegments=segments;net.userData.hoopRadius=hoopRadius;net.userData.sackDepth=sackDepth;net.userData.heroEnvelope={height:1.86,headWidth:1.3};net.userData.openWeb=openWeb;net.userData.sack=sack;net.userData.bagCenter=bagCenter;net.userData.payloadRoot=payloadRoot;net.userData.baseScale=1;return net;
+  const payloadRoot=new THREE.Object3D();payloadRoot.name='catch_net_payload_root';payloadRoot.position.set(0,hoopY,-1.98);net.add(payloadRoot);
+  net.userData.guardIndex=index;net.userData.lowPoly=true;net.userData.hoopSegments=segments;net.userData.hoopRadius=hoopRadius;net.userData.sackDepth=sackDepth;net.userData.heroEnvelope={height:1.86,headWidth:1.3};net.userData.openWeb=openWeb;net.userData.openWebPattern='sagging-square-lattice';net.userData.sack=sack;net.userData.bagCenter=bagCenter;net.userData.payloadRoot=payloadRoot;net.userData.baseScale=1;return net;
  }
  makeCatchTargetMark(){
   const mark=new THREE.Group();mark.name='police_catch_target';mark.visible=false;
@@ -582,6 +646,10 @@ export class GameScene {
   if(cop.authored&&this.effectiveModelSet==='refreshed')this.updateAuthoredNetArm(cop,side,phase,raise);
   else this.poseProceduralNetArm(cop,side,raise);
  }
+ poseProceduralNetCarryArm(cop,side=-1){
+  const index=side<0?0:1,arm=cop.arms?.[index],elbow=cop.elbows?.[index];if(!arm||!elbow)return;
+  this.poseLimb(arm,elbow,new THREE.Vector3(0,-.34,.04),new THREE.Vector3(side*.5,1.36,.08),new THREE.Vector3(side*.22,0,1),1);
+ }
  setNetReadyPose(net,side,raise=0,owner=null){
   const amount=smooth(clamp(raise,0,1)),ready=new THREE.Quaternion().setFromEuler(new THREE.Euler(mix(.36,.9,amount),0,side*mix(.2,.28,amount)));
   net.position.set(0,0,0);
@@ -601,6 +669,14 @@ export class GameScene {
  }
  setNetCaptureMode(net,captured=false){
   if(net.userData.openWeb)net.userData.openWeb.visible=!captured;if(net.userData.sack)net.userData.sack.visible=captured;net.userData.captured=captured;return net;
+ }
+ netShoulderFrame(cop,net,handSide){
+  const suffix=handSide<0?'L':'R',index=handSide<0?0:1,shoulder=cop.authored&&this.effectiveModelSet==='refreshed'?cop.authored.scene.getObjectByName('arm_'+suffix):cop.arms?.[index],gripParent=net.parent;
+  if(!shoulder||!gripParent)return null;cop.root.updateWorldMatrix(true,true);
+  const shoulderWorld=shoulder.getWorldPosition(new THREE.Vector3()),gripWorld=gripParent.getWorldPosition(new THREE.Vector3()),shaftWorld=shoulderWorld.clone().sub(gripWorld);
+  if(shaftWorld.lengthSq()<.01)shaftWorld.set(handSide<0 ? .45 : -.45,.26,.18);shaftWorld.normalize();
+  const along=shoulderWorld.clone().sub(gripWorld).dot(shaftWorld),closest=gripWorld.clone().addScaledVector(shaftWorld,along);
+  return {shoulderWorld,gripWorld,shaftWorld,contactDistance:closest.distanceTo(shoulderWorld),gripToShoulder:gripWorld.distanceTo(shoulderWorld)};
  }
  setNetWorldFrame(net,shaftWorld,bagDownWorld=new THREE.Vector3(0,-1,0)){
   const parent=net.parent;if(!parent)return null;parent.updateWorldMatrix(true,false);
@@ -631,29 +707,29 @@ export class GameScene {
   if(active&&!caught)this._netCaptureBase=null;const base=this._netCaptureBase;let carrier=null,carrierNet=null,catTarget=null;
   for(let i=0;i<(this.cops?.length||0);i++){
    const cop=this.cops[i],net=cop.catchNet,selected=i===guardIndex,side=i?1:-1;if(cop.baton)cop.baton.visible=!active;if(!net)continue;
-   const handSide=caught&&!selected?side:-side;this.attachCatchNet(cop,net,cop.root.userData.modelSet==='refreshed',handSide);net.visible=active;if(!net.visible)continue;cop.root.visible=true;
+   const handSide=-side;this.attachCatchNet(cop,net,cop.root.userData.modelSet==='refreshed',handSide);
+   // Only the officer taking the current attempt presents a net. A second
+   // full-size hoop obscured the telegraph, hero and carrier in every view.
+   net.visible=active&&selected;cop.root.visible=true;
    if(!caught){
     this.setNetCaptureMode(net,false);const aiming=selected&&['telegraph','strike','swing'].includes(phase),raising=aiming?telegraph:0;if(aiming){const close=smooth((telegraph-.08)/.92),goalZ=targetZ+1.48;cop.root.position.z=mix(cop.root.position.z,goalZ,close);this.poseNetGuardArm(cop,handSide,(this.clock||0)*12,raising);}this.setNetReadyPose(net,handSide,raising,cop);
     if(selected&&(phase==='strike'||phase==='swing')){cop.root.updateMatrixWorld(true);net.updateWorldMatrix(true,true);const readyQuaternion=net.quaternion.clone(),hoopTarget=new THREE.Vector3(targetWorldX,(this.cat?.root.position.y||routeOffset.y)+1.92,targetZ);this.orientAttachedNet(net,hoopTarget,new THREE.Vector3(0,0,-1));const strikeQuaternion=net.quaternion.clone();net.quaternion.copy(readyQuaternion).slerp(strikeQuaternion,strikeProgress);}
     net.userData.presentation={selected,handSide,raising,swing:strikeProgress,phase,attached:true,forward:true,stableArm:aiming,scale:net.scale.x};
    }else if(base){
-    const settle=phase==='netted'?smooth(phaseProgress):1,actorTurn=selected?turn:(phase==='netted'?smooth(phaseProgress)*.18:phase==='lift'?mix(.18,1,smooth(phaseProgress)):1),source=base.cops?.[i]||{position:cop.root.position.clone(),quaternion:cop.root.quaternion.clone()},formation=new THREE.Vector3(base.catPosition.x+side*(selected?1.22:1.72),routeOffset.y,base.catPosition.z+travel+(selected ? .48 : 1.0));
+    const settle=phase==='netted'?smooth(phaseProgress):1,actorTurn=selected?turn:(phase==='netted'?smooth(phaseProgress)*.18:phase==='lift'?mix(.18,1,smooth(phaseProgress)):1),source=base.cops?.[i]||{position:cop.root.position.clone(),quaternion:cop.root.quaternion.clone()},formation=new THREE.Vector3(base.catPosition.x+side*(selected?1.22:2.08),routeOffset.y,base.catPosition.z+travel+(selected ? .48 : 1.0));
     cop.root.position.copy(source.position).lerp(formation,settle);const targetQ=new THREE.Quaternion().setFromEuler(new THREE.Euler(0,Math.PI*(1-actorTurn),0));cop.root.quaternion.copy(source.quaternion).slerp(targetQ,settle);
     const gait=(travel+i*.34+phaseProgress*.58)*.42,carrying=phase==='carry',walking=phase==='netted'?(selected ? .06 : .28):phase==='lift'?(selected ? .1 : .42):.82;
     this.animateCop(cop,gait,walking,carrying,handSide);
     if(selected){
+     if(carrying&&!(cop.authored&&this.effectiveModelSet==='refreshed'))this.poseProceduralNetCarryArm(cop,handSide);
      if(!carrying)this.poseNetGuardArm(cop,handSide,gait*12,.55+.45*lift);
      this.setNetCaptureMode(net,true);
-     const shaft=carrying?new THREE.Vector3(-side*.93,0,-.36).normalize():new THREE.Vector3(-side,.08*(1-lift),-.08).normalize(),attachment=this.setNetWorldFrame(net,shaft,new THREE.Vector3(0,-1,0));
+     const shoulderFrame=carrying?this.netShoulderFrame(cop,net,handSide):null,shaft=shoulderFrame?.shaftWorld||new THREE.Vector3(-side,.08*(1-lift),-.08).normalize(),attachment=this.setNetWorldFrame(net,shaft,new THREE.Vector3(0,-1,0));
+     if(attachment&&shoulderFrame)Object.assign(attachment,shoulderFrame,{shoulderResting:true});
      if(attachment?.payloadWorld){const desired=attachment.payloadWorld;catTarget=base.catPosition.clone().lerp(desired,phase==='netted'?smooth(phaseProgress):1);}
      net.userData.presentation={selected:true,handSide,phase,planted:phase!=='carry',lift,turn,shoulder:carrying?1:0,travel,exitSeconds,attached:true,forward:true,stableArm:true,attachment,scale:net.scale.x};carrier=cop;carrierNet=net;
-    }else{
-     this.setNetCaptureMode(net,false);
-     // The escort carries the empty hoop in his outer hand, low and behind the
-     // group, so it never crosses the carrier, sack or his own face.
-     const shaft=new THREE.Vector3(side*.74,.24,-.63).normalize(),attachment=this.setNetWorldFrame(net,shaft,new THREE.Vector3(0,-1,0));
-     net.userData.presentation={selected:false,escort:true,handSide,phase,turn:actorTurn,shoulder:carrying?1:0,travel,exitSeconds,attached:true,forward:false,stableArm:true,attachment,scale:net.scale.x};
     }
+
    }
   }
   if(caught&&base&&carrier&&carrierNet&&this.cat?.root&&catTarget){
@@ -1177,13 +1253,30 @@ export class GameScene {
   this.batchStatic(this.store);
   this.shelfBag=new THREE.Group();this.makePacket(this.shelfBag);this.shelfBag.scale.setScalar(.776);this.scene.add(this.shelfBag);
  }
- makePacket(parent){
-  const m=this.m;this.boxMesh(parent,m.chip,0,-.19,.01,.34,.54,.15);
-  for(const y of [-.44,.07])this.boxMesh(parent,m.orange,0,y,.01,.36,.035,.16);
-  this.boxMesh(parent,m.red,0,-.11,.091,.32,.09,.014);
-  this.ellipsoid(parent,m.chipLight,0,-.28,.097,.17,.13,.018);
+ makePacketBodyGeometry(){
+  const profiles=[[-.52,.275,.045],[-.45,.31,.105],[-.34,.325,.145],[.02,.325,.145],[.13,.305,.095],[.2,.275,.045]],segments=16,positions=[],indices=[],geometry=new THREE.BufferGeometry();
+  for(const [y,width,depth] of profiles)for(let i=0;i<segments;i++){const angle=i*TAU/segments;positions.push(Math.cos(angle)*width,y,Math.sin(angle)*depth);}
+  const addBand=(ring,material)=>{const start=indices.length;for(let i=0;i<segments;i++){const next=(i+1)%segments,a=ring*segments+i,b=ring*segments+next,c=(ring+1)*segments+next,d=(ring+1)*segments+i;indices.push(a,b,d,b,c,d);}geometry.addGroup(start,indices.length-start,material);};
+  for(let ring=0;ring<profiles.length-1;ring++)addBand(ring,ring===0||ring===profiles.length-2?1:0);
+  const addCap=(ring,normal,material)=>{const center=positions.length/3;positions.push(0,profiles[ring][0],0);const start=indices.length;for(let i=0;i<segments;i++){const next=(i+1)%segments,a=ring*segments+i,b=ring*segments+next;indices.push(center,normal<0?b:a,normal<0?a:b);}geometry.addGroup(start,indices.length-start,material);};
+  addCap(0,-1,1);addCap(profiles.length-1,1,1);geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geometry.setIndex(indices);geometry.computeVertexNormals();geometry.computeBoundingBox();geometry.userData={sealedPillow:true,integratedCrimps:true,profiles:profiles.map(profile=>[...profile])};return geometry;
  }
- makeParticles(){
+ makePacketWordmark(){
+  const patterns={C:['111','100','100','100','111'],H:['101','101','111','101','101'],I:['111','010','010','010','111'],P:['110','101','110','100','100'],S:['111','100','111','001','111']},positions=[],letters='CHIPS',cell=.012,gap=.01,total=letters.length*3*cell+(letters.length-1)*gap,start=-total/2;
+  for(let letter=0;letter<letters.length;letter++){const pattern=patterns[letters[letter]],left=start+letter*(3*cell+gap);for(let row=0;row<5;row++)for(let column=0;column<3;column++)if(pattern[row][column]==='1'){const x=left+(column+.5)*cell,y=(2-row)*cell,a=positions.length/3;positions.push(x-cell*.45,y-cell*.45,0,x+cell*.45,y-cell*.45,0,x+cell*.45,y+cell*.45,0,x-cell*.45,y+cell*.45,0);}}
+  const geometry=new THREE.BufferGeometry(),indices=[];for(let i=0;i<positions.length/12;i++){const a=i*4;indices.push(a,a+1,a+2,a,a+2,a+3);}geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geometry.setIndex(indices);geometry.computeVertexNormals();return geometry;
+ }
+ makePacket(parent){
+  const m=this.m,body=new THREE.Mesh(this.makePacketBodyGeometry(),[m.orange,m.chipLight]);body.name='stolen_chip_packet_body';parent.add(body);
+  const wordmarkGeometry=this.makePacketWordmark();
+  for(const face of [-1,1]){
+   const label=new THREE.Group();label.name=face>0?'stolen_chip_label':'stolen_chip_label_back';label.position.set(0,-.12,face*.147);if(face<0)label.rotation.y=Math.PI;parent.add(label);
+   const panel=new THREE.Mesh(new THREE.PlaneGeometry(.43,.155),m.red);panel.name='stolen_chip_label_panel';label.add(panel);
+   const wordmark=new THREE.Mesh(wordmarkGeometry,m.white);wordmark.name='stolen_chip_wordmark';wordmark.position.z=.002;wordmark.scale.set(1.45,1.45,1);label.add(wordmark);
+   for(const [x,y,r] of [[-.09,-.18,.06],[.015,-.205,.068],[.105,-.17,.05]]){const chip=new THREE.Mesh(new THREE.CircleGeometry(r,12),m.chipLight);chip.position.set(x,y+.12,.003);label.add(chip);}
+  }
+  parent.userData.packetStyle='sealed-pillow';parent.userData.originalArtwork=true;parent.userData.volume={width:.65,height:.72,depth:.29};parent.userData.integratedCrimps=true;parent.userData.surfaceLabels=true;parent.userData.readableFaces=2;
+ } makeParticles(){
   this.particleMesh=new THREE.InstancedMesh(this.box,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.85,depthWrite:false}),256);
   this.particleMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);this.particleMesh.frustumCulled=false;this.scene.add(this.particleMesh);this.particleDummy=new THREE.Object3D();this.particleMesh.count=0;
   this.effects=Array.from({length:256},()=>({life:0}));this.effectCursor=0;this.effectClock=0;this.lastIntroTime=0;
@@ -1379,7 +1472,7 @@ export class GameScene {
   this.updatePeople(dist,freeze?this.frozenClock:t,isMenu||isStarting);if(!freeze)this.frozenClock=t;
   for(const person of this.people){const s=dist-person.root.position.z;person.root.visible=person.root.visible&&s<230;person.root.position.x+=routeCenter(s)-worldCurve;}
   this.store.visible=isMenu||isStarting||dist<55;this.store.position.z=STORE.z+dist;this.menuProps.visible=false;if(this.storeInfill)this.storeInfill.visible=dist>=55;
-  this.cat.root.visible=true;this.cat.root.scale.setScalar(.776);this.cat.bag.visible=!isMenu&&(!isStarting||it>=.95);
+  this.cat.root.visible=true;this.cat.root.scale.setScalar(.776);this.cat.bag.visible=!isMenu&&(!isStarting||it>=.95);this.applyCatSurprise(this.cat,isStarting?introPanicAmount(it):0);
   this.cat.magnet.visible=!!game.powers?.has('magnet')&&!isCaught&&!isOver;this.cat.moonBoots.forEach(boot=>boot.visible=!!moon&&!isCaught&&!isOver);
   this.cat.jetpack.visible=!!game.powers?.has('jetpack')&&!isCaught&&!isOver;const shieldActive=!!game.powers?.has('shield')&&!isCaught&&!isOver,shieldCharges=this.shieldCharges(game);
   this.cat.jetpack.userData.flames.visible=this.cat.jetpack.visible;this.animateJetFlames(this.cat.jetpack,this.clock,reducedMotion);
@@ -1409,6 +1502,10 @@ export class GameScene {
     const e=pose.exterior,c=pose.chase;
     this.target.set(-8.9+e*8.6,2.35+e*.95,-.35+e*2.15+dist*(1-c)).lerp(new THREE.Vector3(0,3.85,7.3),c);
     this.cameraTarget.set(-12.6+e*5.4,1.22+e*1.13,-2.95-e*2.05+dist*(1-c)).lerp(new THREE.Vector3(0,1.4,-10),c);
+    // 18Bro glances toward the established store camera after grabbing the
+    // packet. This reveals the panic face without cutting through shop walls.
+    const faceShot=smooth((it-.78)/.2)*(1-smooth((it-1.94)/.22));
+    if(faceShot>0){const reveal=new THREE.Object3D(),look=this.camera.position.clone();reveal.position.copy(this.cat.root.position);look.y=reveal.position.y;reveal.lookAt(look);this.cat.root.quaternion.slerp(reveal.quaternion,faceShot);}
     goalFov=67-c*2+pose.burst*7;
     if(!reducedMotion){this.target.y+=Math.sin(it*52)*.08*pose.burst;this.target.x+=Math.sin(it*39)*.05*pose.burst;}
     this.clerk.arms.forEach((arm,i)=>{arm.rotation.x=-2.45*pose.clerk;arm.rotation.z=(i?1:-1)*(.12+.28*pose.clerk);this.clerk.elbows[i].rotation.x=-.85*pose.clerk;});

@@ -16,7 +16,7 @@ test('standalone embeds exact model bytes and parses/clones them offline with ve
   const html=fs.readFileSync(output,'utf8');
   assert.match(html,/"chip-turntable":"data:image\/png;base64,/,'standalone embeds the model-rendered APNG turntable');
   const favicon=html.match(/<link rel="icon"[^>]+href="(data:image\/png;base64,[^"]+)"/)?.[1];
-  assert.ok(favicon,'standalone embeds the chase favicon');
+  assert.ok(favicon,'standalone embeds the peeking 18Bro favicon');
   assert.deepEqual(Buffer.from(favicon.split(',')[1],'base64'),fs.readFileSync(path.join(root,'dist/assets/icons/favicon.png')));
   assert.doesNotMatch(html,/@keyframes result-chip-spin\{/,'standalone does not fake 3D rotation with CSS');
   assert.match(html,/[.]result-wave-enabled [.]result-title>span\{animation:busted-letter-wave/,'standalone keeps the flowing BUSTED wave');

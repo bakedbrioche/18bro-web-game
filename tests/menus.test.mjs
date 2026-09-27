@@ -214,7 +214,11 @@ test('net-pursuit reward rotates themed copy and uses an accessible chase card w
  const css=fs.readFileSync(new URL('../dist/style.css',import.meta.url),'utf8');
  assert.match(html,/id="pursuit-reward"[^>]+role="status"/);
  for(const tag of ['NET MISS! BRO LIVES!','COPS WHIFF! CHIPS SAFE!','NET DODGED! SNACKS SECURED!','TOO SLOW! 18BRO GOES!'])assert.match(source,new RegExp(tag.replace(/[!?]/g,'\\$&')));
- assert.match(css,/[.]pursuit-reward::after\{[^}]*content:attr\(data-message\)/s);
+ assert.equal(a.get('pursuit-reward-message').textContent,'TOO SLOW! 18BRO GOES!');
+ assert.match(a.get('pursuit-reward-guard').src,/pursuit-guard[.]png/);assert.match(a.get('pursuit-reward-cat').src,/pursuit-cat[.]png/);
+ assert.match(html,/pursuit-panel-guard[\s\S]*pursuit-panel-cat/);
+ assert.match(css,/[.]pursuit-reward[.]show [.]pursuit-panel-guard\{animation:pursuit-panel-left/);
+ assert.match(css,/[.]pursuit-reward[.]show::before\{animation:pursuit-reward-aura/);
  assert.match(css,/[.]pursuit-reward[.]show\{animation:pursuit-reward-card/);
  assert.match(css,/[.]score-bonus[.]show\{animation:score-bonus-pop/);
  assert.match(css,/@keyframes score-bonus-pop\{[^}]*scale\([.]18\)[\s\S]*scale\(1[.]22\)[\s\S]*scale\([.]91\)[\s\S]*scale\(1[.]07\)/);
@@ -235,7 +239,7 @@ test('Busted markup and styles keep the centered staged sequence configurable',(
  const css=fs.readFileSync(new URL('../dist/style.css',import.meta.url),'utf8');
  assert.match(html,/id="gameover-card"[^>]+aria-labelledby="result-title"/);
  assert.match(html,/id="result-chip-icon"[^>]+assets\/icons\/chip[.]png/);
- assert.match(appSource,/globalThis[.]__18BRO_UI_IMAGES__[|][|]\{chip:'assets\/icons\/chip[.]png','chip-turntable':'assets\/icons\/chip-turntable[.]png'\}/);
+ assert.match(appSource,/globalThis[.]__18BRO_UI_IMAGES__[|][|]\{[^}]*'pursuit-guard':'assets\/icons\/pursuit-guard[.]png'[^}]*'pursuit-cat':'assets\/icons\/pursuit-cat[.]png'/);
  assert.match(appSource,/const RESULT_WAVE_ENABLED=true/);
  assert.match(appSource,/const RESULT_COUNT_MS=3000/);assert.match(appSource,/THREE-PAW GUARD/);assert.match(appSource,/three hits for 15 seconds/);
  assert.match(css,/[.]gameover\{justify-content:center/);

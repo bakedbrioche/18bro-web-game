@@ -14,4 +14,12 @@ Blender 5.2 and FFmpeg on `PATH` are required to rebuild the animation. The stan
 
 ## Browser favicon
 
-`dist/assets/icons/favicon.png` is a 128 × 128 generated chase mark for browser tabs. Codex created the composition with OpenAI GPT Image on 2026-09-27 from user-supplied 18Bro and police-chase references, then downsampled the selected result without manual repainting. The mark uses an original guard-left/cat-right chase composition, contains no text or store logo, and is intended only for this community game's UI. The exact prompt and full-resolution working outputs live in the ignored `tmp/imagegen/2026-09-27/favicon-chase/` workbench. The standalone exporter embeds the exact PNG into the favicon link.
+`dist/assets/icons/favicon.png` is the 128 × 128 peeking-18Bro browser mark. Codex created it with OpenAI GPT Image on 2026-09-27 from the user-supplied four-panel chase collage and 7-Eleven logo reference, then downsampled the selected output. The solid orange tab mark keeps only 18Bro's forehead, ears and branded cap so it remains readable at 16 × 16. The full-resolution output and prompt provenance live in the ignored `tmp/imagegen/2026-09-27/favicon-peek/` workbench.
+
+The previous guard-and-cat chase mark remains tracked at `art/ui/archive/favicon-chase-v1.png`; it is an archive asset and is not loaded by the game. The standalone exporter embeds the exact current runtime PNG into the favicon link.
+
+## Pursuit escape banner
+
+`dist/assets/icons/pursuit-guard.png` and `pursuit-cat.png` are compact geometric crops of the user-supplied chase artwork. CSS joins them as two diagonally cut profile panels, adds a shadow overlay and achievement aura, then presents the existing rotating reward copy and score. The full four-panel capture collage, original chase image and user layout sketch are retained locally in the ignored `tmp/imagegen/2026-09-27/net-escape-banner/` workbench. The prior code-rendered orange/green banner is preserved as `art/ui/archive/pursuit-reward-v1.css` for future reuse and is not loaded at runtime.
+
+Both reward crops are embedded through `globalThis.__18BRO_UI_IMAGES__` in the standalone release. The live UI has no network dependency and provides a static Reduced Motion presentation.

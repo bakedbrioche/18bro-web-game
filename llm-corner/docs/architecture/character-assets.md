@@ -25,12 +25,16 @@ Speed Burst overlap. Descent creates no new chips while already-visible chips re
 collectible; landing retires leftovers with the shared bounce-to-zero lifecycle and restores
 the ordinary run without carrying jump input or flight chips into the street phase.
 
-Police net capture uses a fixed-scale prop with separate open-web and connected-sack
-states plus a named payload socket sized to the hero envelope. The same prop performs
-raised aim, planted catch, vertical lift and shoulder carry. The cat follows the payload
-position while local -Z remains world-down; the escort transfers its empty net to the
-outer hand. Both guards leave at one pace and hide after a bounded exit. Runtime capture
-never rescales the shaft/web or lets the ordinary crash renderer write the same roots.
+Police net capture uses one visible fixed-scale prop for the officer taking the current
+attempt. Its open state uses a sagging square lattice; its caught state becomes a tapered
+connected sack with a named payload socket sized to the hero envelope. The same acting
+prop performs raised aim, planted catch, vertical lift and shoulder carry while the escort
+stays clear of the hero silhouette. The cat follows the payload position while local -Z
+remains world-down. Both guards leave at one pace and hide after a bounded exit. Runtime
+capture never rescales the shaft/web or lets the ordinary crash renderer write the same
+roots.
+
+The stolen packet is one indexed sealed-pillow mesh with rounded volume, integrated crimp bands and two modeled CHIPS panels. Both model families use the same scene-authored prop. From packet contact through the store exit, Original deforms and restores its existing eye, pupil, eyelid, brow and mouth objects. Refreshed clones its existing face and fur geometry once, animates the palette-mapped face plus the two existing disconnected eyelid components, and restores the immutable vertex arrays exactly. No duplicate panic-eye mesh is created. Both caps cover the former diamond with a small orange/red/green seven-inspired geometry mark.
 
 Ground chip sequences use deterministic seeded 3–6 chip paths with straight, lateral and weave forms. Length weights are 1:3:3:1, and each obstacle route crosses its safe lane at the central chips. Moon Boots and Jetpack lift the camera position and look target together so vertical movement does not change camera pitch.
 

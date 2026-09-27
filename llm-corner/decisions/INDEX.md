@@ -4,6 +4,9 @@ Decision records preserve why a non-obvious choice was made. Numbers are sequent
 
 | ID | Title | Date | Status |
 |---|---|---|---|
+| DEC-020 | Join supplied chase profiles for pursuit success and use a peeking favicon (DEC-020-split-pursuit-reward-and-peeking-favicon.md) | 2026-09-28 | ACCEPTED |
+| DEC-019 | Present one readable pursuit net and deform the existing heist face (DEC-019-readable-net-and-heist-expression.md) | 2026-09-28 | ACCEPTED |
+| DEC-018 | Keep capture props rigid and chips lifecycle-safe (`DEC-018-rigid-sack-capture-chip-lifecycle.md`) | 2026-09-27 | SUPERSEDED |
 | DEC-017 | Double chip cadence and give net capture one animation owner (`DEC-017-double-chip-cadence-single-owner-net.md`) | 2026-09-27 | ACCEPTED |
 | DEC-016 | Use one spaced chip trail and an attached readable net capture (`DEC-016-spaced-chip-trails-attached-net.md`) | 2026-09-27 | ACCEPTED |
 | DEC-015 | Keep runner pressure continuous, fair and legible (`DEC-015-continuous-fair-runner-pressure.md`) | 2026-09-27 | ACCEPTED |

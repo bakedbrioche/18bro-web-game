@@ -13,7 +13,7 @@ const skinDefs=[{id:'18bro',name:'18BRO',price:0,color:'#85cd59'},{id:'business'
 const powerNames={magnet:'CHIP MAGNET',moon:'MOON BOOTS',speedburst:'SPEED BURST',moped:'CHIP SCOOTER',shield:'THREE-PAW GUARD',doublechips:'DOUBLE CHIPS',jetpack:'JETPACK'};
 const powerGlyphs={magnet:'∩',moon:'↟',speedburst:'»',moped:'➤',shield:'◇',doublechips:'2×',jetpack:'↑'};
 const powerIcons=Object.freeze(globalThis.__18BRO_POWER_ICONS__||Object.fromEntries(Object.keys(powerNames).map(type=>[type,`assets/icons/powerup-${type}.png`])));
-const uiImages=Object.freeze(globalThis.__18BRO_UI_IMAGES__||{chip:'assets/icons/chip.png','chip-turntable':'assets/icons/chip-turntable.png'});
+const uiImages=Object.freeze(globalThis.__18BRO_UI_IMAGES__||{chip:'assets/icons/chip.png','chip-turntable':'assets/icons/chip-turntable.png','pursuit-guard':'assets/icons/pursuit-guard.png','pursuit-cat':'assets/icons/pursuit-cat.png'});
 const RESULT_WAVE_ENABLED=true;
 const RESULT_COUNT_MS=3000;
 const RESULT_ROW_START_MS=900;
@@ -62,9 +62,11 @@ function showPursuitReward(bonus,requestedTag){
  const value=Math.max(0,Math.floor(Number(bonus)||0)),reward=$('pursuit-reward'),addition=$('hud-score-bonus');
  const requested=Number.isInteger(Number(requestedTag))?Math.abs(Math.floor(Number(requestedTag)))%pursuitRewardTags.length:(lastPursuitRewardTag+1)%pursuitRewardTags.length;
  const tagIndex=requested===lastPursuitRewardTag?(requested+1)%pursuitRewardTags.length:requested,message=pursuitRewardTags[tagIndex];
- lastPursuitRewardTag=tagIndex;reward.dataset.message=message;reward.setAttribute('aria-label',message+' Plus '+value.toLocaleString()+' score');
+ lastPursuitRewardTag=tagIndex;reward.dataset.message=message;reward.setAttribute('aria-label',message+' Plus '+value.toLocaleString()+' score');$('pursuit-reward-message').textContent=message;
  $('pursuit-reward-score').textContent='+'+value.toLocaleString()+' SCORE';addition.textContent='+'+value.toLocaleString();reward.hidden=false;reward.classList.remove('show');addition.classList.remove('show');void reward.offsetWidth;reward.classList.add('show');addition.classList.add('show');pursuitRewardTime=2.8;scoreBonusTime=2.2;
 }
+$('pursuit-reward-guard').src=uiImages['pursuit-guard'];
+$('pursuit-reward-cat').src=uiImages['pursuit-cat'];
 function loadPowerIcon(img,type,owner){
  const source=powerIcons[type];if(!source)return;
  if(img.dataset.iconSource===source&&!owner.classList.contains('icon-missing'))return;

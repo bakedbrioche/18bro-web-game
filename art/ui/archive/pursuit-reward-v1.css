@@ -1,0 +1,59 @@
+/* Archived pursuit reward v1: code-rendered orange/green net-grid card. Kept for future reuse; not loaded by the game. */
+/* Pursuit escape reward: an original orange/green chase card with a net-grid accent. */
+.pursuit-reward{
+ display:flex;flex-direction:column;isolation:isolate;overflow:hidden;
+ width:min(480px,calc(100% - 34px));min-width:0;padding:16px 24px 14px;
+ border:3px solid #fff1bd;border-radius:5px;
+ background:
+  radial-gradient(circle at 91% 18%,#f6d26b 0 4px,transparent 5px),
+  linear-gradient(112deg,#e65320 0 46%,#f4a634 46% 50%,#123f35 50% 100%);
+ box-shadow:0 7px 0 #35160d,0 0 0 2px #172b21,0 14px 30px #05080799;
+ text-shadow:3px 3px #35160d;
+}
+.pursuit-reward::before{
+ content:'';position:absolute;z-index:-1;left:-22px;top:-42px;width:155px;height:155px;
+ border:7px solid #ffe8a6;border-radius:50%;opacity:.26;transform:rotate(-16deg);
+ background:
+  repeating-linear-gradient(0deg,transparent 0 13px,#ffe8a6 14px 16px),
+  repeating-linear-gradient(90deg,transparent 0 13px,#ffe8a6 14px 16px);
+}
+.pursuit-reward strong{display:none}
+.pursuit-reward::after{
+ content:attr(data-message);order:0;display:block;position:relative;z-index:1;
+ font-size:clamp(28px,4vw,52px);line-height:.88;letter-spacing:1.4px;color:#fff5ce;
+}
+.pursuit-reward span{
+ order:1;position:relative;z-index:1;align-self:center;margin-top:9px;padding:3px 14px 4px;
+ border:2px solid #f5e59a;background:#0e2d28;color:#aef27b;
+ box-shadow:3px 3px 0 #35160d;font-size:clamp(22px,2.7vw,34px);
+}
+.pursuit-reward.show{animation:pursuit-reward-card 2.8s cubic-bezier(.22,.8,.2,1) both}
+@keyframes pursuit-reward-card{
+ 0%{opacity:0;transform:translate3d(-50%,-32px,0) rotate(-4deg) scale(.72)}
+ 10%{opacity:1;transform:translate3d(-50%,3px,0) rotate(-1deg) scale(1.07)}
+ 18%{transform:translate3d(-50%,0,0) rotate(-2deg) scale(.98)}
+ 27%,76%{opacity:1;transform:translate3d(-50%,0,0) rotate(-2deg) scale(1)}
+ 100%{opacity:0;transform:translate3d(-50%,-12px,0) rotate(-1deg) scale(1.035)}
+}
+.score-bonus{
+ font-size:clamp(29px,3.4vw,43px);line-height:.8;font-weight:700;color:#ffd15a;
+ opacity:0;transform-origin:right center;transform:translate3d(.5em,0,0) scale(.18);
+ text-shadow:3px 3px #5b2413,0 0 10px #f09b2b80;transition:none;
+}
+.score-bonus.show{animation:score-bonus-pop 2.2s cubic-bezier(.18,.78,.2,1) both}
+@keyframes score-bonus-pop{
+ 0%{opacity:0;transform:translate3d(.55em,.2em,0) scale(.18)}
+ 13%{opacity:1;transform:translate3d(-.04em,-.04em,0) scale(1.22)}
+ 24%{transform:translate3d(.02em,.015em,0) scale(.91)}
+ 36%{transform:translate3d(-.01em,-.01em,0) scale(1.07)}
+ 48%,82%{opacity:1;transform:translate3d(0,0,0) scale(1)}
+ 100%{opacity:0;transform:translate3d(-.14em,-.08em,0) scale(1.04)}
+}
+body.reduced-motion .pursuit-reward.show{
+ animation:none;opacity:1;transform:translate3d(-50%,0,0) rotate(-2deg) scale(1);
+}
+body.reduced-motion .score-bonus.show{animation:none;opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){
+ .pursuit-reward.show{animation:none;opacity:1;transform:translate3d(-50%,0,0) rotate(-2deg) scale(1)}
+ .score-bonus.show{animation:none;opacity:1;transform:none}
+}

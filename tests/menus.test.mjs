@@ -186,6 +186,22 @@ test('power art keeps the same decoded image nodes through pause and resume',()=
  a.game.resume();a.game.activatePower('shield');a.updateHUD();const shield=a.powerPill('shield');assert.equal(shield.time.textContent,'15s · ×3');assert.match(shield.card.getAttribute('aria-label'),/3 shields remaining/);
 });
 
+test('net capture remains visible before the Busted results sequence',()=>{
+ const a=app();a.get('start-run').click();a.game.start({skipIntro:true});a.game.entities.forEach(entity=>entity.active=false);a.game._spawnCursor=Infinity;a.game._coinFormationCursor=Infinity;a.game._nextNetPursuitDistance=Infinity;a.game.debug.speedOverride=10;a.game._startNetPursuit();
+ for(let elapsed=0;elapsed<8&&a.game.state==='RUNNING';elapsed+=1/120)a.game.update(1/120);
+ assert.equal(a.game.state,'CAUGHT');assert.equal(a.game.crash.kind,'net');assert.equal(a.get('gameover-panel').hidden,true);assert.equal(a.get('hud').hidden,true);
+ for(let elapsed=0;elapsed<5&&a.game.state!=='GAME_OVER';elapsed+=1/120)a.game.update(1/120);
+ assert.equal(a.game.state,'GAME_OVER');assert.equal(a.get('gameover-panel').hidden,false);assert.equal(a.document.activeElement,a.get('gameover-card'));
+});
+test('net-pursuit reward is themed, accessible and paired with a temporary score addition',()=>{
+ const a=app();a.get('start-run').click();a.game.start({skipIntro:true});a.game.emit('netpursuitsuccess',{bonus:10000});
+ assert.equal(a.get('pursuit-reward').hidden,false);assert.equal(a.get('pursuit-reward').classList.contains('show'),true);
+ assert.equal(a.get('pursuit-reward-score').textContent,'+10,000 SCORE');assert.equal(a.get('hud-score-bonus').textContent,'+10,000');
+ assert.equal(a.get('hud-score-bonus').classList.contains('show'),true);
+ const html=fs.readFileSync(new URL('../dist/index.html',import.meta.url),'utf8'),css=fs.readFileSync(new URL('../dist/style.css',import.meta.url),'utf8');
+ assert.match(html,/id="pursuit-reward"[^>]+role="status"/);assert.match(html,/NET MISS! 18BRO LIVES!/);
+ assert.match(css,/[.]pursuit-reward[.]show\{animation:pursuit-reward-in/);assert.match(css,/body[.]reduced-motion [.]pursuit-reward[.]show\{animation:none/);
+});
 test('Busted results count up in stages and reduced motion resolves immediately',()=>{
  const animated=app();caught(animated);
  assert.equal(animated.get('result-score').textContent,'0');assert.equal(animated.document.activeElement,animated.get('gameover-card'));
@@ -206,9 +222,9 @@ test('Busted markup and styles keep the centered staged sequence configurable',(
  assert.match(appSource,/const RESULT_COUNT_MS=3000/);assert.match(appSource,/THREE-PAW GUARD/);assert.match(appSource,/three hits for 15 seconds/);
  assert.match(css,/[.]gameover\{justify-content:center/);
  assert.match(css,/@keyframes result-stamp/);assert.match(css,/@keyframes busted-letter-wave/);
- const wave=css.match(/[.]result-wave-enabled [.]result-title>span\{animation:busted-letter-wave ([0-9.]+)s linear calc\([.]9s \+ var\(--letter-index\)\*([0-9.]+)s\) infinite\}/);
- assert.ok(wave,'result wave timing is explicit');const sweep=Number(wave[1])*.22+Number(wave[2])*6;assert.ok(sweep>=.8&&sweep<=.9,'BUSTED sweep is '+sweep+'s');
- assert.match(html,/style="--letter-index:6">!<\/span>/);assert.match(css,/@keyframes busted-letter-wave\{0%,22%,100%\{transform:translate3d\(0,0,0\) scale\(1\)\}/);assert.match(css,/11%\{transform:translate3d\(0,-[.]17em,0\) scale\(1[.]18,[.]92\)\}15%/);
+ const wave=css.match(/[.]result-wave-enabled [.]result-title>span\{animation:busted-letter-wave ([0-9.]+)s linear calc\([.]6s \+ var\(--letter-index\)\*([0-9.]+)s\) infinite/);
+ assert.ok(wave,'result wave timing is explicit');const sweep=Number(wave[1])*.48+Number(wave[2])*6;assert.ok(sweep>=.8&&sweep<=.9,'BUSTED sweep is '+sweep+'s');
+ assert.match(html,/style="--letter-index:6">!<\/span>/);assert.match(css,/@keyframes busted-letter-wave\{0%,48%,100%\{transform:translate3d\(0,0,0\) scale\(1\)\}/);assert.match(css,/26%\{transform:translate3d\(0,-[.]17em,0\) scale\(1[.]18,[.]92\)\}32%/);
  assert.match(appSource,/const animatedChip=uiImages\['chip-turntable'\]\|\|uiImages[.]chip/);assert.match(appSource,/chipIcon[.]src=reduced\?uiImages[.]chip:animatedChip/);
  assert.doesNotMatch(css,/@keyframes result-chip-spin/);
  assert.match(css,/prefers-reduced-motion:reduce/);

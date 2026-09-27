@@ -35,7 +35,7 @@ assert.equal(animated.readUInt32BE(animationControl.dataOffset),manifest.animati
 assert.equal(animated.readUInt32BE(animationControl.dataOffset+4),manifest.animation.loops);
 assert.equal(animatedInfo.chunks.filter(chunk=>chunk.type==='fcTL').length,manifest.animation.frames);
 assert.ok(animatedInfo.chunks.some(chunk=>chunk.type==='fdAT'),'turntable contains animated frame data');
-assert.equal(manifest.animation.fps,30);assert.ok(animated.length>still.length,'turntable contains multiple rendered frames');
+assert.equal(manifest.animation.fps,60);assert.equal(manifest.animation.frames,60);assert.ok(animated.length>still.length,'turntable contains multiple rendered frames');
 console.log(JSON.stringify({
  static:{file:manifest.output,bytes:still.length,sha256:manifest.sha256},
  animation:{file:manifest.animation.output,bytes:animated.length,sha256:manifest.animation.sha256,frames:manifest.animation.frames,fps:manifest.animation.fps},

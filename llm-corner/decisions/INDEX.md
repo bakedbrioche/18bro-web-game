@@ -4,6 +4,7 @@ Decision records preserve why a non-obvious choice was made. Numbers are sequent
 
 | ID | Title | Date | Status |
 |---|---|---|---|
+| DEC-015 | Keep runner pressure continuous, fair and legible (`DEC-015-continuous-fair-runner-pressure.md`) | 2026-09-27 | ACCEPTED |
 | DEC-014 | Render result motion from real 3D frames (DEC-014-render-result-motion-from-real-3d-frames.md) | 2026-09-26 | ACCEPTED |
 | DEC-013 | Readable chip routes and stable vertical camera tracking (DEC-013-readable-chip-routes-and-stable-air-camera.md) | 2026-09-26 | ACCEPTED |
 | DEC-012 | Keep runtime icons persistent and stage run results (DEC-012-persistent-icons-and-staged-results.md) | 2026-09-26 | ACCEPTED |

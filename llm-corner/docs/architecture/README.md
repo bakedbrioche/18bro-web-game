@@ -9,6 +9,7 @@
 | Surface | Responsibility |
 |---|---|
 | `dist/core.mjs` | DOM-free simulation, encounters, collision, chase, scoring, powers |
+| `dist/net-pursuit.mjs` | deterministic alternating police-net attacks, fairness snapshot, capture phases and reward outcome |
 | `dist/app.mjs` | browser input, menus, saves, HUD, runtime wiring |
 | `dist/scene.mjs` | WebGL renderer, store/city geometry, characters, animation |
 | `dist/route.mjs` | seeded continuous district sequence and traffic phases |

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {RunnerGame, INTRO_DURATION, CAPTURE_DURATION, MOTION, BARRIERS, VEHICLES} from '../dist/core.mjs';
 import {introPose, capturePose, STORE} from '../dist/choreography.mjs';
 const tick=(g,t)=>{for(let left=t;left>1e-8;left-=1/120)g.update(Math.min(left,1/120));};
-function emptyGame(){const g=new RunnerGame();g.start({skipIntro:true});g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;g.debug.speedOverride=10;return g;}
+function emptyGame(){const g=new RunnerGame();g.start({skipIntro:true});g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;g._coinFormationCursor=1e9;g.debug.speedOverride=10;return g;}
 
 test('every normal retry resets into the store before starting the street chase',()=>{
   const g=emptyGame();g.spawnEntity('traffic',1,-.1);tick(g,.1);tick(g,CAPTURE_DURATION);

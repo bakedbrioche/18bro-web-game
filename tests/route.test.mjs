@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {RunnerGame,INTRO_DURATION} from '../dist/core.mjs';
+import {RunnerGame,INTRO_DURATION,MOTION,INTERSECTION_TRAFFIC,intersectionTrafficWindow} from '../dist/core.mjs';
 import {ROUTE,BRANCHES,getRouteProfile,routeCenter,routeSection,crossStreetsAt,getTrafficPhase} from '../dist/route.mjs';
 
 function tick(game,seconds,dt=1/120){for(let time=0;time<seconds-1e-9;time+=dt)game.update(Math.min(dt,seconds-time));}
-function empty(game){for(const e of game.entities)e.active=false;game._spawnCursor=1e9;}
+function empty(game){for(const e of game.entities)e.active=false;game._spawnCursor=1e9;game._coinFormationCursor=1e9;game._nextNetPursuitDistance=Infinity;}
 
 test('the completed opening stays flat and enters the same uninterrupted running state',()=>{
  const events=[],g=new RunnerGame({onEvent:e=>events.push(e),random:()=>.2});
@@ -80,7 +80,7 @@ test('pooled street entities cannot inherit branch, finale or crossing transform
  const g=new RunnerGame();g.start({skipIntro:true});empty(g);
  const e=g.spawnEntity('crossTraffic',1,-10,{routeBranch:'karaoke',finale:true,anchor:3162,yaw:1.57,crossSpeed:10,vehicleKind:'bus'});
  e.active=false;g._poolCursor=e.id;const chip=g.spawnEntity('coin',1,-20);
- assert.equal(chip,e);assert.equal(chip.routeBranch,null);assert.equal(chip.finale,false);assert.equal(chip.yaw,null);assert.equal(chip.anchor,null);assert.equal(chip.crossSpeed,0);assert.equal(chip.vehicleKind,null);
+ assert.equal(chip,e);assert.equal(chip.routeBranch,null);assert.equal(chip.finale,false);assert.equal(chip.yaw,null);assert.equal(chip.anchor,null);assert.equal(chip.crossSpeed,0);assert.equal(chip.vehicleKind,null);assert.equal(chip.crossSlot,-1);assert.equal(chip.crossCadence,0);assert.equal(chip.crossClearTime,0);
 });
 
 test('the old endpoint remains an ordinary part of the endless street',()=>{
@@ -88,4 +88,26 @@ test('the old endpoint remains an ordinary part of the endless street',()=>{
  assert.ok(g.distance>5800);assert.equal(g.state,'RUNNING');assert.ok(g.speed>0);assert.equal(g.route.offsetX,0);
  assert.equal(events.filter(e=>e.type==='routecomplete').length,0);
  g.start();assert.equal(g.distance,0);assert.equal(g.state,'STARTING');assert.equal(g._routeWaiting,false);
+});
+
+test('intersection traffic difficulty caps with a provable jump-and-lane clearance',()=>{
+ const windows=[1,2,3,4].map(intersectionTrafficWindow);
+ for(const window of windows){
+  assert.ok(window.clearTime>=window.requiredClearTime);
+  assert.ok(window.requiredClearTime>=MOTION.jumpDuration+MOTION.laneDuration*2);
+ }
+ for(let index=1;index<windows.length;index++)assert.ok(windows[index].cadence<windows[index-1].cadence);
+ assert.deepEqual(intersectionTrafficWindow(99),windows.at(-1));
+ assert.equal(windows.at(-1).cadence,INTERSECTION_TRAFFIC.cadenceByTier.at(-1));
+});
+
+test('intersection scheduler emits only jumpable cross traffic at the capped cadence',()=>{
+ const g=new RunnerGame({random:()=>.31});g.seekArea(768);empty(g);g.tier=4;g._crossWave=-1;
+ for(const time of [11.01,13.11,15.21]){g.time=time;g._updateCrossTraffic(.01);}
+ const cars=g.entities.filter(e=>e.active&&e.type==='crossTraffic');
+ assert.equal(cars.length,6);
+ assert.ok(cars.every(car=>car.height<=MOTION.jumpHeight));
+ assert.ok(cars.every(car=>car.vehicleKind!=='bus'));
+ assert.ok(cars.every(car=>car.crossClearTime>=INTERSECTION_TRAFFIC.requiredClearTime));
+ assert.deepEqual([...new Set(cars.map(car=>car.crossSlot))],[0,1,2]);
 });

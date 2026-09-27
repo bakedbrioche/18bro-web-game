@@ -53,7 +53,7 @@ const modules=[
  'vendor/addons/utils/SkeletonUtils.js',
  'vendor/addons/loaders/GLTFLoader.js',
  'choreography.mjs','customization.mjs','model-config.mjs','presentation-config.mjs','model-manifest.mjs','character-assets.mjs','character-animation.mjs',
- 'route.mjs','core.mjs','crowd.mjs','material-assets.mjs','district-scene.mjs','scene.mjs','audio.mjs'
+ 'route.mjs','net-pursuit.mjs','core.mjs','crowd.mjs','material-assets.mjs','district-scene.mjs','scene.mjs','audio.mjs'
 ];
 if([...read('app.mjs').matchAll(importPattern)].some(match=>match[3].split('?')[0]==='./analytics.mjs'))modules.push('analytics.mjs');
 modules.push('app.mjs');

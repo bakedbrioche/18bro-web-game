@@ -3,7 +3,7 @@ import { clone as cloneSkeleton } from './vendor/addons/utils/SkeletonUtils.js';
 import { sidewalkPose, CROWD_COUNT } from './crowd.mjs?v=street-28';
 import { INTRO_DURATION, CAPTURE_DURATION, STORE, introPose, capturePose, smooth, slidePose } from './choreography.mjs?v=street-28';
 import { applyMaterialAssets } from './material-assets.mjs?v=street-28';
-import { BARRIERS } from './core.mjs?v=graphics2-2';
+import { BARRIERS } from './core.mjs?v=graphics2-3';
 import { ROUTE, BRANCHES, getRouteProfile, routeCenter, branchOffset } from './route.mjs?v=street-28';
 import { DistrictScene } from './district-scene.mjs?v=street-28';
 import { FURS } from './customization.mjs?v=street-28';
@@ -65,7 +65,9 @@ export class GameScene {
   this.skyline=this.makeSkyline();this.scene.add(this.skyline);
   this.cat=this.makeCat('18bro');this.scene.add(this.cat.root);this.skin='18bro';
   this.modelSetPreference='original';this.effectiveModelSet='original';this.modelSetStatus='original';this.modelSetReason='';this._modelGeneration=0;
-  this.cops=[this.makeCop(),this.makeCop()];this.cops.forEach(c=>this.scene.add(c.root));
+  this.cops=[this.makeCop(),this.makeCop()];this.cops.forEach((c,i)=>{this.scene.add(c.root);c.catchNet=this.makeCatchNet(i);this.attachCatchNet(c,c.catchNet);});
+  this.catchTargetMark=this.makeCatchTargetMark();this.scene.add(this.catchTargetMark);
+  this.captureNet=this.makeCatchNet(2);this.captureNet.name='police_capture_net';this.captureNet.visible=false;this.scene.add(this.captureNet);
   this.chaseZ=2.825;
   this.entities=new Map();this.lastTheme=-1;this.clock=0;this.lastDistance=0;this.lastState='';this.stateTime=0;this.target=new THREE.Vector3();this.cameraTarget=new THREE.Vector3(0,1,-10);
   this.makeMenuProps();this.makeParticles();this.makePedestrians();this.moped=this.makeMoped(2);this.moped.scale.setScalar(.82);this.scene.add(this.moped);this.makeDizzyStars();this.debugBoxes=new THREE.Group();this.scene.add(this.debugBoxes);this.debugPool=[];
@@ -479,13 +481,92 @@ export class GameScene {
  }
  addMagnetWaves(magnet){
   const waves=new THREE.Group();waves.name='magnet_wave_arcs';waves.position.set(0,.58,.035);magnet.add(waves);
-  for(let i=0;i<3;i++){const arc=new THREE.Mesh(new THREE.TorusGeometry(.26+i*.11,.018,5,28,Math.PI*.86),this.m.cyan);arc.name=`magnet_wave_${i}`;arc.rotation.z=Math.PI*.07;arc.userData.baseScale=1;arc.userData.signalColor='blue';waves.add(arc);}
+  // Each half-ring shares the same centre above the U. The prior shortened,
+  // rotated arcs read as separate signals from the two magnet poles.
+  for(let i=0;i<3;i++){const arc=new THREE.Mesh(new THREE.TorusGeometry(.26+i*.11,.018,5,28,Math.PI),this.m.cyan);arc.name=`magnet_wave_${i}`;arc.userData.baseScale=1;arc.userData.signalColor='blue';waves.add(arc);}
+  waves.userData.fade=1;waves.userData.centered=true;
   return waves;
  }
- animateMagnet(magnet,time,reducedMotion=false){
+ animateMagnet(magnet,time,reducedMotion=false,sliding=false,dt=1/60){
   if(!magnet?.visible)return;
   const waves=magnet.getObjectByName('magnet_wave_arcs');if(!waves)return;
-  waves.children.forEach((arc,i)=>{if(reducedMotion){arc.visible=true;arc.scale.setScalar(1);return;}const phase=(time*.78+i/3)%1;arc.visible=phase<.86;arc.scale.setScalar(.78+phase*.62);});
+  const target=sliding?0:1,alpha=reducedMotion?1:1-Math.exp(-Math.max(0,dt)*14);
+  waves.userData.fade+=(target-waves.userData.fade)*alpha;
+  const fade=clamp(waves.userData.fade,0,1);waves.visible=fade>.015;waves.scale.setScalar(.18+.82*fade);
+  waves.children.forEach((arc,i)=>{if(reducedMotion){arc.visible=!sliding;arc.scale.setScalar(1);return;}const phase=(time*.78+i/3)%1;arc.visible=fade>.015&&phase<.86;arc.scale.setScalar(.78+phase*.62);});
+ }
+ makeCatchNet(index=0){
+  const net=new THREE.Group(),m=this.m;net.name=`police_catch_net_${index}`;net.visible=false;
+  const handle=new THREE.Mesh(new THREE.CylinderGeometry(.045,.06,1.42,6),m.wood);handle.position.y=.71;net.add(handle);
+  const grip=new THREE.Mesh(new THREE.CylinderGeometry(.071,.071,.3,6),m.policeDark);grip.position.y=.18;net.add(grip);
+  const hoop=new THREE.Mesh(new THREE.TorusGeometry(.5,.045,5,12),m.gold);hoop.name='catch_net_hoop';hoop.position.y=1.45;net.add(hoop);
+  const webMaterial=new THREE.LineBasicMaterial({color:0xf4df9c,transparent:true,opacity:.76,depthWrite:false});this.materials?.push(webMaterial);
+  const positions=[],segments=8,centre=new THREE.Vector3(0,1.12,-.34);
+  for(let i=0;i<segments;i++){
+   const a=i*TAU/segments,outer=new THREE.Vector3(Math.cos(a)*.48,1.45+Math.sin(a)*.48,0);
+   positions.push(outer.x,outer.y,outer.z,centre.x,centre.y,centre.z);
+   const b=(i+1)*TAU/segments,innerA=new THREE.Vector3(Math.cos(a)*.29,1.34+Math.sin(a)*.29,-.18),innerB=new THREE.Vector3(Math.cos(b)*.29,1.34+Math.sin(b)*.29,-.18);
+   positions.push(innerA.x,innerA.y,innerA.z,innerB.x,innerB.y,innerB.z);
+  }
+  const webGeometry=new THREE.BufferGeometry();webGeometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+  const web=new THREE.LineSegments(webGeometry,webMaterial);web.name='catch_net_web';net.add(web);
+  net.userData.guardIndex=index;net.userData.lowPoly=true;net.userData.hoopSegments=segments;return net;
+ }
+ makeCatchTargetMark(){
+  const mark=new THREE.Group();mark.name='police_catch_target';mark.visible=false;
+  const material=new THREE.MeshBasicMaterial({color:0xf04a2d,transparent:true,opacity:.72,depthWrite:false,side:THREE.DoubleSide});this.materials?.push(material);
+  const ring=new THREE.Mesh(new THREE.RingGeometry(.66,.81,12),material);ring.name='catch_target_ring';ring.rotation.x=-Math.PI/2;ring.position.y=.014;mark.add(ring);
+  for(const [x,z,w,d] of [[0,-1.17,.3,.66],[0,1.17,.3,.66],[-1.17,0,.66,.3],[1.17,0,.66,.3]])this.boxMesh(mark,material,x,.028,z,w,.035,d);
+  this.ellipsoid(mark,material,0,.045,.04,.25,.026,.2);
+  for(const [x,z] of [[-.2,-.1],[-.068,-.19],[.068,-.19],[.2,-.1]])this.ellipsoid(mark,material,x,.045,z,.105,.026,.14);
+  mark.userData.material=material;mark.userData.toes=4;mark.userData.cardinalBars=4;mark.userData.red=new THREE.Color(0xe52d2d);mark.userData.orange=new THREE.Color(0xff792f);mark.userData.gold=new THREE.Color(0xffc84c);
+  mark.traverse(object=>{if(object.isMesh){object.renderOrder=20;object.frustumCulled=false;}});
+  return mark;
+ }
+ updateNetPursuit(snapshot,dt=1/60,reducedMotion=false){
+  const phase=String(snapshot?.phase||'idle').toLowerCase(),caught=!!snapshot?.caught||phase==='caught'||phase==='capture'||phase==='carry';
+  const active=!!snapshot&&(snapshot.active!==false)&&(phase!=='idle'||caught),guardIndex=clamp(Math.floor(snapshot?.guardIndex||0),0,1);
+  const telegraph=clamp(Number(snapshot?.telegraphProgress)||0,0,1),capture=clamp(Number(snapshot?.captureProgress)||0,0,1);
+  const targetX=Number.isFinite(snapshot?.targetX)?snapshot.targetX:(this.cat?.root.position.x||0),targetZ=Number.isFinite(snapshot?.targetZ)?snapshot.targetZ:0;
+  const routeScale=this.routeLateralScale??1,routeOffset=this.routeWorldOffset||new THREE.Vector3();
+  if(this.catchTargetMark){
+   const show=active&&!caught&&['telegraph','strike','swing'].includes(phase);this.catchTargetMark.visible=show;
+   if(show){
+    const mark=this.catchTargetMark,frequency=Number.isFinite(snapshot?.blinkFrequency)?snapshot.blinkFrequency:2+telegraph*telegraph*11;
+    const generated=.5+.5*Math.sin((this.clock||0)*TAU*frequency);
+    const pulse=typeof snapshot?.blink==='boolean'?(snapshot.blink?1:.14):Number.isFinite(snapshot?.blink)?clamp(snapshot.blink,0,1):generated;
+    mark.position.set(targetX*routeScale+routeOffset.x,routeOffset.y+.035,targetZ);mark.rotation.y=reducedMotion?0:(this.clock||0)*.18;
+    mark.scale.setScalar(1+(reducedMotion?0:pulse*.055));
+    const color=telegraph<.5?mark.userData.red.clone().lerp(mark.userData.orange,telegraph*2):mark.userData.orange.clone().lerp(mark.userData.gold,(telegraph-.5)*2);
+    mark.userData.material.color.copy(color);mark.userData.material.opacity=.28+pulse*.65;mark.userData.blinkHz=frequency;mark.userData.telegraphProgress=telegraph;
+   }
+  }
+  for(let i=0;i<(this.cops?.length||0);i++){
+   const cop=this.cops[i],net=cop.catchNet;if(cop.baton)cop.baton.visible=!active;if(!net)continue;net.visible=active&&!caught;
+   if(!net.visible)continue;
+   const side=i?1:-1,selected=i===guardIndex,raising=selected?telegraph:.18;
+   const swing=selected&&(phase==='strike'||phase==='swing')?smooth(telegraph):selected?smooth((telegraph-.78)/.22):0;
+   net.position.set(0,-.035+raising*.035,.02-swing*.08);
+   net.rotation.set(-.08-swing*1.12,side*(.05+swing*.18),side*(-.24-raising*.72));
+   net.userData.presentation={selected,raising,swing,phase};
+  }
+  if(this.captureNet){
+   this.captureNet.visible=active&&caught;
+   if(this.captureNet.visible){
+    const phaseProgress=Number.isFinite(snapshot?.capture?.phaseProgress)?clamp(snapshot.capture.phaseProgress,0,1):null;
+    const phased=phaseProgress!==null&&['netted','lift','carry'].includes(phase);
+    const drop=phased?(phase==='netted'?smooth(phaseProgress):1):smooth(capture/.28);
+    const lift=phased?(phase==='netted'?0:phase==='lift'?smooth(phaseProgress):1):smooth((capture-.34)/.36);
+    const retreat=(phased?(phase==='carry'?smooth(phaseProgress):0):smooth((capture-.68)/.32))*4.5;
+    if(!this._netCaptureBase)this._netCaptureBase={catY:this.cat?.root.position.y||0,catZ:this.cat?.root.position.z||0,catRoll:this.cat?.root.rotation.z||0,copZ:(this.cops||[]).map(cop=>cop.root.position.z)};
+    const base=this._netCaptureBase;
+    this.captureNet.rotation.set(-Math.PI/2,0,0);this.captureNet.position.set(targetX*routeScale+routeOffset.x,routeOffset.y+.34+(1-drop)*2.35+lift*.85,targetZ+1.45+retreat);
+    this.captureNet.userData.presentation={phase,drop,lift,retreat};
+    if(this.cat?.root){this.cat.root.position.y=base.catY+lift*.85;this.cat.root.position.z=base.catZ+retreat;this.cat.root.rotation.z=base.catRoll+Math.sin(capture*Math.PI)*.08;}
+    for(let i=0;i<(this.cops?.length||0);i++)this.cops[i].root.position.z=base.copZ[i]+retreat;
+   }else if(active&&!caught)this._netCaptureBase=null;
+  }
+  return {active,phase,guardIndex,telegraphProgress:telegraph,caught,captureProgress:capture};
  }
  makeHat(kind){
   const g=new THREE.Group(),m=this.m;g.position.set(0,.63,-.04);
@@ -628,7 +709,7 @@ export class GameScene {
   for(const y of [1.53,1.4,1.27])this.ellipsoid(body,m.metal,0,y,.186,.021,.021,.012);
   if(skirt){const dress=new THREE.Mesh(new THREE.CylinderGeometry(.26,.43,.67,14),shirt);dress.position.y=.95;dress.scale.z=.78;body.add(dress);}
   if(!police&&index%6===2){this.boxMesh(body,m.wood,0,1.4,-.26,.45,.62,.24);for(const side of [-1,1])this.boxMesh(body,m.wood,side*.22,1.41,.19,.055,.53,.035);}
-  const legs=[],arms=[],knees=[],elbows=[],feet=[];let baton=null;
+  const legs=[],arms=[],knees=[],elbows=[],feet=[],hands=[];let baton=null;
   for(const side of [-1,1]){
     const leg=new THREE.Group();leg.position.set(side*.16,.92,0);body.add(leg);
     this.humanProfile(leg,skirt?skin:pants,[[.015,.13,.14],[-.1,.15,.15],[-.25,.125,.13],[-.39,.105,.105],[-.45,.095,.095]],20);this.ellipsoid(leg,skirt?skin:pants,0,-.405,.027,.215,.18,.205);
@@ -636,14 +717,14 @@ export class GameScene {
     this.humanProfile(knee,skirt?skin:pants,[[0,.095,.095],[-.1,.116,.12,.015],[-.22,.092,.105,.02],[-.34,.072,.073,.025],[-.38,.075,.075,.03]],20);const foot=new THREE.Group();foot.position.set(0,-.4,.075);knee.add(foot);this.roundedMesh(foot,m.black,0,0,0,.22,.145,.37,.034);this.boxMesh(foot,m.policeDark,0,-.065,0,.225,.035,.375);for(let lace=0;lace<3;lace++)this.boxMesh(foot,m.metal,0,.078,-.025+lace*.043,.105,.009,.012);this.batchStatic(foot);feet.push(foot);legs.push(leg);
     const arm=new THREE.Group();arm.position.set(side*.34,1.61,0);body.add(arm);this.humanProfile(arm,shirt,[[.105,.05,.06],[.065,.102,.107],[.015,.122,.13],[-.08,.128,.125],[-.21,.106,.104],[-.295,.087,.09]],20);this.humanProfile(arm,police?m.policeDark:shirt,[[-.255,.108,.106],[-.288,.104,.102]],20);
     const elbow=new THREE.Group();elbow.position.y=-.29;arm.add(elbow);elbows.push(elbow);
-    this.ellipsoid(elbow,skin,0,-.01,.015,.17,.16,.17);this.humanProfile(elbow,skin,[[0,.083,.085,.017],[-.09,.092,.085,.022],[-.2,.074,.07,.028],[-.29,.058,.058,.035]],20);this.humanHand(elbow,skin,side);arms.push(arm);
+    this.ellipsoid(elbow,skin,0,-.01,.015,.17,.16,.17);this.humanProfile(elbow,skin,[[0,.083,.085,.017],[-.09,.092,.085,.022],[-.2,.074,.07,.028],[-.29,.058,.058,.035]],20);hands.push(this.humanHand(elbow,skin,side));arms.push(arm);
   }
   if(police){this.boxMesh(body,m.policeDark,0,1,.017,.59,.095,.42);this.boxMesh(body,m.policeDark,0,1.43,.239,.045,.38,.02);this.boxMesh(body,m.gold,-.19,1.5,.207,.085,.11,.022);this.boxMesh(body,m.policeDark,.21,1.12,.19,.12,.2,.07);const hat=new THREE.Mesh(new THREE.CylinderGeometry(.207,.218,.12,24),m.policeDark);hat.position.set(0,2.207,-.005);body.add(hat);this.ellipsoid(body,m.policeDark,0,2.155,.157,.43,.055,.245);this.ellipsoid(body,m.gold,0,2.215,.211,.08,.092,.02);}
   else if(index%3===0){this.ellipsoid(body,m.wood,.31,.91,.04,.3,.45,.22);}
   if(police){baton=new THREE.Group();baton.position.set(0,-.49,.055);baton.rotation.x=-.25;elbows[1].add(baton);baton.add(new THREE.Mesh(new THREE.CylinderGeometry(.031,.039,.7,12),m.black));this.ellipsoid(baton,m.metal,0,.18,0,.105,.04,.105);}
   this.batchStatic(body);for(const limb of [...legs,...arms,...knees,...elbows])this.batchStatic(limb);
   root.userData.humanRig='shared-police-build';
-  const person={root,body,legs,arms,knees,elbows,feet,baton,female,skirt,index,role,police};this.registerHumanRig(person);return person;
+  const person={root,body,legs,arms,knees,elbows,feet,hands,baton,female,skirt,index,role,police};this.registerHumanRig(person);return person;
  }
  registerHumanRig(person){
   this.humanRigs??=new Set();this._refreshedHumanMaterials??=new Map();person.modelMaterials=[];
@@ -659,6 +740,11 @@ export class GameScene {
   const refreshed=modelSet==='refreshed'&&!!person.authored;
   for(const style of person.modelMaterials||[])style.object.material=refreshed?style.refreshed:style.original;
   person.body.visible=!refreshed;if(person.authored)person.authored.scene.visible=refreshed;person.root.userData.modelSet=refreshed?'refreshed':'original';
+  if(person.catchNet)this.attachCatchNet(person,person.catchNet,refreshed);
+ }
+ attachCatchNet(person,net,refreshed=person.root.userData.modelSet==='refreshed'){
+  const authoredSocket=person.authored?.scene.getObjectByName('socket_carry_R'),parent=refreshed&&authoredSocket?authoredSocket:(person.hands?.[1]||person.root);
+  if(net.parent!==parent)parent.add(net);net.position.set(0,-.035,.02);net.rotation.set(-.08,0,-.24);net.scale.setScalar(refreshed?1:1.02);net.userData.attachedTo=refreshed&&authoredSocket?'socket_carry_R':'procedural_hand_R';return net;
  }
  applyHumanModelSet(modelSet){for(const person of this.humanRigs||[])this.applyHumanRigModelSet(person,modelSet);}
  makeCop(){const c=this.makePerson(1,true);c.root.scale.setScalar(1.12);return c;}
@@ -1278,8 +1364,11 @@ export class GameScene {
   if((moon||riding)&&!freeze&&this.clock-(this.lastBoost||0)>.05){this.lastBoost=this.clock;this.burst(this.cat.root.position.x,this.cat.root.position.y+.4,.9,reducedMotion?2:5,moon?0xffd44f:0x71f9ed,2,.05);}
   if(this.cat.jetpack.visible&&!freeze&&this.clock-(this.lastJetThrust||0)>.016){this.lastJetThrust=this.clock;this.emitJetThrust(this.cat.root.position.x,this.cat.root.position.y,this.cat.root.position.z,reducedMotion);}
   this.updateEffects(game,isPaused?0:dt,isPaused||isOver,reducedMotion);
+  this.updateNetPursuit(game.netPursuit||game.copPursuit||null,isPaused?0:dt,reducedMotion);
   this.updateAuthoredHero(game,dt,{skin,fur,hat,menu,reducedMotion});
-  this.animateMagnet(this.cat.magnet,this.clock,reducedMotion);if(this.authoredHero)this.animateMagnet(this.authoredHero.magnet,this.clock,reducedMotion);
+  const magnetSliding=(p.slide||0)>0||p.anim==='slide'||p.anim==='roll';
+  if(this.effectiveModelSet==='refreshed'&&this.authoredHero)this.animateMagnet(this.authoredHero.magnet,this.clock,reducedMotion,magnetSliding,dt);
+  else this.animateMagnet(this.cat.magnet,this.clock,reducedMotion,magnetSliding,dt);
   this.updateShieldVisual(this.cat.shield,shieldActive,shieldCharges,this.clock,isPaused?0:dt,reducedMotion);if(this.authoredHero)this.updateShieldVisual(this.authoredHero.shield,shieldActive,shieldCharges,this.clock,isPaused?0:dt,reducedMotion);
   this.updateDebug(game,isMenu||isOver||isStarting);this.renderer.render(this.scene,this.camera);
  }

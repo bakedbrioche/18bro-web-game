@@ -106,10 +106,18 @@ Acceptance:
 
 ### Phase K — smooth result motion — complete
 
-- Replaced the CSS-flipped still chip with a Blender-rendered 36-frame, 30 fps transparent APNG turntable and retained the still for Reduced Motion and decode fallback.
+- Replaced the CSS-flipped still chip with a Blender-rendered 60-frame, 60 fps transparent APNG turntable and retained the still for Reduced Motion and decode fallback.
 - Accelerated the BUSTED traversal from roughly 1.60 seconds to 0.84 seconds, added closer letter overlap and kept the motion on compositor transforms.
 - Extended deterministic asset validation and standalone embedding coverage for the animated PNG.
 
+### Phase L — continuous runner pressure and police net pursuit — complete
+
+- Added seeded three-lane chip formations every 40–50 metres, retained smaller variable routes, and kept sparse forward cars on broad roads.
+- Made all reachable obstacle roofs safe landings; set Moon Boots to ten seconds; bound Jetpack chips to airborne flight and let Speed Burst, not Double Chips, affect the planned distance.
+- Added capped, computed-solvable perpendicular intersection traffic with reaction time for a jump and two-lane correction.
+- Added a deterministic two-officer net pursuit with alternating 2–4 attempts, tracking PS1-style telegraphs, a protected escape lane, custom net capture and a 10,000-score dodge reward.
+- Reduced Magnet feedback to one centered signal that fades during rolling.
+- Upgraded the result chip to a 60-frame, 60 fps Blender APNG and kept BUSTED motion on continuously interpolated compositor transforms.
 ## 3. Model and animation contract
 
 - The simulation owns position, facing, collision, capture logic, and root motion. Imported animation clips are in-place visual motion.

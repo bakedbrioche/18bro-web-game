@@ -1,10 +1,12 @@
 /** 18Bro deterministic, DOM-free runner simulation. World approaches +Z; cat stays at Z=0. */
 import { INTRO_DURATION, CAPTURE_DURATION, introPose, capturePose } from './choreography.mjs?v=street-28';
 import { ROUTE, BRANCHES, getRouteProfile, branchOffset, getTrafficPhase, crossStreetsAt } from './route.mjs?v=street-28';
+import { NET_PURSUIT, NetPursuitController } from './net-pursuit.mjs?v=graphics2-1';
 export { INTRO_DURATION, CAPTURE_DURATION } from './choreography.mjs?v=street-28';
 export const LANES = Object.freeze([-2.5, 0, 2.5]);
 export const THEMES = Object.freeze(['HONG KONG']);
-export const POWER_DURATIONS = Object.freeze({ magnet: 8, moon: 5, speedburst: 8, moped: 10, shield:15, doublechips:12, jetpack:10 });
+export const POWER_DURATIONS = Object.freeze({ magnet: 8, moon: 10, speedburst: 8, moped: 10, shield:15, doublechips:12, jetpack:10 });
+export const NET_PURSUIT_SCHEDULE = Object.freeze({ firstMin: 520, firstRange: 180, repeatMin: 700, repeatRange: 350 });
 export const POWER_SPAWN = Object.freeze({
   rowInterval: 8,
   rowOffset: 3,
@@ -15,7 +17,21 @@ export const COIN_SEQUENCES = Object.freeze({
   lengthWeights: Object.freeze({ 3: 1, 4: 3, 5: 3, 6: 1 }),
   patterns: Object.freeze(['straight', 'lateral', 'weave']),
 });
+export const COIN_FORMATIONS = Object.freeze({
+  gapMin: 40,
+  gapMax: 50,
+  lines: 3,
+  lengthWeights: Object.freeze({ 5: 1, 6: 3, 7: 3, 8: 1 }),
+  patterns: Object.freeze(['rows', 'arrow', 'wave']),
+});
 export const MOTION = Object.freeze({ laneDuration: .16, jumpDuration: .82, jumpHeight: 2.65, moonJumpDuration: 1.16, moonJumpHeight: 6.1, slideDuration: .72, jumpBuffer: .1, coyoteTime: .08 });
+export const JETPACK_PHASES = Object.freeze({ lift: 1.2, descent: 1.3, visibleChips: 8 });
+export const INTERSECTION_TRAFFIC = Object.freeze({
+  cadenceByTier: Object.freeze([2.8, 2.55, 2.3, 2.1]),
+  crossingSpeed: 10,
+  maxVehicleWidth: 4.7,
+  requiredClearTime: MOTION.jumpDuration + MOTION.laneDuration * 2,
+});
 export const BARRIERS = Object.freeze({ jump: { height: 1.9, width: 2.35, depth: 1.0 }, blocker: { opening: 1.55, height: 4.55, width: 2.38, depth: 1.65 }, slide: { height: 4.05, width: 2.38, depth: .9 } });
 export const VEHICLES = Object.freeze({ traffic: { approach: 2.05, height: 1.89, width: 1.94, depth: 3.56 }, scooter: { approach: 1.9, height: 2.26, width: 1.04, depth: 2.0 } });
 const GRAVITY = 8 * MOTION.jumpHeight / MOTION.jumpDuration ** 2;
@@ -26,6 +42,18 @@ const HAZARDS = new Set(['blocker', 'jump', 'slide', 'traffic', 'scooter', 'cros
 const COLLECTIBLES = new Set(['coin']);
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 const mix = (a, b, t) => a + (b - a) * t;
+const seededUnit = (seed, index, salt = 0) => {
+  let n = (Number(seed) ^ Math.imul(index + 1, 0x9e3779b1) ^ Math.imul(salt + 1, 0x85ebca6b)) >>> 0;
+  n = Math.imul(n ^ (n >>> 16), 0x45d9f3b);
+  n = Math.imul(n ^ (n >>> 16), 0x45d9f3b);
+  return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
+};
+
+export function intersectionTrafficWindow(tier = 1) {
+  const cadence = INTERSECTION_TRAFFIC.cadenceByTier[clamp(Math.round(tier), 1, 4) - 1];
+  const occupiedTime = INTERSECTION_TRAFFIC.maxVehicleWidth / INTERSECTION_TRAFFIC.crossingSpeed;
+  return { cadence, occupiedTime, clearTime: cadence - occupiedTime, requiredClearTime: INTERSECTION_TRAFFIC.requiredClearTime };
+}
 
 /** Templates always reserve at least one untouched lane, including a moving hazard's sweep. */
 export const PATTERNS = Object.freeze([
@@ -142,9 +170,12 @@ export class RunnerGame {
     this.mistakes = 0; this.shieldGrace = 0; this.captureRemaining = 0; this.captureDuration = CAPTURE_DURATION; this.captureProgress = 0; this.crash = null;
     this._spawnCursor = 30; this._rowId = 0; this._poolCursor = 0; this._lastSafeLane = 1;
     this._coinSequenceId = 0; this._lastCoinPattern = null; this._lastCoinLane = null;
+    this._coinFormationIndex = 0; this._coinFormationCursor = this._coinFormationGap(0);
     this._lastPowerKind = null;
     this._jetpackTrailId = 0; this._jetpackFinalChip = null; this._flightTrailPlan = []; this._flightTrailCursor = 0; this._flightTrailSpacing = 3;
     this.patternHistory = []; this.powers.clear();
+    this._netPursuitCount=0;this._netPursuitController=new NetPursuitController({seed:this.routeSeed^0x18b0cafe,onEvent:event=>this._handleNetPursuitEvent(event)});
+    this.netPursuit=this._netPursuitController.snapshot();this._nextNetPursuitDistance=NET_PURSUIT_SCHEDULE.firstMin+seededUnit(this.routeSeed,0,1818)*NET_PURSUIT_SCHEDULE.firstRange;
     this.route=this._routeProfile(0);this.routeTraffic=getTrafficPhase(0);this._branch=null;this._branchEntries=new Set();this._crossWave=-1;this._crossReleased=false;this._routeComplete=false;this._routeWaiting=false;
     for (const entity of this.entities) entity.active = false;
     for (let i = 0; i < this.chunks.length; i++) Object.assign(this.chunks[i], { z: -i * 32, index: i, theme: THEMES[0] });
@@ -158,9 +189,53 @@ export class RunnerGame {
   pause() { if (['RUNNING', 'STARTING', 'CAUGHT'].includes(this.state)) { this._beforePause = this.state; this.setState('PAUSED'); } }
   resume() { if (this.state === 'PAUSED') this.setState(this._beforePause || 'RUNNING'); }
   menu() { this._reset(); this.setState('MAIN_MENU'); }
+  _scheduleNextNetPursuit() {
+    const index=++this._netPursuitCount;
+    this._nextNetPursuitDistance=this.distance+NET_PURSUIT_SCHEDULE.repeatMin+seededUnit(this.routeSeed,index,1818)*NET_PURSUIT_SCHEDULE.repeatRange;
+  }
+  _handleNetPursuitEvent(event) {
+    if(event.type==='netpursuitsuccess'){
+      this.score+=event.bonus;this._scheduleNextNetPursuit();
+    }else if(event.type==='netcaught'){
+      this.captureDuration=Object.values(NET_PURSUIT.captureSeconds).reduce((sum,value)=>sum+value,0);
+      this.captureRemaining=this.captureDuration;this.captureProgress=0;
+      this.crash={kind:'net',x:this.player.x,y:this.player.y,z:0,guardIndex:event.guardIndex};
+      this.policeDistance=0;this.speed=0;this.player.hit=0;this.player.anim='caught';this.player.vy=0;this.player.slide=0;
+      this.setState('CAUGHT');this.emit('crash',{kind:'net',x:this.player.x,guardIndex:event.guardIndex});
+    }
+    this.emit(event.type,event);
+  }
+  _startNetPursuit() {
+    if(this.state!=='RUNNING'||this.netPursuit?.active)return false;
+    this.netPursuit=this._netPursuitController.start({playerLane:this.player.lane,playerX:this.player.x,distance:this.distance});
+    this._protectNetEscapeLane();return true;
+  }
+  _protectNetEscapeLane() {
+    const pursuit=this.netPursuit;if(!pursuit?.active)return;
+    const lanes=pursuit.safety?.keepClearLanes||[];if(!lanes.length)return;
+    const horizon=Math.max(8,(pursuit.safety.protectForSeconds||0)*Math.max(this.speed,10.4)+5);
+    for(const entity of this.entities){
+      if(!entity.active||!HAZARDS.has(entity.type)||entity.z>4||entity.z< -horizon)continue;
+      const blocks=entity.type==='crossTraffic'
+        ?lanes.some(lane=>Math.abs(entity.x-LANES[lane])<entity.width/2+.65)
+        :lanes.includes(entity.lane);
+      if(blocks)entity.active=false;
+    }
+  }
+  _updateNetPursuit(dt) {
+    const eligible=!this.debug.invincible&&!this.netPursuit?.active&&this.distance>=this._nextNetPursuitDistance&&!this.route.branch&&this.route.id!=='intersection'&&!this.powers.has('jetpack')&&!this.powers.has('moped')&&this.player.grounded;
+    if(eligible)this._startNetPursuit();
+    if(!this.netPursuit?.active)return;
+    this.netPursuit=this._netPursuitController.update(dt,{playerLane:this.player.lane,playerX:this.player.x,distance:this.distance});
+    const pursuitTarget=this.netPursuit.phase==='retreat'?12:this.netPursuit.active?1.65:this.policeDistance;
+    this.policeDistance+=(pursuitTarget-this.policeDistance)*(1-Math.exp(-dt*(this.netPursuit.phase==='retreat'?2.4:4.2)));
+    this._protectNetEscapeLane();
+  }
   seekArea(distance) {
     this.start({skipIntro:true});this.distance=clamp(Number(distance)||ROUTE.start,0,ROUTE.end-1);
     this.time=this.distance/15;this._spawnCursor=this.distance+30;
+    this._coinFormationIndex=Math.floor(this.distance/45);
+    this._coinFormationCursor=this.distance+this._coinFormationGap(this._coinFormationIndex);
     for(const e of this.entities)e.active=false;
     this._branch=null;this._branchEntries=new Set(BRANCHES.filter(b=>b.start<this.distance).map(b=>b.id));
     this._refreshRoute();this._fillAhead();return this.route;
@@ -193,14 +268,20 @@ export class RunnerGame {
   }
   _updateCrossTraffic(dt) {
     const streets=crossStreetsAt(this.distance,this.routeSeed);if(!streets.length)return;
-    const phase=getTrafficPhase(this.time),wave=Math.floor(this.time/1.55);
-    if(phase.cross==='green'&&wave!==this._crossWave){
+    const phase=getTrafficPhase(this.time),window=intersectionTrafficWindow(this.tier);
+    const slot=phase.cross==='green'?Math.floor(Math.max(0,phase.time-11)/window.cadence):-1;
+    const wave=slot<0?null:`${phase.cycle}:${slot}`;
+    if(wave!==null&&wave!==this._crossWave){
       this._crossWave=wave;
       for(const [index,street]of streets.entries()){
-        const kind=(phase.cycle+wave+index)%5,vehicleKind=kind===0?'bus':kind===1?'van':kind===2?'scooter':kind===3?'police':'taxi';
-        const length=vehicleKind==='bus'?6.8:vehicleKind==='van'?4.7:vehicleKind==='scooter'?2:3.55;
+        // Every crossroad vehicle fits below the normal jump apex. The capped
+        // cadence leaves time for a full jump plus a two-lane correction.
+        const kind=(phase.cycle+slot+index)%4,vehicleKind=kind===0?'van':kind===1?'scooter':kind===2?'police':'taxi';
+        const length=vehicleKind==='van'?4.7:vehicleKind==='scooter'?2:3.55;
         const e=this.spawnEntity('crossTraffic',1,this.distance-street.distance,{x:-street.direction*33,z:this.distance-street.distance,
-          anchor:street.distance,crossSpeed:street.direction*10,vehicleKind,width:length,depth:vehicleKind==='scooter'?1.05:1.96,height:vehicleKind==='bus'?2.9:vehicleKind==='van'?2.25:1.9,yaw:street.direction*Math.PI/2,approachFactor:1});
+          anchor:street.distance,crossSpeed:street.direction*INTERSECTION_TRAFFIC.crossingSpeed,vehicleKind,width:length,
+          depth:vehicleKind==='scooter'?1.05:1.96,height:vehicleKind==='van'?2.25:1.9,yaw:street.direction*Math.PI/2,
+          approachFactor:1,crossSlot:slot,crossCadence:window.cadence,crossClearTime:window.clearTime});
         if(e)e.previousZ=e.z;
       }
     }
@@ -261,8 +342,9 @@ export class RunnerGame {
       previousZ: z, approachFactor, width: dimensions?.width || .75,
       depth: dimensions?.depth || .72, height: dimensions?.height || 1.02, stopped: false, blocked: false, actualApproach: approachFactor,
       variant: 0, hit: false, passed: false, magnetic: false, magnetLatched: false, flightTrail: false, flightTrailId: 0, trailIndex: -1, trailFinal: false,
-      jumpArc: false, ordinaryCoin: false, coinSequenceId: -1, coinPattern: null, coinSequenceLength: 0, sequenceIndex: -1, age: 0, rowId: -1,
-      routeBranch:null,finale:false,anchor:null,yaw:null,crossSpeed:0,vehicleKind:null,
+      jumpArc: false, ordinaryCoin: false, coinSequenceId: -1, coinPattern: null, coinSequenceLength: 0, sequenceIndex: -1,
+      coinFormationId: -1, formationPattern: null, formationLane: -1, age: 0, rowId: -1,
+      routeBranch:null,finale:false,anchor:null,yaw:null,crossSpeed:0,vehicleKind:null,crossSlot:-1,crossCadence:0,crossClearTime:0,intersectionFlow:false,
       safeLane: -1, fromLane: lane, toLane: lane, spawnDistance: this.distance - z, ...extra });
     return entity;
   }
@@ -284,6 +366,48 @@ export class RunnerGame {
     if (!validatePattern(result)) throw new Error('Unsafe obstacle pattern');
     this._lastSafeLane = safeLane;
     return result;
+  }
+  _coinFormationGap(index) {
+    return mix(COIN_FORMATIONS.gapMin, COIN_FORMATIONS.gapMax, seededUnit(this.routeSeed, index, 17));
+  }
+  _weightedFormationLength(index, lane) {
+    const entries = Object.entries(COIN_FORMATIONS.lengthWeights);
+    const total = entries.reduce((sum, [, weight]) => sum + weight, 0);
+    let roll = seededUnit(this.routeSeed, index, lane + 31) * total;
+    for (const [length, weight] of entries) {
+      roll -= weight;
+      if (roll < 0) return Number(length);
+    }
+    return Number(entries.at(-1)[0]);
+  }
+  _spawnCoinFormation(spawnDistance, formationId = this._coinFormationIndex) {
+    if (this.powers.has('jetpack')) return [];
+    const pattern = COIN_FORMATIONS.patterns[Math.floor(seededUnit(this.routeSeed, formationId, 71) * COIN_FORMATIONS.patterns.length)];
+    const lengths = Array.from({ length: COIN_FORMATIONS.lines }, (_, lane) => this._weightedFormationLength(formationId, lane));
+    const needed = lengths.reduce((sum, length) => sum + length, 0);
+    const available = this.entities.reduce((count, entity) => count + !entity.active, 0);
+    if (available < needed + 32) return [];
+    const step = 2.35;
+    const offsets = pattern === 'rows' ? [0, 0, 0] : pattern === 'arrow' ? [step * 2, 0, step * 2] : [0, step, step * 2];
+    const coins = [];
+    for (let lane = 0; lane < COIN_FORMATIONS.lines; lane++) {
+      for (let index = 0; index < lengths[lane]; index++) {
+        const worldDistance = spawnDistance + offsets[lane] + index * step;
+        const coin = this.spawnEntity('coin', lane, this.distance - worldDistance, {
+          y: 1, ordinaryCoin: true, coinFormationId: formationId, formationPattern: pattern,
+          formationLane: lane, coinSequenceLength: lengths[lane], sequenceIndex: index,
+        });
+        if (coin) coins.push(coin);
+      }
+    }
+    return coins;
+  }
+  _fillCoinFormationsAhead(ahead) {
+    while (this._coinFormationCursor < this.distance + ahead) {
+      const formationId = this._coinFormationIndex++;
+      if (!this.powers.has('jetpack')) this._spawnCoinFormation(this._coinFormationCursor, formationId);
+      this._coinFormationCursor += this._coinFormationGap(this._coinFormationIndex);
+    }
   }
   _spawnCoinSequence({ safeLane = null, rowId = -1, z, y = 1 }) {
     const weightedLengths = Object.entries(COIN_SEQUENCES.lengthWeights);
@@ -340,13 +464,25 @@ export class RunnerGame {
   _spawnPattern(spawnDistance) {
     const doorway=BRANCHES.find(b=>Math.abs(spawnDistance-b.start)<12||Math.abs(spawnDistance-b.end)<10);
     if(doorway){if(!this.powers.has('jetpack'))for(let i=0;i<3;i++)this.spawnEntity('coin',doorway.side<0?0:2,this.distance-spawnDistance-i*2.5);return 18;}
-    // A broad junction uses its real lateral traffic and signal cycle, not a
-    // second layer of invisible procedural roadblocks.
+    // Broad junctions retain sparse forward traffic as well as signal-driven
+    // cross traffic. One car every other 24 m row is less than half the normal
+    // road density, while the other lanes always remain open.
     if(this._routeProfile(spawnDistance).id==='intersection'){
-      if(!this.powers.has('jetpack'))this._spawnCoinSequence({z:this.distance-spawnDistance,y:1});
-      return 24;
+      const rowId=this._rowId++,z=this.distance-spawnDistance;
+      const lane=Math.floor(seededUnit(this.routeSeed,rowId,113)*2)*2;
+      const safeLane=lane===0?2:0;
+      if(rowId%2===0)this.spawnEntity('traffic',lane,z,{rowId,safeLane,intersectionFlow:true,
+        variant:Math.floor(seededUnit(this.routeSeed,rowId,127)*3),fromLane:lane,toLane:lane});
+      if(!this.powers.has('jetpack'))this._spawnCoinSequence({safeLane,rowId,z,y:1});
+      const spacing=24;
+      this.patternHistory.push({id:rowId,distance:spawnDistance,spacing,speed:this.speed,tier:this.tier,
+        slots:lane===0?['traffic',null,null]:[null,null,'traffic'],safeLane,intersection:true});
+      if(this.patternHistory.length>32)this.patternHistory.shift();
+      return spacing;
     }
     const pattern = this._makePattern();
+    const pursuitLane=this.netPursuit?.active?this.netPursuit.safety?.keepClearLanes?.[0]:null;
+    if(Number.isInteger(pursuitLane)&&pursuitLane>=0&&pursuitLane<3){pattern.slots[pursuitLane]=null;pattern.safeLane=pursuitLane;}
     const rowId = this._rowId++;
     const z = this.distance - spawnDistance;
     for (let lane = 0; lane < 3; lane++) {
@@ -399,6 +535,7 @@ export class RunnerGame {
   _fillAhead() {
     const ahead = Math.max(160, this.speed * 6);
     while (this._spawnCursor < this.distance + ahead) this._spawnCursor += this._spawnPattern(this._spawnCursor);
+    this._fillCoinFormationsAhead(ahead);
   }
   _projectSpeed() {
     const base = this.debug.speedOverride != null ? clamp(Number(this.debug.speedOverride) || 10.4, 2, 120) : Math.min(26, 10.4 + this.time * .12);
@@ -433,25 +570,24 @@ export class RunnerGame {
     this._clearFlightTrail();
     const flight = this.powers.active.get('jetpack');
     if (!flight) return;
-    const trailId = ++this._jetpackTrailId;
-    // Build a deterministic route plan, then reveal only a readable window.
-    // Lane blocks bounce across all three lanes, with random initial direction
-    // and block lengths so repeat activations do not trace the same line.
-    const speed = Math.max(this._projectSpeed(), 2);
-    const acceleration = this.debug.speedOverride == null && this._slowRemaining <= 0 && speed < 26 * this.powers.speedMultiplier ? .12 * this.powers.speedMultiplier : 0;
-    const routeLength = speed * flight.duration + .5 * acceleration * flight.duration ** 2;
-    const firstDistance = Math.max(3.5, speed * .3);
-    const available = Math.max(0, this.entities.reduce((count, e) => count + !e.active, 0) - 20);
-    const count = Math.min(100, available, Math.max(2, Math.ceil((routeLength - firstDistance) / 3) + 1));
-    if (count < 2) return;
-    const spacing = this._flightTrailSpacing=(routeLength-firstDistance)/(count-1);
+    ++this._jetpackTrailId;
+    flight.descending=false;
+    // Budget only the lift/cruise distance. Descent owns no chips. The route
+    // is sized for the maximum legitimate speed multiplier so a Speed Burst
+    // picked up mid-flight cannot exhaust it; Double Chips never affects speed.
+    const speed=Math.max(this._projectSpeed(),2);
+    const cruiseDuration=Math.max(0,flight.duration-JETPACK_PHASES.descent);
+    const routeCap=this.distance>=ROUTE.start?this._routeProfile(this.distance).speedLimit*1.6:26*1.6;
+    const plannedSpeed=Math.max(speed,routeCap);
+    const firstDistance=Math.max(3.5,speed*.3),spacing=3;
+    const count=Math.max(2,Math.ceil((plannedSpeed*cruiseDuration-firstDistance)/spacing)+1);
+    this._flightTrailSpacing=spacing;
     let lane=this.player.lane,direction=this._random()<.5?-1:1,hold=3+Math.floor(this._random()*3);
     this._flightTrailPlan=[];this._flightTrailCursor=0;
-    for (let i = 0; i < count; i++) {
-      const distance = firstDistance + i * spacing;
-      const arrival = acceleration > 0 ? (Math.sqrt(speed * speed + 2 * acceleration * distance) - speed) / acceleration : distance / speed;
-      const blend = clamp(Math.min(arrival / 1.2, (flight.duration - arrival) / 1.3), 0, 1);
-      const eased = blend * blend * (3 - 2 * blend);
+    for(let i=0;i<count;i++){
+      const distance=firstDistance+i*spacing;
+      const liftBlend=clamp(distance/Math.max(speed*JETPACK_PHASES.lift,1),0,1);
+      const eased=liftBlend*liftBlend*(3-2*liftBlend);
       this._flightTrailPlan.push({lane,y:2.2+7.6*eased,index:i,final:i===count-1});
       if(--hold<=0&&i<count-1){if(lane+direction<0||lane+direction>2)direction*=-1;lane+=direction;hold=3+Math.floor(this._random()*3);}
     }
@@ -459,10 +595,11 @@ export class RunnerGame {
     // Jetpack-only chips out of the ground phase entirely.
   }
   _spawnFlightTrailWindow(firstDistance=null,trailId=this._jetpackTrailId) {
-    if(!this.powers.has('jetpack')||!this._flightTrailPlan.length||this.player.y<=.05)return;
+    const flight=this.powers.active.get('jetpack');
+    if(!flight||flight.descending||flight.remaining<=JETPACK_PHASES.descent||!this._flightTrailPlan.length||this.player.y<=.05)return;
     const active=this.entities.filter(e=>e.active&&e.flightTrail&&e.flightTrailId===trailId&&e.z<3).sort((a,b)=>a.z-b.z);
     let farthest=active[0]?.z??-Math.max(3.5,firstDistance||this._flightTrailSpacing);
-    while(active.length<8&&this._flightTrailCursor<this._flightTrailPlan.length){
+    while(active.length<JETPACK_PHASES.visibleChips&&this._flightTrailCursor<this._flightTrailPlan.length){
       const step=this._flightTrailPlan[this._flightTrailCursor++],z=active.length?farthest-this._flightTrailSpacing:farthest;
       const coin=this.spawnEntity('coin',step.lane,z,{y:step.y,flightTrail:true,flightTrailId:trailId,trailIndex:step.index,trailFinal:step.final});
       if(!coin){this._flightTrailCursor--;break;}active.push(coin);farthest=z;if(step.final)this._jetpackFinalChip=coin;
@@ -472,9 +609,15 @@ export class RunnerGame {
     if (!Number.isFinite(dt) || dt <= 0 || this.state === 'ARCADE' || this.state === 'PAUSED' || this.state === 'MAIN_MENU' || (this.state === 'GAME_OVER' && !this.captureRemaining)) return;
     let remaining = Math.min(dt, 1); // A suspended tab cannot advance seconds of unseen hazards.
     if (this.state === 'CAUGHT') {
-      this.captureRemaining = Math.max(0, this.captureRemaining - remaining);
-      this.captureProgress = 1 - this.captureRemaining / this.captureDuration;
-      if (!this.captureRemaining) { this.setState('GAME_OVER'); this.emit('gameover', this.snapshot()); }
+      if(this.crash?.kind==='net'&&this.netPursuit?.active){
+        this.netPursuit=this._netPursuitController.update(remaining,{playerLane:this.player.lane,playerX:this.player.x,distance:this.distance});
+        this.captureProgress=this.netPursuit.captureProgress;this.captureRemaining=Math.max(0,this.captureDuration*(1-this.captureProgress));
+        if(this.netPursuit.outcome==='caught'){this.captureRemaining=0;this.captureProgress=1;this.setState('GAME_OVER');this.emit('gameover',this.snapshot());}
+      }else{
+        this.captureRemaining = Math.max(0, this.captureRemaining - remaining);
+        this.captureProgress = 1 - this.captureRemaining / this.captureDuration;
+        if (!this.captureRemaining) { this.setState('GAME_OVER'); this.emit('gameover', this.snapshot()); }
+      }
       return;
     }
     if (this.state === 'STARTING') {
@@ -512,7 +655,8 @@ export class RunnerGame {
     }
     if(this.powers.has('jetpack')){
       const flight=this.powers.active.get('jetpack'),landingTime=flight.remaining;
-      const blend=Math.min(1,flight.elapsed/1.2,landingTime/1.3);
+      if(landingTime<=JETPACK_PHASES.descent&&!flight.descending){flight.descending=true;this._clearFlightTrail();}
+      const blend=Math.min(1,flight.elapsed/JETPACK_PHASES.lift,landingTime/JETPACK_PHASES.descent);
       const target=9*blend*blend*(3-2*blend);
       p.y+=(target-p.y)*(1-Math.exp(-dt*12));p.vy=0;p.grounded=false;
     }else if (roofSupported) {
@@ -532,7 +676,8 @@ export class RunnerGame {
     const phase=getTrafficPhase(this.time),beforeDistance=this.distance;
     this._routeWaiting=false;
     const movement=this.speed*dt;
-    this.distance+=movement;this._enterRoutes(beforeDistance,this.distance);this._refreshRoute();this._updateCrossTraffic(dt);
+    this.distance+=movement;this._enterRoutes(beforeDistance,this.distance);this._refreshRoute();this._updateCrossTraffic(dt);this._updateNetPursuit(dt);
+    if(this.state!=='RUNNING')return;
     if(this._routeWaiting)p.anim='idle';
     this.score += movement * this.powers.scoreMultiplier;
     if(this.time>2.5&&this._hitAge>9){const chaseGap=10-(this.route.night||0)*6;
@@ -594,7 +739,8 @@ export class RunnerGame {
         if (xOverlap) {
           if (hazard) {
             const vehicle = !!VEHICLES[e.type] || e.type === 'crossTraffic';
-            const landsOnRoof = vehicle && !p.grounded && p.vy <= 0 &&
+            const roofReachable = vehicle || !!BARRIERS[e.type];
+            const landsOnRoof = roofReachable && !p.grounded && p.vy <= 0 &&
               previousY >= e.height - .05 && playerY <= e.height + .18 &&
               p.roofEntityId == null;
             if (landsOnRoof) {
@@ -666,6 +812,7 @@ export class RunnerGame {
     this.emit('hit', { kind: entity.type, impact, x: this.player.x, policeDistance: this.policeDistance });
   }
   _capture(entity) {
+    if(this.netPursuit?.active){this._netPursuitController.reset();this.netPursuit=this._netPursuitController.snapshot();}
     entity.stopped = true;
     this.captureDuration=CAPTURE_DURATION;
     this.crash = { kind: entity.type, entityId: entity.id, x: this.player.x, y: this.player.y, z: entity.z };
@@ -679,7 +826,7 @@ export class RunnerGame {
       score: Math.floor(this.score), coins: this.coins,
       policeDistance: this.policeDistance, mistakes: this.mistakes, mopedShield: this.powers.has('moped'), captureProgress: this.captureProgress, crash: this.crash, theme: this.theme, themeIndex: this.themeIndex, tier: this.tier,
       perfectDodges: this.perfectDodges, lane: this.player.lane, activeEntities: this.entities.filter(e => e.active).length,
-      route:{...this.route},routeTraffic:{...this.routeTraffic},
+      route:{...this.route},routeTraffic:{...this.routeTraffic},netPursuit:this.netPursuit,
       powers: [...this.powers.active.values()].map(p => ({ ...p })) };
   }
 }

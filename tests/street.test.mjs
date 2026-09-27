@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {RunnerGame,LANES,MOTION,POWER_DURATIONS,POWER_SPAWN,COIN_SEQUENCES,PATTERNS,THEMES,VEHICLES,INTRO_DURATION,CAPTURE_DURATION,validatePattern,obstacleSpacing} from '../dist/core.mjs';
+import {RunnerGame,LANES,MOTION,POWER_DURATIONS,POWER_SPAWN,COIN_SEQUENCES,COIN_FORMATIONS,PATTERNS,THEMES,BARRIERS,VEHICLES,INTRO_DURATION,CAPTURE_DURATION,validatePattern,obstacleSpacing} from '../dist/core.mjs';
 function game(){const g=new RunnerGame({random:()=>.21});g.start({skipIntro:true});return g;}
 function tick(g,t,dt=1/120){for(let n=0;n<Math.ceil(t/dt);n++)g.update(Math.min(dt,t-n*dt));}
-function empty(g){g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;}
+function empty(g){g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;g._coinFormationCursor=1e9;}
 test('street edition starts faster, keeps one level, and uses only supported powers',()=>{let g=game();assert.equal(g.speed,10.4);assert.deepEqual(THEMES,['HONG KONG']);assert.deepEqual(Object.keys(POWER_DURATIONS),['magnet','moon','speedburst','moped','shield','doublechips','jetpack']);assert.equal(g.activatePower('frenzy'),false);assert.equal(g.activatePower('rocket'),false);assert.equal(g.activatePower('giant'),false);assert.equal(g.activatePower('skateboard'),false);assert.equal(g.spawnEntity('chip',1,-30),null);});
 test('power-up selection is weighted, sparse and never repeats immediately',()=>{
  let seed=11;const g=new RunnerGame({random:()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296)}),seen=[];
@@ -199,4 +199,54 @@ test('busted appears as carrying starts and the arrest continues behind the scre
 });
 test('down action while riding uses the duck timer without dismounting',()=>{
  const g=game();empty(g);g.activatePower('moped');assert.equal(g.input('slide'),true);tick(g,.2);assert.ok(g.player.slide>0);assert.ok(g.powers.has('moped'));tick(g,.6);assert.equal(g.player.slide,0);
+});
+
+test('seeded three-lane chip formations recur every 40 to 50 metres with five to eight chips per line',()=>{
+ const make=()=>{let seed=41;const g=new RunnerGame({random:()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296)});g.start({skipIntro:true});return g;};
+ const summarize=g=>{
+  const groups=new Map();
+  for(const coin of g.entities.filter(e=>e.active&&e.coinFormationId>=0)){
+   if(!groups.has(coin.coinFormationId))groups.set(coin.coinFormationId,[]);
+   groups.get(coin.coinFormationId).push(coin);
+  }
+  return [...groups.entries()].sort((a,b)=>a[0]-b[0]).map(([id,coins])=>({id,pattern:coins[0].formationPattern,
+   base:Math.min(...coins.map(e=>e.spawnDistance)),lanes:[0,1,2].map(lane=>coins.filter(e=>e.formationLane===lane).length)}));
+ };
+ const first=summarize(make()),second=summarize(make());
+ assert.deepEqual(first,second);assert.ok(first.length>=3);
+ for(const formation of first){
+  assert.ok(COIN_FORMATIONS.patterns.includes(formation.pattern));
+  assert.equal(formation.lanes.length,COIN_FORMATIONS.lines);
+  assert.ok(formation.lanes.every(length=>length>=5&&length<=8));
+ }
+ for(let index=1;index<first.length;index++){
+  const gap=first[index].base-first[index-1].base;
+  assert.ok(gap>=COIN_FORMATIONS.gapMin-1e-8&&gap<=COIN_FORMATIONS.gapMax+1e-8,gap);
+ }
+ const jet=make();jet.entities.forEach(e=>e.active=false);jet.activatePower('jetpack');
+ assert.deepEqual(jet._spawnCoinFormation(jet.distance+45,999),[]);
+ assert.equal(jet.entities.some(e=>e.active&&e.coinFormationId===999),false);
+});
+
+test('broad roads retain sparse forward cars with at least two open lanes',()=>{
+ const g=new RunnerGame({random:()=>.2});g.entities.forEach(e=>e.active=false);g._rowId=0;
+ const rows=20,cars=[];
+ for(let row=0;row<rows;row++){
+  g._spawnPattern(700+row*.01);
+  cars.push(...g.entities.filter(e=>e.active&&e.intersectionFlow));
+  g.entities.forEach(e=>e.active=false);
+ }
+ assert.equal(cars.length,rows/2);
+ assert.ok(cars.every(car=>car.type==='traffic'&&(car.lane===0||car.lane===2)));
+ assert.ok(cars.every(car=>car.safeLane!==car.lane));
+});
+
+test('descending landings on reachable obstacle roofs continue the run',()=>{
+ for(const type of Object.keys(BARRIERS)){
+  const g=game();empty(g);g.debug.speedOverride=10;const obstacle=g.spawnEntity(type,1,-.15);
+  g.player.y=obstacle.height+.04;g.player.vy=-1;g.player.grounded=false;
+  tick(g,.02);
+  assert.equal(g.state,'RUNNING',type);assert.equal(g.player.roofEntityId,obstacle.id,type);
+  assert.equal(g.player.y,obstacle.height,type);assert.equal(g.mistakes,0,type);
+ }
 });

@@ -6,6 +6,7 @@
 - Keep scope deliberate. A 24-hour release benefits from a few coherent, polished changes rather than a half-finished asset pipeline.
 - Preserve authorship and provenance. Record external assets, licenses, and generated artifacts.
 - Say exactly what was exercised and what remains inferred.
+- Review every runner mechanic against current genre-leading play, especially Subway Surfers: pickup trails should communicate a route, telegraphs must be readable at speed, recoveries must feel responsive, and procedural challenges must always preserve a reachable answer. Use that benchmark to identify principles, then implement original code, art, pacing, and copy; never claim unpublished internals as fact.
 
 ## Hard rules
 

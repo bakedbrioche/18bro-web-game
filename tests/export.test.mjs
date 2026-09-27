@@ -38,6 +38,7 @@ test('standalone embeds exact model bytes and parses/clones them offline with ve
   assert.equal(typeof modules['vendor/addons/utils/SkeletonUtils.js'].clone,'function');
   assert.equal(typeof modules['vendor/addons/loaders/GLTFLoader.js'].GLTFLoader,'function');
   assert.equal(modules['model-config.mjs'].normalizeModelSet('refreshed'),'refreshed');
+  assert.equal(typeof modules['net-pursuit.mjs'].NetPursuitController,'function');
   for(const name of fs.readdirSync(path.join(root,'dist/assets/models')).filter(name=>name.endsWith('.glb'))){
    assert.deepEqual(Buffer.from(context.__18BRO_EMBEDDED_MODELS__[name],'base64'),fs.readFileSync(path.join(root,'dist/assets/models',name)));
   }

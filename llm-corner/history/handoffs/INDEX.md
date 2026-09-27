@@ -2,6 +2,8 @@
 
 Newest first; the top entry is the next session’s entry point.
 
+- **2026-09-27-continuous-runner-net-pursuit.md** - Continuous fair chip formations, capped solvable traffic, alternating police-net pursuit, 10,000-score escape reward, 60 fps Blender chip APNG and final browser evidence.
+
 - **2026-09-26-smooth-results-turntable.md** - Compositor-smooth BUSTED wave, validated 36-frame Blender/FFmpeg APNG chip turntable, static Reduced Motion fallback and real Chrome evidence.
 
 - **2026-09-26-route-camera-result-polish.md** - Raised mixer-owned Magnet pose, fifteen-second shattering Shield, weighted 3-6 chip paths, constant-pitch air camera, smoother BUSTED wave, spinning result chip and 140 green tests.

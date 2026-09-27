@@ -140,18 +140,22 @@ REVIEW.write_bytes(OUTPUT.read_bytes())
 
 # Render a complete real-geometry turn at 30 fps. APNG retains full alpha and
 # product-lighting detail at a much smaller footprint than a palette GIF.
-frames = 36
-fps = 30
+frames = 60
+fps = 60
+animation_size = 160
 if FRAME_DIR.exists():
     shutil.rmtree(FRAME_DIR)
 FRAME_DIR.mkdir(parents=True)
-scene.render.resolution_x = 128
-scene.render.resolution_y = 128
+scene.render.resolution_x = animation_size
+scene.render.resolution_y = animation_size
 for frame in range(frames):
-    turntable.rotation_euler.z = math.tau * frame / frames
+    angle = math.tau * frame / frames
+    turntable.rotation_euler.z = angle
+    turntable.rotation_euler.x = math.radians(6) * math.sin(angle * 2)
+    turntable.rotation_euler.y = math.radians(3) * math.sin(angle)
     scene.render.filepath = str(FRAME_DIR / f'chip-{frame:03d}.png')
     bpy.ops.render.render(write_still=True)
-turntable.rotation_euler.z = 0
+turntable.rotation_euler = (0, 0, 0)
 
 ffmpeg = shutil.which('ffmpeg')
 if not ffmpeg:
@@ -181,8 +185,8 @@ manifest = {
     'animation': {
         'format': 'APNG',
         'output': 'dist/assets/icons/chip-turntable.png',
-        'width': 128,
-        'height': 128,
+        'width': animation_size,
+        'height': animation_size,
         'frames': frames,
         'fps': fps,
         'loops': 0,

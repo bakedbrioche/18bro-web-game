@@ -111,11 +111,11 @@ test('cosmetic cat replacement preserves active Refreshed shield and jetpack geo
 });
 
 test('Refreshed model selection applies to guards and the reusable crowd family',async()=>{
- const scene=sceneHarness(),guard=scene.makePerson(1,true),pedestrian=scene.makePerson(2,false),cashier=scene.makePerson(9,false,'cashier'),rider=scene.makePerson(3,false,'rider');
+ const scene=sceneHarness(),guard=scene.makePerson(1,true),pedestrian=scene.makePerson(2,false),cashier=scene.makePerson(9,false,'cashier'),rider=scene.makePerson(3,false,'rider');guard.catchNet=scene.makeCatchNet(0);scene.attachCatchNet(guard,guard.catchNet);
  assert.equal(guard.root.userData.modelSet,'original');assert.equal(pedestrian.root.userData.modelSet,'original');
  assert.equal(await scene.setModelSetPreference('refreshed'),'refreshed');
  assert.equal(guard.root.userData.modelSet,'refreshed');assert.equal(pedestrian.root.userData.modelSet,'refreshed');
- assert.ok(guard.authored&&pedestrian.authored);assert.equal(guard.body.visible,false);assert.equal(pedestrian.body.visible,false);
+ assert.ok(guard.authored&&pedestrian.authored);assert.equal(guard.body.visible,false);assert.equal(pedestrian.body.visible,false);assert.equal(guard.catchNet.userData.attachedTo,'socket_carry_R');assert.equal(guard.catchNet.parent.name,'socket_carry_R');
  assert.equal(guard.authored.scene.getObjectByName('role_police').visible,true);
  assert.equal(pedestrian.authored.scene.getObjectByName('role_police').visible,false);
  assert.equal(cashier.authored.scene.getObjectByName('role_cashier').visible,true);assert.equal(rider.authored.scene.getObjectByName('role_rider').visible,true);

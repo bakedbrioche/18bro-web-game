@@ -1,0 +1,50 @@
+name: 18bro
+
+services:
+  game:
+    image: ${IMAGE:?Set IMAGE to the published GHCR image tag}
+    init: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    expose:
+      - "80"
+    networks:
+      - edge
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  caddy:
+    image: caddy:2-alpine
+    init: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      game:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - edge
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  edge:
+
+volumes:
+  caddy_data:
+  caddy_config:

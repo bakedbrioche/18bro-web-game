@@ -27,6 +27,7 @@ For multi-agent work, also read `protocols/roles.md`, `protocols/subagents.md`, 
 | Hard project invariants | `docs/conventions/contracts.md` |
 | Development steps | `docs/conventions/dev-flow.md` |
 | Test, export, and browser gate | `docs/conventions/audit-gate.md` |
+| Production containers, GitHub Actions, rollback, and DNS | `docs/architecture/deployment.md` |
 | Commit and push discipline | `docs/conventions/git.md` |
 | Documentation filing rules | `docs/conventions/docs-style.md` |
 | Known traps | `docs/reference/gotchas.md` |

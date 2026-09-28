@@ -1,0 +1,34 @@
+{
+	admin off
+}
+
+(common) {
+	encode zstd gzip
+	reverse_proxy game:80
+	header {
+		-Server
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+	log {
+		output stdout
+		format console
+	}
+}
+
+# Keep the VPS address directly testable before DNS propagation completes,
+# while always upgrading named production traffic to TLS.
+http://18bro.site, http://www.18bro.site {
+	redir https://{host}{uri} permanent
+}
+
+:80 {
+	import common
+}
+
+# Caddy obtains and renews certificates automatically after both DNS records
+# resolve to this VPS and ports 80/443 are reachable.
+18bro.site, www.18bro.site {
+	import common
+}

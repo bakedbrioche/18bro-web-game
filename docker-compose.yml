@@ -1,0 +1,11 @@
+name: 18bro-local
+
+services:
+  game:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "4173:80"
+    init: true
+    restart: unless-stopped

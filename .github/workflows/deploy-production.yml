@@ -1,0 +1,110 @@
+name: Build and deploy production
+
+on:
+  push:
+    branches:
+      - main
+      - feature/graphics-v2-pivot
+    paths:
+      - "dist/**"
+      - "deploy/**"
+      - "Dockerfile"
+      - ".dockerignore"
+      - "docker-compose.prod.yml"
+      - "package.json"
+      - "server.mjs"
+      - "scripts/**"
+      - "tests/**"
+      - ".github/workflows/deploy-production.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  verify-build-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Verify game and standalone export
+        run: npm run verify
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish immutable image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Configure pinned SSH host
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Deploy immutable image to Hostinger
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+          IMAGE: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+        run: |
+          set -euo pipefail
+          target="$VPS_USER@$VPS_HOST"
+          ssh_options=(-i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes)
+
+          ssh "${ssh_options[@]}" "$target" 'mkdir -p /opt/18bro/deploy'
+          scp "${ssh_options[@]}" docker-compose.prod.yml "$target:/opt/18bro/docker-compose.prod.yml"
+          scp "${ssh_options[@]}" deploy/Caddyfile "$target:/opt/18bro/deploy/Caddyfile"
+
+          printf '%s' "$GHCR_TOKEN" | ssh "${ssh_options[@]}" "$target" "docker login ghcr.io --username '$GHCR_USER' --password-stdin"
+          ssh "${ssh_options[@]}" "$target" "set -eu; cd /opt/18bro; printf '%s\n' 'IMAGE=$IMAGE' > .env; docker compose -f docker-compose.prod.yml config --quiet; docker compose -f docker-compose.prod.yml pull; docker compose -f docker-compose.prod.yml up -d --remove-orphans --wait; docker logout ghcr.io >/dev/null 2>&1 || true; docker image prune -f --filter 'until=168h'; curl --fail --silent --show-error http://127.0.0.1/healthz; docker compose -f docker-compose.prod.yml ps"
+
+      - name: Verify public VPS response
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 3 "http://$VPS_HOST/healthz"

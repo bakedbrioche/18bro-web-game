@@ -56,6 +56,8 @@ function app(initialSave,{modelHook=true}={}){
   openPanel:name=>vm.runInContext(`openPanel(${JSON.stringify(name)})`,context),
   updateHUD:()=>vm.runInContext('updateHUD()',context),
   showPickup:type=>vm.runInContext(`showPowerPickup(${JSON.stringify(type)})`,context),
+   showReward:(bonus,tag=0)=>vm.runInContext(`showPursuitReward(${Number(bonus)},${Number(tag)})`,context),
+   step:now=>vm.runInContext(`loop(${Number(now)})`,context),
   powerPill:type=>vm.runInContext(`powerPills.get(${JSON.stringify(type)})`,context),
   finishResults:()=>vm.runInContext('updateResultSequence(999999)',context),
   saved:()=>JSON.parse(saved.get('18bro.save.v1'))};
@@ -190,6 +192,21 @@ test('power art keeps the same decoded image nodes through pause and resume',()=
  a.showPickup('magnet');const pickup=a.get('power-pickup-icon');pickup.onload?.();const writes=pickup.srcWrites;
  a.game.pause();a.showPickup('magnet');assert.equal(a.get('power-pickup-icon'),pickup);assert.equal(pickup.srcWrites,writes);
  a.game.resume();a.game.activatePower('shield');a.updateHUD();const shield=a.powerPill('shield');assert.equal(shield.time.textContent,'15s · ×3');assert.match(shield.card.getAttribute('aria-label'),/3 shields remaining/);
+});
+
+
+test('pause freezes popup lifetimes and CSS animations until play resumes',()=>{
+ const a=app();a.get('start-run').click();a.game.start({skipIntro:true});a.showPickup('magnet');a.showReward(12500,1);
+ a.game.pause();assert.equal(a.get('game-shell').classList.contains('paused'),true);
+ for(let frame=1;frame<=80;frame++)a.step(frame*50);
+ assert.equal(a.get('power-pickup').hidden,false);assert.equal(a.get('power-pickup').classList.contains('show'),true);
+ assert.equal(a.get('pursuit-reward').hidden,false);assert.equal(a.get('pursuit-reward').classList.contains('show'),true);
+ assert.equal(a.get('hud-score-bonus').classList.contains('show'),true);
+ a.game.resume();assert.equal(a.get('game-shell').classList.contains('paused'),false);
+ for(let frame=81;frame<=145;frame++)a.step(frame*50);
+ assert.equal(a.get('power-pickup').hidden,true);assert.equal(a.get('pursuit-reward').hidden,true);
+ const css=fs.readFileSync(new URL('../dist/style.css',import.meta.url),'utf8');
+ assert.match(css,/[.]game-shell[.]paused [.]power-pickup[\s\S]*animation-play-state:paused!important/);
 });
 
 test('net capture remains visible before the Busted results sequence',()=>{

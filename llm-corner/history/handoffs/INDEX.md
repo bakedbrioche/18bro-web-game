@@ -2,6 +2,10 @@
 
 Newest first; the top entry is the next session’s entry point.
 
+- **2026-09-28-power-pursuit-pause-polish.md** - Mobility pursuit escapes, shielded net blocks, pause-safe feedback, tinted booster halos and matched Refreshed guard cadence.
+
+- **2026-09-28-packet-expression-favicon-polish.md** - Closed manifold chip packet, measured existing-eye surprise, shallow cap badge and calm peeking favicon; changes remain uncommitted for review.
+
 - **2026-09-28-final-pursuit-heist-presentation.md** - Shoulder-contact net carry, existing-face heist surprise, one sealed chip packet, split pursuit reward and peeking-18Bro favicon.
 
 - **2026-09-27-pursuit-capture-reward-polish.md** - Hero-sized payload-socket net capture, bounded two-guard exit, billboard chip glow, scaled pursuit rewards and embedded chase favicon.

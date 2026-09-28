@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../dist/vendor/three.module.js';
-import { GameScene, airborneCameraFollow, chipVisualScale } from '../dist/scene.mjs';
+import { GameScene, airborneCameraFollow, characterSampleTime, chipVisualScale } from '../dist/scene.mjs';
 import { DistrictScene } from '../dist/district-scene.mjs';
 import { VEHICLES, MOTION, BARRIERS } from '../dist/core.mjs';
 
 function modelFactory(){
   const s=Object.create(GameScene.prototype), material=new THREE.MeshBasicMaterial();
-  const spriteMaterial=new THREE.SpriteMaterial({color:0xffd45a});s.m=new Proxy({}, {get:(_,key)=>['shirt','pants','complexions','wall'].includes(key)?Array(6).fill(material):key==='chipAura'?spriteMaterial:material});
+  const spriteMaterial=new THREE.SpriteMaterial({color:0xffd45a}),powerAura=Object.fromEntries(['magnet','moon','moped','shield','doublechips','jetpack','speedburst'].map((type,index)=>[type,new THREE.SpriteMaterial({color:[0x6cf0ca,0xd8eb58,0xff7541,0x62ddff,0xffc846,0xff6952,0x55bfff][index]})]));s.m=new Proxy({}, {get:(_,key)=>['shirt','pants','complexions','wall'].includes(key)?Array(6).fill(material):key==='chipAura'?spriteMaterial:key==='powerAura'?powerAura:material});
   s.box=new THREE.BoxGeometry(1,1,1);s.sphere=new THREE.SphereGeometry(.5,20,14);s.plane=new THREE.PlaneGeometry(1,1);
   s.cylinder=new THREE.CylinderGeometry(.5,.5,1,16);return s;
 }
@@ -55,15 +55,34 @@ test('every purchasable fur and hat creates a finite model with its packet attac
   assert.ok(Number.isFinite(bounds.max.y));assert.ok(bounds.max.y<3.6);assert.equal(cat.bag.parent,cat.arms[1]);
   const packet=cat.bag,packetBody=packet.getObjectByName('stolen_chip_packet_body'),packetSize=packetBody.geometry.boundingBox.getSize(new THREE.Vector3()),labels=packet.children.filter(o=>o.name.startsWith('stolen_chip_label'));
   assert.equal(packet.userData.packetStyle,'sealed-pillow');assert.equal(packet.userData.integratedCrimps,true);assert.equal(packet.userData.readableFaces,2);assert.equal(packetBody.geometry.userData.sealedPillow,true);assert.equal(packetBody.geometry.userData.integratedCrimps,true);
-  assert.ok(packetSize.x>.6&&packetSize.y>.7&&packetSize.z>.28,'packet has a voluminous pillow silhouette');assert.equal(labels.length,2);assert.ok(labels.every(label=>label.getObjectByName('stolen_chip_wordmark')));assert.equal(packet.getObjectByName('stolen_chip_pouch'),undefined,'old overlapping ellipsoid packet is gone');
-  assert.equal(cat.root.getObjectByName('18bro_panic_face'),undefined,'surprise does not add duplicate eyes');assert.equal(cat.expression.mode,'existing-procedural-face');assert.equal(cat.capMark.userData.mark,'seven-inspired');assert.equal(cat.capMark.userData.geometryOnly,true);assert.equal(cat.capMark.userData.frontSign,1);
+  assert.ok(packetSize.x>.6&&packetSize.y>.78&&packetSize.z>.31,'packet has a voluminous pillow silhouette');assert.equal(labels.length,2);assert.ok(labels.every(label=>label.getObjectByName('stolen_chip_wordmark')));assert.equal(packet.getObjectByName('stolen_chip_pouch'),undefined,'old overlapping ellipsoid packet is gone');
+  assert.equal(cat.root.getObjectByName('18bro_panic_face'),undefined,'surprise does not add duplicate eyes');assert.equal(cat.expression.mode,'existing-procedural-face');assert.equal(cat.capMark.userData.mark,'seven-eleven-geometric');assert.equal(cat.capMark.userData.geometryOnly,true);assert.equal(cat.capMark.userData.frontSign,1);
   assert.equal(s.furMaterials.size<=6,true);
  }
 });
-test('store surprise reshapes the existing face and restores every transform exactly',()=>{
- const s=modelFactory(),cat=s.makeCat('18bro'),parts=[...cat.expression.eyes,...cat.expression.pupils,...cat.expression.lids,...cat.expression.brows,cat.expression.mouth],snapshot=()=>parts.map(part=>[...part.position.toArray(),...part.scale.toArray(),...part.rotation.toArray()]),before=snapshot(),meshCount=cat.head.children.filter(child=>child.isMesh).length;
+test('stolen packet is one closed pillow volume with attached outward artwork on both faces',()=>{
+ const s=modelFactory(),packet=new THREE.Group();s.makePacket(packet);const body=packet.getObjectByName('stolen_chip_packet_body'),geometry=body.geometry,size=geometry.boundingBox.getSize(new THREE.Vector3()),indices=geometry.index.array,edgeUse=new Map();
+ for(let i=0;i<indices.length;i+=3)for(const [a,b] of [[indices[i],indices[i+1]],[indices[i+1],indices[i+2]],[indices[i+2],indices[i]]]){const key=a<b?String(a)+':'+String(b):String(b)+':'+String(a);edgeUse.set(key,(edgeUse.get(key)||0)+1);}
+ assert.ok([...edgeUse.values()].every(count=>count===2),'every packet edge belongs to exactly two triangles');
+ assert.deepEqual(geometry.groups.map(group=>group.materialIndex),[0,1,2],'body, heat seals and artwork are integrated material zones');
+ assert.equal(geometry.userData.manifoldClosed,true);assert.equal(geometry.userData.integratedLabelPanels,true);assert.ok(size.x>.7&&size.y>.81&&size.z>.32);
+ assert.ok(s.packetHalfDepth(0,-.02)>s.packetHalfDepth(0,-.425)*4.5,'soft body is substantially fuller than its sealed edge');
+ assert.ok(s.packetHalfDepth(0,-.02)>s.packetHalfDepth(s.packetHalfWidth(-.02)*.95,-.02)*2,'side gussets taper without flattening the centre');
+ const labels=packet.children.filter(child=>child.name.startsWith('stolen_chip_label'));assert.equal(labels.length,2);
+ for(const label of labels){const outward=new THREE.Vector3(0,0,1).applyQuaternion(label.quaternion),wordmark=label.getObjectByName('stolen_chip_wordmark'),positions=wordmark.geometry.attributes.position;assert.ok(outward.dot(new THREE.Vector3(...label.userData.outwardNormal))>.999);assert.equal(Math.sign(label.position.z),label.userData.face);assert.equal(label.userData.surfaceBound,true);assert.ok(wordmark);assert.equal(wordmark.geometry.userData.surfaceConformed,true);for(let i=0;i<positions.count;i++){const x=positions.getX(i),y=positions.getY(i),expected=s.packetHalfDepth(x,label.position.y+y)-Math.abs(label.position.z)+label.userData.surfaceOffset;assert.ok(Math.abs(positions.getZ(i)-expected)<1e-6,'letter follows the curved packet surface');}assert.equal(label.getObjectByName('stolen_chip_label_panel'),undefined,'red panel is part of the bag surface rather than a floating plane');}
+});
+test('seven mark uses a shallow ordered badge with a single 7 and readable ELEVEN geometry',()=>{
+ const s=modelFactory(),cat=s.makeCat('18bro',{hat:'cap'}),mark=cat.capMark,layers=mark.userData.layerDepths;
+ assert.equal(mark.userData.mark,'seven-eleven-geometric');assert.equal(mark.userData.word,'ELEVEN');assert.ok(mark.getObjectByName('seven_mark_panel'));assert.ok(mark.getObjectByName('seven_mark_orange_bar'));assert.ok(mark.getObjectByName('seven_mark_red_seven'));assert.ok(mark.getObjectByName('seven_mark_word_eleven'));
+ assert.ok(layers.panelFront<layers.orange&&layers.orange<layers.red+.0001);assert.ok(Math.max(layers.red,layers.word)-layers.panelFront<.004,'logo ink hugs the cap panel');assert.ok(mark.userData.maximumRelief<.02,'badge does not float in front of the cap');
+ const panelBounds=new THREE.Box3().setFromObject(mark.getObjectByName('seven_mark_panel')),redBounds=new THREE.Box3().setFromObject(mark.getObjectByName('seven_mark_red_seven')),wordBounds=new THREE.Box3().setFromObject(mark.getObjectByName('seven_mark_word_eleven'));
+ assert.ok(redBounds.min.x>panelBounds.min.x&&redBounds.max.x<panelBounds.max.x&&redBounds.min.y>panelBounds.min.y&&redBounds.max.y<panelBounds.max.y&&wordBounds.min.x>panelBounds.min.x&&wordBounds.max.x<panelBounds.max.x&&wordBounds.min.y>panelBounds.min.y&&wordBounds.max.y<panelBounds.max.y,'all logo geometry remains inside its white panel in the artwork plane');assert.ok(wordBounds.getSize(new THREE.Vector3()).x>panelBounds.getSize(new THREE.Vector3()).x*.48,'ELEVEN treatment remains readable at gameplay scale');
+});
+test('store surprise brings the existing full eyes forward and restores every transform exactly',()=>{
+ const s=modelFactory(),cat=s.makeCat('18bro'),parts=[...cat.expression.eyes,...cat.expression.pupils,...cat.expression.lids,...cat.expression.brows,cat.expression.mouth],snapshot=()=>parts.map(part=>[...part.position.toArray(),...part.scale.toArray(),...part.rotation.toArray()]),before=snapshot(),eyeDepths=cat.expression.eyes.map(eye=>eye.position.z),lidDepths=cat.expression.lids.map(lid=>lid.position.z),meshCount=cat.head.children.filter(child=>child.isMesh).length;
  s.applyCatSurprise(cat,1);assert.equal(cat.expression.amount,1);assert.notDeepEqual(snapshot(),before);assert.equal(cat.head.children.filter(child=>child.isMesh).length,meshCount,'surprise reuses the existing face meshes');
- s.applyCatSurprise(cat,0);assert.deepEqual(snapshot(),before,'normal face restores exactly at the exit');assert.equal(cat.expression.amount,0);
+ cat.expression.eyes.forEach((eye,index)=>{assert.ok(eye.position.z-eyeDepths[index]>=.044,'eye white comes forward');assert.ok(eye.position.z>cat.expression.lids[index].position.z+.025,'full eye ellipse clears the retracted lid');assert.ok(cat.expression.lids[index].position.z<lidDepths[index]);});
+ s.applyCatSurprise(cat,0);assert.deepEqual(snapshot(),before,'normal face restores exactly at the exit');assert.equal(cat.expression.amount,0);assert.equal(cat.expression.eyeForward,0);assert.equal(cat.expression.lidRetreat,0);
 });
 
 test('store fixtures, product stock, signs and refrigerator doors use only modeled surfaces',()=>{
@@ -250,6 +269,18 @@ test('magnet is held upright with one centred signal that fades through a roll',
  s.animateMagnet(magnet,3,true,true);assert.equal(waves.visible,false,'Reduced Motion hides immediately during a roll');
  s.animateMagnet(magnet,3,true,false);assert.ok(waves.children.every(arc=>arc.visible&&arc.scale.x===1));
  magnet.visible=false;s.animateCat(cat,0,'run');assert.equal(arm.rotation.z,-.12,'ordinary run restores the arm immediately when Magnet ends');
+});
+
+
+test('all boosters share a camera-facing soft aura tinted to their identity',()=>{
+ const s=modelFactory(),types=['magnet','moon','moped','shield','doublechips','jetpack','speedburst'];
+ for(const type of types){const power=s.makeEntity(type,3),aura=power.getObjectByName('powerup_soft_aura');assert.ok(aura?.isSprite,type+' aura is a billboard');assert.equal(aura.material,s.m.powerAura[type]);assert.equal(aura.material.isSpriteMaterial,true);s.animatePowerup(power,type,.25,3,false);assert.ok(aura.scale.x>1.6&&aura.scale.x<1.85);}
+});
+
+test('Refreshed humans sample every frame while Original keeps intentional 12 fps stepping',()=>{
+ assert.equal(characterSampleTime(1/60,'refreshed'),1/60);assert.equal(characterSampleTime(2/60,'refreshed'),2/60);
+ assert.equal(characterSampleTime(1/60,'original'),characterSampleTime(2/60,'original'));
+ assert.notEqual(characterSampleTime(4/60,'original'),characterSampleTime(6/60,'original'));
 });
 
 test('chips use a bouncy scale lifecycle and a reusable golden aura',()=>{

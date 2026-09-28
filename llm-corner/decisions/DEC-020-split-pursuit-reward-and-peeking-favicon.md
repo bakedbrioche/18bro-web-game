@@ -2,6 +2,7 @@
 
 Date: 2026-09-28
 Status: ACCEPTED
+Amended by: DEC-021 for the final favicon identity treatment
 Supersedes: DEC-018's code-rendered pursuit card and chase-scene favicon
 
 ## Context

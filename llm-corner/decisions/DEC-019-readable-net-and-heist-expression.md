@@ -2,6 +2,7 @@
 
 Date: 2026-09-28
 Status: ACCEPTED
+Amended by: DEC-021 for the final packet, surprise-face and cap identity treatment
 Supersedes: DEC-018's always-visible escort net and runtime face-overlay proposal
 
 ## Context

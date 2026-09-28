@@ -216,6 +216,42 @@ test('RunnerGame net capture stays visible through netted lift and carry before 
   assert.equal(game.captureProgress, 1);
 });
 
+
+test('moped and jetpack immediately turn an active pursuit into one scored escape', () => {
+  for (const power of ['moped', 'jetpack']) {
+    const events = [], game = emptyRunner(events);
+    game._startNetPursuit();
+    for (let elapsed = 0; elapsed < 1.8; elapsed += 1 / 120) game.update(1 / 120);
+    const before = game.score;
+    game.activatePower(power);
+    const success = events.filter(event => event.type === 'netpursuitsuccess');
+    assert.equal(success.length, 1, power + ' emits exactly one success');
+    assert.equal(success[0].reason, power);
+    assert.equal(game.netPursuit.active, false);
+    assert.equal(game.netPursuit.outcome, 'dodged');
+    assert.equal(game.netPursuit.escapeReason, power);
+    assert.equal(game.score - before, success[0].bonus);
+    assert.ok(success[0].bonus >= NET_PURSUIT.bonus);
+    game.activatePower(power);
+    assert.equal(events.filter(event => event.type === 'netpursuitsuccess').length, 1);
+  }
+});
+
+test('a net strike consumes one shield charge and returns to pursuit recovery', () => {
+  const events = [], game = emptyRunner(events);
+  game.activatePower('shield');
+  game._startNetPursuit();
+  for (let elapsed = 0; elapsed < 8 && !events.some(event => event.type === 'netblocked'); elapsed += 1 / 120) {
+    game.update(1 / 120);
+  }
+  assert.equal(events.filter(event => event.type === 'netblocked').length, 1);
+  assert.equal(events.filter(event => event.type === 'netcaught').length, 0);
+  assert.equal(events.filter(event => event.type === 'shieldhit').at(-1)?.kind, 'net');
+  assert.equal(game.powers.shieldCharges, 2);
+  assert.equal(game.state, 'RUNNING');
+  assert.equal(game.netPursuit.phase, 'recovery');
+});
+
 test('automatic pursuit waits for its seeded distance and starts only on an eligible road', () => {
   const game = emptyRunner();
   game._nextNetPursuitDistance = game.distance + .01;

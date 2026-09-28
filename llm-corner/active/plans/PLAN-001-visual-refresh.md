@@ -118,6 +118,13 @@ Acceptance:
 - Added a deterministic two-officer net pursuit with alternating 2–4 attempts, tracking PS1-style telegraphs, a protected escape lane, custom net capture and a 10,000-score dodge reward.
 - Reduced Magnet feedback to one centered signal that fades during rolling.
 - Upgraded the result chip to a 60-frame, 60 fps Blender APNG and kept BUSTED motion on continuously interpolated compositor transforms.
+### Phase T - pursuit, power and pause contract - complete
+
+- Resolve active net pursuits immediately through Moped or Jetpack while retaining the controller's scaled escape reward and one-shot scheduling.
+- Treat a shielded net connection as one ordinary protected hit, consume one charge and return to pursuit recovery.
+- Freeze transient in-run feedback clocks and CSS animation state during pause, then continue from the same frame.
+- Give every booster a subtle tinted billboard halo and sample Refreshed guards continuously with the Refreshed hero.
+
 ## 3. Model and animation contract
 
 - The simulation owns position, facing, collision, capture logic, and root motion. Imported animation clips are in-place visual motion.
@@ -186,3 +193,9 @@ Defer fur rendering, city-wide remodeling, compression infrastructure, and an ex
 - Join two compact crops of the supplied chase illustration into a diagonal old-arcade pursuit-success banner with shadow, achievement aura, four non-repeating messages and a static Reduced Motion fallback.
 - Replace the busy chase favicon with a 128 x 128 orange peeking-18Bro cap mark, archive the previous favicon and prior code-rendered reward card, and embed the current UI images in standalone export.
 - Preserve the supplied chase/capture references and generation provenance in the ignored dated image workbench.
+### Phase S - production packet and identity correction - complete
+
+- Rebuilt the stolen snack packet as one closed 1,152-triangle analytic pillow with tapered gussets, integrated seals/artwork and surface-conforming CHIPS lettering; manifold tests require every edge to have exactly two incident triangles.
+- Moved only the existing eye and pupil geometry forward during surprise, retracted the existing lids by measured depth, and preserved exact Original transforms and Refreshed vertex restoration.
+- Replaced the floating cap blocks with a shallow ordered badge containing a white panel, orange bar, one curved red 7 and block-built green ELEVEN treatment.
+- Replaced the tab icon with a calm peeking-18Bro crop anchored to the official half-lidded eyes and low brows; archived the preceding peeking favicon and retained the generated source/prompt in the ignored workbench.

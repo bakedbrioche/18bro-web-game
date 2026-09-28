@@ -113,6 +113,8 @@ export class NetPursuitController {
     this.outcome = null;
     this.bonusAwarded = 0;
     this.rewardTagIndex = -1;
+    this.escapeReason = null;
+    this.strikeShielded = false;
     this.captureElapsed = 0;
     this._events.length = 0;
     return this.snapshot();
@@ -218,6 +220,15 @@ export class NetPursuitController {
   _resolveStrike() {
     this.attemptsRemaining[this.guardIndex]--;
     this.attemptsResolved++;
+    if (Math.abs(this.playerX - this.lockedTargetX) <= NET_PURSUIT.catchRadius && this.strikeShielded) {
+      this._emit('netblocked', {
+        guardIndex: this.guardIndex,
+        targetX: this.lockedTargetX,
+        attemptsRemaining: Object.freeze([...this.attemptsRemaining]),
+      });
+      this._setPhase('recovery', this._recoveryDuration());
+      return;
+    }
     if (Math.abs(this.playerX - this.lockedTargetX) <= NET_PURSUIT.catchRadius) {
       this.caught = true;
       this.state = 'capture';
@@ -234,7 +245,7 @@ export class NetPursuitController {
     this._setPhase('recovery', this._recoveryDuration());
   }
 
-  _finishSuccess() {
+  _finishSuccess(reason = this.escapeReason) {
     this.state = 'complete';
     this.phase = 'complete';
     this.phaseElapsed = 0;
@@ -254,7 +265,16 @@ export class NetPursuitController {
       chaseDistance,
       difficulty: this.difficulty,
       tagIndex,
+      reason,
     });
+  }
+
+  /** Resolve an active chase immediately through a legitimate mobility escape. */
+  escape(reason = 'mobility') {
+    if (this.state !== 'active' || this.caught) return this.snapshot();
+    this.escapeReason = String(reason || 'mobility');
+    this._finishSuccess(this.escapeReason);
+    return this.snapshot();
   }
 
   _finishCapture() {
@@ -288,11 +308,12 @@ export class NetPursuitController {
     this.elapsed += step;
   }
 
-  update(dt, { playerLane = Math.floor(this.lanes.length / 2), playerX, distance = this.distance } = {}) {
+  update(dt, { playerLane = Math.floor(this.lanes.length / 2), playerX, distance = this.distance, shielded = false } = {}) {
     let remaining = Math.max(0, finite(dt));
     this.playerX = this._resolvePlayerX(playerLane, playerX);
     this.distance = Math.max(this.distance, Math.max(0, finite(distance, this.distance)));
     this.difficulty = Math.max(this.difficulty, netPursuitDifficulty(this.distance));
+    this.strikeShielded = shielded === true;
     if (!ACTIVE_PHASES.has(this.phase) || remaining <= 0) return this.snapshot();
 
     // Consume boundaries so a long frame cannot skip a strike or capture phase.
@@ -396,12 +417,14 @@ export class NetPursuitController {
       },
       safety: this._safetySnapshot(),
       outcome: this.outcome,
+      escapeReason: this.escapeReason,
       bonus: this.bonusAwarded,
       reward: {
         bonus: this.bonusAwarded,
         tagIndex: this.rewardTagIndex,
         elapsedSeconds: this.elapsed,
         chaseDistance: Math.max(0, this.distance - this.startDistance),
+        reason: this.escapeReason,
       },
     });
   }

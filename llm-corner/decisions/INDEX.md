@@ -4,6 +4,8 @@ Decision records preserve why a non-obvious choice was made. Numbers are sequent
 
 | ID | Title | Date | Status |
 |---|---|---|---|
+| DEC-022 | Keep pursuit outcomes and transient feedback on the gameplay clock (DEC-022-power-pursuit-and-pause-contract.md) | 2026-09-28 | ACCEPTED |
+| DEC-021 | Measure packet volume and preserve 18Bro's official sleepy identity (`DEC-021-measured-packet-and-sleepy-identity.md`) | 2026-09-28 | ACCEPTED |
 | DEC-020 | Join supplied chase profiles for pursuit success and use a peeking favicon (DEC-020-split-pursuit-reward-and-peeking-favicon.md) | 2026-09-28 | ACCEPTED |
 | DEC-019 | Present one readable pursuit net and deform the existing heist face (DEC-019-readable-net-and-heist-expression.md) | 2026-09-28 | ACCEPTED |
 | DEC-018 | Keep capture props rigid and chips lifecycle-safe (`DEC-018-rigid-sack-capture-chip-lifecycle.md`) | 2026-09-27 | SUPERSEDED |

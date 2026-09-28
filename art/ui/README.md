@@ -14,10 +14,9 @@ Blender 5.2 and FFmpeg on `PATH` are required to rebuild the animation. The stan
 
 ## Browser favicon
 
-`dist/assets/icons/favicon.png` is the 128 × 128 peeking-18Bro browser mark. Codex created it with OpenAI GPT Image on 2026-09-27 from the user-supplied four-panel chase collage and 7-Eleven logo reference, then downsampled the selected output. The solid orange tab mark keeps only 18Bro's forehead, ears and branded cap so it remains readable at 16 × 16. The full-resolution output and prompt provenance live in the ignored `tmp/imagegen/2026-09-27/favicon-peek/` workbench.
+`dist/assets/icons/favicon.png` is the 128 × 128 calm peeking-18Bro browser mark. Codex created it with the built-in OpenAI image tool on 2026-09-28 using the user-supplied official front view as the strict identity anchor, then downsampled the selected 1024 × 1024 output with Lanczos. The orange tab mark preserves the official low brows, half-lidded oval eyes, forehead, ears and branded green/white cap so the character remains recognizable at 16 × 16. The full-resolution output and prompt provenance live in the ignored `tmp/imagegen/2026-09-28/favicon-sleepy/` workbench.
 
-The previous guard-and-cat chase mark remains tracked at `art/ui/archive/favicon-chase-v1.png`; it is an archive asset and is not loaded by the game. The standalone exporter embeds the exact current runtime PNG into the favicon link.
-
+The preceding surprised peeking mark is tracked at `art/ui/archive/favicon-peek-v1.png`; the earlier guard-and-cat chase mark remains at `art/ui/archive/favicon-chase-v1.png`. Both are archive assets and are not loaded by the game. The standalone exporter embeds the exact current runtime PNG into the favicon link.
 ## Pursuit escape banner
 
 `dist/assets/icons/pursuit-guard.png` and `pursuit-cat.png` are compact geometric crops of the user-supplied chase artwork. CSS joins them as two diagonally cut profile panels, adds a shadow overlay and achievement aura, then presents the existing rotating reward copy and score. The full four-panel capture collage, original chase image and user layout sketch are retained locally in the ignored `tmp/imagegen/2026-09-27/net-escape-banner/` workbench. The prior code-rendered orange/green banner is preserved as `art/ui/archive/pursuit-reward-v1.css` for future reuse and is not loaded at runtime.

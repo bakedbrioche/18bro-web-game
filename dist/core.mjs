@@ -97,8 +97,8 @@ const POWER_DEFINITIONS = {
   speedburst: { activate() {}, update() {}, end() {} },
   shield: { activate() {}, update() {}, end() {} },
   doublechips: { activate() {}, update() {}, end() {} },
-  jetpack: { refreshActivation: true, activate(game) {game.powers.remove('moped');game.player.vy=0;game.player.slide=0;game.player.jumpBuffer=0;game._clearGroundCoinsAhead();game._createFlightTrail();}, update() {}, end(game) {game._finishJetpackLanding();} },
-  moped: { activate(game) { game.powers.remove('jetpack');game.policeDistance=18;game._hitAge=100;game.player.mopedMount=.625;game.player.mopedSlideSide=0; }, update(game) { game.policeDistance=18; }, end(game) { game.player.mopedMount=0;game.player.mopedSlideSide=0; } },
+  jetpack: { refreshActivation: true, activate(game) {game._escapeNetPursuit('jetpack');game.powers.remove('moped');game.player.vy=0;game.player.slide=0;game.player.jumpBuffer=0;game._clearGroundCoinsAhead();game._createFlightTrail();}, update() {}, end(game) {game._finishJetpackLanding();} },
+  moped: { activate(game) { game._escapeNetPursuit('moped');game.powers.remove('jetpack');game.policeDistance=18;game._hitAge=100;game.player.mopedMount=.625;game.player.mopedSlideSide=0; }, update(game) { game.policeDistance=18; }, end(game) { game.player.mopedMount=0;game.player.mopedSlideSide=0; } },
 };
 
 /** Active powers are a Map<string, {type, duration, remaining, elapsed}>. */
@@ -193,6 +193,8 @@ export class RunnerGame {
   _handleNetPursuitEvent(event) {
     if(event.type==='netpursuitsuccess'){
       this.score+=event.bonus;this._scheduleNextNetPursuit();
+    }else if(event.type==='netblocked'){
+      this._consumeShield('net');
     }else if(event.type==='netcaught'){
       this.captureDuration=Object.values(NET_PURSUIT.captureSeconds).reduce((sum,value)=>sum+value,0);
       this.captureRemaining=this.captureDuration;this.captureProgress=0;
@@ -201,6 +203,12 @@ export class RunnerGame {
       this.setState('CAUGHT');this.emit('crash',{kind:'net',x:this.player.x,guardIndex:event.guardIndex});
     }
     this.emit(event.type,event);
+  }
+  _escapeNetPursuit(reason='mobility') {
+    if(!this.netPursuit?.active||this.netPursuit?.caught)return false;
+    this.netPursuit=this._netPursuitController.escape(reason);
+    this.policeDistance=Math.max(this.policeDistance,18);this._hitAge=100;
+    return this.netPursuit.outcome==='dodged';
   }
   _startNetPursuit() {
     if(this.state!=='RUNNING'||this.netPursuit?.active)return false;
@@ -223,7 +231,7 @@ export class RunnerGame {
     const eligible=!this.debug.invincible&&!this.netPursuit?.active&&this.distance>=this._nextNetPursuitDistance&&!this.route.branch&&this.route.id!=='intersection'&&!this.powers.has('jetpack')&&!this.powers.has('moped')&&this.player.grounded;
     if(eligible)this._startNetPursuit();
     if(!this.netPursuit?.active)return;
-    this.netPursuit=this._netPursuitController.update(dt,{playerLane:this.player.lane,playerX:this.player.x,distance:this.distance});
+    this.netPursuit=this._netPursuitController.update(dt,{playerLane:this.player.lane,playerX:this.player.x,distance:this.distance,shielded:this.powers.has('shield')&&this.shieldGrace<=0});
     const pursuitTarget=this.netPursuit.phase==='retreat'?12:this.netPursuit.active?1.65:this.policeDistance;
     this.policeDistance+=(pursuitTarget-this.policeDistance)*(1-Math.exp(-dt*(this.netPursuit.phase==='retreat'?2.4:4.2)));
     this._protectNetEscapeLane();
@@ -780,11 +788,7 @@ export class RunnerGame {
     }
     if (this.shieldGrace > 0) { entity.active = false; return; }
     if(this.powers.has('shield')){
-      const shield=this.powers.active.get('shield');
-      shield.charges=Math.max(0,shield.charges-1);entity.active=false;this.shieldGrace=1.1;
-      this.emit('shieldhit',{kind:entity.type,remaining:shield.charges});
-      this.emit('shieldbreak',{kind:entity.type,remaining:shield.charges});
-      if(!shield.charges)this.powers.remove('shield','depleted');
+      entity.active=false;this._consumeShield(entity.type);
       return;
     }
     if (this.powers.has('moped')) {
@@ -800,6 +804,14 @@ export class RunnerGame {
     this.policeDistance = 1.5;
     this.player.hit = 1.15; this._slowRemaining = .8; this._hitAge = 0; this.dodgeStreak = 0;
     this.emit('hit', { kind: entity.type, impact, x: this.player.x, policeDistance: this.policeDistance });
+  }
+  _consumeShield(kind='obstacle') {
+    const shield=this.powers.active.get('shield');if(!shield)return false;
+    shield.charges=Math.max(0,shield.charges-1);this.shieldGrace=1.1;
+    this.emit('shieldhit',{kind,remaining:shield.charges});
+    this.emit('shieldbreak',{kind,remaining:shield.charges});
+    if(!shield.charges)this.powers.remove('shield','depleted');
+    return true;
   }
   _capture(entity) {
     if(this.netPursuit?.active){this._netPursuitController.reset();this.netPursuit=this._netPursuitController.snapshot();}

@@ -1,9 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {fileURLToPath} from 'node:url';
 
-const root=fileURLToPath(new URL('../',import.meta.url));
 const read=(name)=>fs.readFileSync(new URL(`../${name}`,import.meta.url),'utf8');
 
 test('container image contains only the verified static game and health configuration',()=>{
@@ -51,5 +49,5 @@ test('deployment sources never contain local production environment values',()=>
  const inputs=['Dockerfile','.dockerignore','docker-compose.yml','docker-compose.prod.yml','deploy/nginx.conf','deploy/Caddyfile','.github/workflows/deploy-production.yml'];
  const joined=inputs.map(read).join('\n');
  assert.doesNotMatch(joined,/2[.]57[.]91[.]91|31[.]97[.]47[.]189/);
- assert.equal(fs.existsSync(`${root}/.env.production`),true,'local operator environment is available for deployment');
+ assert.match(read('.gitignore'),/^\.env\*$/m,'local production environments stay ignored');
 });

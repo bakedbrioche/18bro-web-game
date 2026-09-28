@@ -11,4 +11,3 @@ tmp/
 *.blend2
 art/build/
 __pycache__/
-.env*

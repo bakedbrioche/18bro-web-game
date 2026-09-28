@@ -119,7 +119,7 @@ test('held pause keys do not toggle repeatedly and Enter resumes from canvas foc
  assert.equal(a.get('hud').inert,false);
 });
 
-test('missing or invalid model preferences normalize to Original without losing save progress',()=>{
+test('missing or invalid model preferences normalize to Refreshed without losing save progress',()=>{
  for(const modelSet of [undefined,null,'unknown',{},'original','refreshed']){
   const record={score:432,distance:123,coins:5};
   const a=app({psxRouteRevision:1,highScore:432,totalCoins:700,runs:7,records:[record],
@@ -127,7 +127,7 @@ test('missing or invalid model preferences normalize to Original without losing 
    settings:{quality:'low',modelSet}});
   a.get('start-run').click();
   const save=a.saved();
-  assert.equal(save.settings.modelSet,modelSet==='refreshed'?'refreshed':'original');
+  assert.equal(save.settings.modelSet,modelSet==='original'?'original':'refreshed');
   assert.equal(save.settings.quality,'low');assert.equal(save.highScore,432);
   assert.equal(save.totalCoins,700);assert.equal(save.runs,7);assert.deepEqual(save.records,[record]);
   assert.equal(save.fur,'gold');assert.equal(save.hat,'crown');
@@ -137,7 +137,7 @@ test('missing or invalid model preferences normalize to Original without losing 
 
 test('model preference persists independently of clear picture quality',()=>{
  const a=app(undefined,{modelHook:false});a.openPanel('settings');
- assert.equal(a.get('setting-models').value,'original');
+ assert.equal(a.get('setting-models').value,'refreshed');
  a.get('setting-models').onchange({target:{value:'refreshed'}});
  assert.equal(a.saved().settings.modelSet,'refreshed');assert.equal(a.saved().settings.quality,'clear');
  assert.equal(a.scene.modelPreference,'refreshed');
@@ -163,14 +163,14 @@ test('clear picture and 18Bro sticker font are saved and applied globally',()=>{
 test('model requests wait for the main menu without altering a paused run',()=>{
  const a=app();a.get('start-run').click();a.game.start({skipIntro:true});
  a.game.distance=321;a.game.score=432;a.game.coins=6;a.game.pause();a.openPanel('settings');
- a.get('setting-models').onchange({target:{value:'refreshed'}});
- assert.equal(a.saved().settings.modelSet,'refreshed');assert.equal(a.game.state,'PAUSED');
+ a.get('setting-models').onchange({target:{value:'original'}});
+ assert.equal(a.saved().settings.modelSet,'original');assert.equal(a.game.state,'PAUSED');
  assert.equal(a.game.distance,321);assert.equal(a.game.score,432);assert.equal(a.game.coins,6);
- assert.deepEqual(a.scene.modelRequests,[{value:'original',state:'MAIN_MENU'}]);
+ assert.deepEqual(a.scene.modelRequests,[{value:'refreshed',state:'MAIN_MENU'}]);
  a.get('resume-run').click();assert.equal(a.game.state,'RUNNING');
  assert.equal(a.scene.modelRequests.length,1);
  a.game.pause();a.get('pause-menu').click();
- assert.deepEqual(a.scene.modelRequests,[{value:'original',state:'MAIN_MENU'},{value:'refreshed',state:'MAIN_MENU'}]);
+ assert.deepEqual(a.scene.modelRequests,[{value:'refreshed',state:'MAIN_MENU'},{value:'original',state:'MAIN_MENU'}]);
 });
 
 test('Speed Burst uses a motion-aware screen-edge surge instead of a cat particle trail',()=>{
@@ -274,4 +274,33 @@ test('Busted markup and styles keep the centered staged sequence configurable',(
  assert.doesNotMatch(css,/@keyframes result-chip-spin/);
  assert.match(css,/prefers-reduced-motion:reduce/);
  assert.doesNotMatch(appSource,/[$]\('active-powers'\)[.]innerHTML/);
+});
+
+test('borderless viewport keeps swipe input and moves personal best into Records',()=>{
+ const html=fs.readFileSync(new URL('../dist/index.html',import.meta.url),'utf8');
+ const appSource=fs.readFileSync(new URL('../dist/app.mjs',import.meta.url),'utf8');
+ const css=fs.readFileSync(new URL('../dist/style.css',import.meta.url),'utf8');
+ assert.doesNotMatch(html,/id="(?:fullscreen|top-best|touch-controls)"|data-action=/);
+ assert.doesNotMatch(appSource,/requestFullscreen|exitFullscreen|fullscreenchange|top-best|touch-controls|\[data-action\]/);
+ assert.match(html,/id="game-shell"[\s\S]*<footer class="footer">[\s\S]*SWIPE TO DODGE · JUMP · SLIDE[\s\S]*<\/main>/);
+ assert.match(appSource,/class="record-summary"><span>PERSONAL BEST<\/span><strong>\$\{save\.highScore\.toLocaleString\(\)\}/);
+ assert.match(appSource,/pointermove[\s\S]*game\.input\(Math\.abs\(dx\)>Math\.abs\(dy\)/);
+ assert.match(css,/label\{text-align:center\}/);
+ assert.match(css,/\.game-shell\{width:100%;height:100dvh;min-height:0;max-height:none;border:0;box-shadow:none\}/);
+ assert.doesNotMatch(css,/\.touch-controls|:fullscreen/);
+});
+
+test('full-viewport overlays respect phone safe areas and compact landscape',()=>{
+ const css=fs.readFileSync(new URL('../dist/style.css',import.meta.url),'utf8');
+ for(const inset of ['safe-area-inset-top','safe-area-inset-right','safe-area-inset-bottom','safe-area-inset-left'])assert.match(css,new RegExp(inset));
+ assert.match(css,/\.screen-top\{pointer-events:none;top:max\(21px,calc\(env\(safe-area-inset-top\)/);
+ assert.match(css,/\.hud\{top:max\(60px,calc\(env\(safe-area-inset-top\)[\s\S]*bottom:max\(64px,calc\(env\(safe-area-inset-bottom\)/);
+ assert.match(css,/\.center-overlay\{padding-top:max\(24px,calc\(env\(safe-area-inset-top\)[\s\S]*padding-left:max\(24px,calc\(env\(safe-area-inset-left\)/);
+ assert.match(css,/@media\(max-width:900px\) and \(max-height:500px\)/);
+});
+
+test('desktop hides the mobile swipe hint while mobile rules reveal it',()=>{
+ const css=fs.readFileSync(new URL('../dist/style.css',import.meta.url),'utf8');
+ assert.match(css,/\.control-legend>\.mobile-control-hint\{display:none\}/);
+ assert.match(css,/@media\(max-width:800px\)[\s\S]*\.mobile-control-hint\{display:inline!important/);
 });

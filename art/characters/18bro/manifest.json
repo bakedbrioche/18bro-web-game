@@ -1,13 +1,13 @@
 {
   "assetId": "18bro-v1",
   "rigVersion": 5,
-  "designRevision": 6,
+  "designRevision": 7,
   "source": "art/characters/18bro/18bro.blend",
   "output": "dist/assets/models/18bro-v1.glb",
-  "sha256": "25a6f2d9a4c10b2b1a8596ec9b1106acc3b90685785117e27e7f2d2ac373ac73",
+  "sha256": "121d8e327e6ba37d149635495dd0dad6f5fb353150711f715d4ecfc7c1477c18",
   "blenderVersion": "5.2.2 LTS",
-  "exportPreset": "18bro-blender-5.2-v6",
-  "bytes": 883316,
+  "exportPreset": "18bro-blender-5.2-v7",
+  "bytes": 881840,
   "bounds": {
     "min": [
       -0.9662122130393982,
@@ -32,7 +32,7 @@
       2.7360000610351562
     ]
   },
-  "triangles": 3982,
+  "triangles": 3998,
   "materials": 3,
   "bones": 20,
   "clips": [
@@ -137,19 +137,28 @@
     "socket_carry_R"
   ],
   "capLogo": {
-    "designRevision": 6,
-    "structure": "orange_lozenge_red_stroke_three_green_one_red",
-    "pieceCount": 6,
-    "orangeLozenges": 1,
-    "redStrokes": 1,
-    "greenMiddleMarks": 3,
-    "redLowerMarks": 1,
+    "designRevision": 7,
+    "structure": "single_curved_user_supplied_logo_texture",
+    "pieceCount": 1,
+    "textureMeshes": 1,
+    "geometryOnly": false,
     "whiteBackingMeshes": 0,
     "textMeshes": 0,
     "surfaceProjected": true,
     "frontWinding": "negative_y",
-    "surfaceReliefMeters": 0.008000000000000007,
-    "surfaceReliefLimitMeters": 0.009
+    "surfaceReliefMeters": 0.006,
+    "surfaceReliefLimitMeters": 0.007,
+    "grid": [
+      6,
+      4
+    ],
+    "textureRegionPixels": [
+      320,
+      384,
+      192,
+      128
+    ],
+    "source": "art/references/7-eleven-logo-user-reference-2026-09-28.png"
   },
-  "provenance": "Original procedural Blender asset and authored animation for the 18Bro community game; no imported model, texture, logo, or animation."
+  "provenance": "Original procedural Blender model and animation for the 18Bro community game. Cap branding texture is derived from a user-supplied official-logo reference stored under art/references; project owner is responsible for brand-use authorization."
 }

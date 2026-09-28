@@ -91,8 +91,8 @@ Acceptance:
 - Used an ignored, dated GPT Image workbench to preserve prompts, inputs and outputs for shield, mascot turnaround and animation-keyframe studies without committing temporary reference media.
 - Re-authored the hero as rig v5 with a more expressive full jump arc, a motorcycle-style scooter jump and lower left/right side-saddle dodges; runtime now samples the complete jump clip through descent.
 - Rebuilt the Shield as a true sphere with restrained energy regions and exactly three four-toe paw-shield badges. One badge disappears per protected hit; the authored pickup uses the same paw language.
-- Jetpack reveals a connected lane-changing airborne route progressively, keeping six to eight chips readable ahead. It suppresses ground chips during flight, expires at ten seconds, clears the route and resets directly to run.
-- Power-up spawning uses a sparse exported weighted table: Magnet/Moon Boots are common, Shield/Jetpack are rare, and the same power never repeats immediately.
+- Jetpack reveals a connected lane-changing airborne route progressively, keeping six to eight chips readable ahead. It keeps ordinary ground chips and hazards streaming but uncollectible during flight, expires at ten seconds, clears only the airborne route and resets directly to a reserved safe landing lane.
+- Power-up spawning uses a sparse exported weighted table: Magnet/Moon Boots are common, Shield/Jetpack are rare, and each result differs from the two preceding power spawns.
 - Speed Burst uses a motion-aware blue edge vignette and directional swooshes instead of emitting particles behind the cat.
 
 
@@ -146,9 +146,9 @@ Defer fur rendering, city-wide remodeling, compression infrastructure, and an ex
 
 ## 6. Remaining operator decisions
 
-1. Confirm whether the official-style wordmark may be an original traced-by-eye vector treatment, subject to brand permission.
+1. Confirm public brand-use authorization for the project-owner-supplied cap-logo reference before release.
 2. Choose desktop/mobile performance targets and the exact release channel.
-3. Confirm the crypto-project public name and destination before release copy is finalized. The community relationship, `18bro.fun` TBU status, and “Run for your chips” tag are confirmed.
+3. Confirm the crypto-project public name and destination before release copy is finalized. Production is at `18bro.site/game/`; the original `18bro.fun` redirect remains undecided.
 
 ### Phase M — spaced chip trails and attached net capture — complete
 

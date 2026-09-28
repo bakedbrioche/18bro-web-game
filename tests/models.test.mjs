@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import * as THREE from '../dist/vendor/three.module.js';
 import { GameScene, airborneCameraFollow, characterSampleTime, chipVisualScale } from '../dist/scene.mjs';
 import { DistrictScene } from '../dist/district-scene.mjs';
@@ -49,6 +50,10 @@ test('officers keep their walking carry beyond the camera after the result is av
  s.animateCapture(cat,cops,3);assert.ok(cat.root.position.z>8.8);assert.ok(cat.root.position.z>before+10);
  for(const cop of cops)assert.ok(cop.root.position.z>8.8);
 });
+test('material texture loader keeps resize dimensions inside the asynchronous callback',()=>{
+ const source=fs.readFileSync(new URL('../dist/material-assets.mjs',import.meta.url),'utf8');
+ assert.match(source,/load=\(name,width=128,height=128\)/);assert.match(source,/canvas\.width=width;canvas\.height=height/);assert.match(source,/drawImage\(t\.image,0,0,width,height\)/);
+});
 test('every purchasable fur and hat creates a finite model with its packet attached',()=>{
  const s=modelFactory();for(const fur of ['black','cream','ginger','silver','pink','gold'])for(const hat of ['cap','none','beanie','sombrero','bucket','crown']){
   const cat=s.makeCat('18bro',{fur,hat}),bounds=new THREE.Box3().setFromObject(cat.root);
@@ -56,7 +61,7 @@ test('every purchasable fur and hat creates a finite model with its packet attac
   const packet=cat.bag,packetBody=packet.getObjectByName('stolen_chip_packet_body'),packetSize=packetBody.geometry.boundingBox.getSize(new THREE.Vector3()),labels=packet.children.filter(o=>o.name.startsWith('stolen_chip_label'));
   assert.equal(packet.userData.packetStyle,'sealed-pillow');assert.equal(packet.userData.integratedCrimps,true);assert.equal(packet.userData.readableFaces,2);assert.equal(packetBody.geometry.userData.sealedPillow,true);assert.equal(packetBody.geometry.userData.integratedCrimps,true);
   assert.ok(packetSize.x>.6&&packetSize.y>.78&&packetSize.z>.31,'packet has a voluminous pillow silhouette');assert.equal(labels.length,2);assert.ok(labels.every(label=>label.getObjectByName('stolen_chip_wordmark')));assert.equal(packet.getObjectByName('stolen_chip_pouch'),undefined,'old overlapping ellipsoid packet is gone');
-  assert.equal(cat.root.getObjectByName('18bro_panic_face'),undefined,'surprise does not add duplicate eyes');assert.equal(cat.expression.mode,'existing-procedural-face');assert.equal(cat.capMark.userData.mark,'official-layout-geometric');assert.equal(cat.capMark.userData.geometryOnly,true);assert.equal(cat.capMark.userData.pieceCount,6);assert.equal(cat.capMark.userData.whiteBackingMeshes,0);assert.equal(cat.capMark.userData.textMeshes,0);assert.equal(cat.capMark.userData.surfaceProjected,true);
+  assert.equal(cat.root.getObjectByName('18bro_panic_face'),undefined,'surprise does not add duplicate eyes');assert.equal(cat.expression.mode,'existing-procedural-face');assert.equal(cat.capMark.userData.mark,'user-supplied-logo-texture');assert.equal(cat.capMark.userData.geometryOnly,false);assert.equal(cat.capMark.userData.pieceCount,1);assert.equal(cat.capMark.userData.surfaceProjected,true);assert.equal(cat.capMark.userData.texture,'cap-logo.png');
   assert.equal(s.furMaterials.size<=6,true);
  }
 });
@@ -71,12 +76,12 @@ test('stolen packet is one closed pillow volume with attached outward artwork on
  const labels=packet.children.filter(child=>child.name.startsWith('stolen_chip_label'));assert.equal(labels.length,2);
  for(const label of labels){const outward=new THREE.Vector3(0,0,1).applyQuaternion(label.quaternion),wordmark=label.getObjectByName('stolen_chip_wordmark'),positions=wordmark.geometry.attributes.position;assert.ok(outward.dot(new THREE.Vector3(...label.userData.outwardNormal))>.999);assert.equal(Math.sign(label.position.z),label.userData.face);assert.equal(label.userData.surfaceBound,true);assert.ok(wordmark);assert.equal(wordmark.geometry.userData.surfaceConformed,true);for(let i=0;i<positions.count;i++){const x=positions.getX(i),y=positions.getY(i),expected=s.packetHalfDepth(x,label.position.y+y)-Math.abs(label.position.z)+label.userData.surfaceOffset;assert.ok(Math.abs(positions.getZ(i)-expected)<1e-6,'letter follows the curved packet surface');}assert.equal(label.getObjectByName('stolen_chip_label_panel'),undefined,'red panel is part of the bag surface rather than a floating plane');}
 });
-test('cap identity uses six surface-conforming colored elements and no detached badge or text',()=>{
- const s=modelFactory(),cat=s.makeCat('18bro',{hat:'cap'}),mark=cat.capMark,names=['cap_mark_orange_lozenge','cap_mark_red_seven','cap_mark_green_1','cap_mark_green_2','cap_mark_green_3','cap_mark_red_lower'],pieces=names.map(name=>mark.getObjectByName(name));
- assert.equal(mark.userData.mark,'official-layout-geometric');assert.equal(mark.userData.geometryOnly,true);assert.equal(mark.userData.pieceCount,6);assert.equal(mark.userData.whiteBackingMeshes,0);assert.equal(mark.userData.textMeshes,0);assert.equal(mark.userData.surfaceProjected,true);assert.ok(pieces.every(Boolean));
+test('cap identity uses one subdivided surface texture with no detached badge geometry',()=>{
+ const s=modelFactory(),cat=s.makeCat('18bro',{hat:'cap'}),mark=cat.capMark,decal=mark.getObjectByName('cap_mark_official_texture'),positions=decal.geometry.attributes.position;
+ assert.equal(mark.userData.mark,'user-supplied-logo-texture');assert.equal(mark.userData.geometryOnly,false);assert.equal(mark.userData.pieceCount,1);assert.equal(mark.userData.surfaceProjected,true);assert.equal(mark.userData.texture,'cap-logo.png');assert.deepEqual(mark.userData.grid,[6,4]);assert.ok(decal?.isMesh);assert.ok(decal.geometry.attributes.uv,'logo retains its authored texture coordinates');
  assert.equal(mark.getObjectByName('seven_mark_panel'),undefined);assert.equal(mark.getObjectByName('seven_mark_word_eleven'),undefined);
- for(const piece of pieces){const positions=piece.geometry.attributes.position;assert.equal(piece.geometry.userData.surfaceProjected,true);for(let i=0;i<positions.count;i++){const x=positions.getX(i),y=positions.getY(i),z=positions.getZ(i);assert.ok(Number.isFinite(x)&&Number.isFinite(y)&&Number.isFinite(z));assert.ok(z<=.0031&&z>-.025,'colored ink follows the cap crown instead of floating as a flat card');}}
- const orange=new THREE.Box3().setFromObject(pieces[0]),seven=new THREE.Box3().setFromObject(pieces[1]);assert.ok(orange.getSize(new THREE.Vector3()).x>.12,'orange lozenge reads at gameplay scale');assert.ok(seven.getSize(new THREE.Vector3()).y>.14,'curved red seven reads at gameplay scale');
+ const depths=[];for(let i=0;i<positions.count;i++){const x=positions.getX(i),y=positions.getY(i),z=positions.getZ(i);assert.ok(Number.isFinite(x)&&Number.isFinite(y)&&Number.isFinite(z));depths.push(z);}
+ assert.ok(Math.max(...depths)-Math.min(...depths)>.004,'subdivided logo follows the curved cap crown');
 });
 test('store surprise brings the existing full eyes forward and restores every transform exactly',()=>{
  const s=modelFactory(),cat=s.makeCat('18bro'),parts=[...cat.expression.eyes,...cat.expression.pupils,...cat.expression.lids,...cat.expression.brows,cat.expression.mouth],snapshot=()=>parts.map(part=>[...part.position.toArray(),...part.scale.toArray(),...part.rotation.toArray()]),before=snapshot(),eyeDepths=cat.expression.eyes.map(eye=>eye.position.z),lidDepths=cat.expression.lids.map(lid=>lid.position.z),meshCount=cat.head.children.filter(child=>child.isMesh).length;

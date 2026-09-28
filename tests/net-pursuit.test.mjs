@@ -69,6 +69,17 @@ test('telegraph follows slowly, accelerates its blink and publishes a fair hazar
   assert.ok(snapshot.safety.protectForSeconds >= snapshot.safety.strikeIn);
 });
 
+test('a strike never removes the final reachable answer when traffic closes both escape lanes', () => {
+  const events = [], controller = new NetPursuitController({ seed: 6, onEvent: event => events.push(event) });
+  controller.start({ playerLane: 1, distance: 1600 });
+  const context = { playerLane: 1, playerGrounded: true, openLanes: [], distance: 1600 };
+  let snapshot = advanceTo(controller, value => value.phase === 'strike', context);
+  assert.notEqual(snapshot.safety.dangerLane, 1, 'the strike moves off the only player-occupied answer');
+  snapshot = advanceTo(controller, value => value.phase === 'recovery', context);
+  assert.equal(snapshot.caught, false);
+  assert.equal(events.at(-1).type, 'netdodged');
+});
+
 test('a locked net strike separates netted, lift and carry capture timing', () => {
   const events = [];
   const controller = new NetPursuitController({ seed: 8, onEvent: event => events.push(event) });
@@ -275,4 +286,16 @@ test('automatic pursuit waits for its seeded distance and starts only on an elig
   game.update(.02);
   assert.equal(game.netPursuit.active, true);
   assert.equal(game.netPursuit.phase, 'approach');
+});
+
+test('a last-second normal or Moon Boots jump makes the locked net miss',()=>{
+ for(const powered of [false,true]){
+  const events=[],game=emptyRunner(events);if(powered)game.activatePower('moon');game._startNetPursuit();
+  for(let elapsed=0;elapsed<8&&game.netPursuit.phase!=='strike';elapsed+=1/120)game.update(1/120);
+  assert.equal(game.netPursuit.phase,'strike');assert.equal(game.input('jump'),true);assert.equal(game.player.grounded,false);
+  for(let elapsed=0;elapsed<.4&&game.netPursuit.phase==='strike';elapsed+=1/120)game.update(1/120);
+  assert.equal(game.state,'RUNNING');assert.equal(game.netPursuit.caught,false);assert.equal(game.netPursuit.phase,'recovery');
+  assert.equal(events.findLast(event=>event.type==='netdodged')?.reason,'jump');
+  assert.equal(events.some(event=>event.type==='netcaught'),false);
+ }
 });

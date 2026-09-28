@@ -1,15 +1,15 @@
 export const MODEL_MANIFEST=Object.freeze([
  Object.freeze({
-  assetId:'18bro-v1',category:'character',rigVersion:5,
+  assetId:'18bro-v1',category:'character',rigVersion:5,designRevision:7,
   source:'art/characters/18bro/18bro.blend',output:'dist/assets/models/18bro-v1.glb',
-  sha256:'25a6f2d9a4c10b2b1a8596ec9b1106acc3b90685785117e27e7f2d2ac373ac73',
-  blenderVersion:'5.2.2 LTS',exportPreset:'18bro-blender-5.2-v6',bytes:883316,
+  sha256:'121d8e327e6ba37d149635495dd0dad6f5fb353150711f715d4ecfc7c1477c18',
+  blenderVersion:'5.2.2 LTS',exportPreset:'18bro-blender-5.2-v7',bytes:881840,
   bounds:Object.freeze({min:Object.freeze([-.9662122130393982,.003000006079673767,-.4952065646648407]),max:Object.freeze([.7856764793395996,2.7360000610351562,.6499999761581421])}),
   boundsBlenderZUp:Object.freeze({min:Object.freeze([-.9662122130393982,-.6499999761581421,.003000006079673767]),max:Object.freeze([.7856764793395996,.4952065646648407,2.7360000610351562])}),
-  triangles:3982,materials:3,bones:20,
+  triangles:3998,materials:3,bones:20,
   clips:Object.freeze(['carry','caught','celebrate','fall','idle','jetpack','jump','moped_jump','moped_mount','moped_slide_L','moped_slide_R','ride','roll','run','slide','snack','stumble','walk']),
   sockets:Object.freeze(['socket_hat','socket_bag','socket_back','socket_carry_L','socket_carry_R']),
-  provenance:'Original procedural Blender asset and authored animation for the 18Bro community game; no imported model, texture, logo, or animation.'
+  provenance:'Original procedural Blender model and animation for the 18Bro community game. Cap branding texture is derived from a user-supplied official-logo reference stored under art/references; project owner is responsible for brand-use authorization.'
  }),
  Object.freeze({
   assetId:'human-v1',category:'character',rigVersion:3,

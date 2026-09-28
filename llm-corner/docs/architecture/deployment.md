@@ -76,3 +76,18 @@ docker compose -f docker-compose.prod.yml up -d --wait
 The canonical game URL is `https://18bro.site/game/`. Keep one apex `A` record for `@` pointed to the VPS IPv4 address and one `CNAME` record for `www` pointed to `18bro.site`. Remove conflicting apex or `www` A/AAAA/CNAME records. Traefik begins certificate issuance automatically when public DNS resolves to the VPS and ports 80 and 443 reach it. Do not add an AAAA record unless the VPS has a configured public IPv6 address.
 
 Use TTL 300 during cutover so corrections propagate quickly. After HTTPS and both hostnames are stable, raise the TTL to Hostinger's normal 14400-second value. A very low value such as 50 seconds adds DNS traffic without helping normal steady-state operation.
+
+## Live TLS and Dokploy visibility
+
+DNS for `18bro.site` now resolves to `31.97.47.189`. Traefik's ACME resolver has issued the production certificate, and both `https://18bro.site/game/` and `https://18bro.site/game/healthz` complete normal certificate verification. A browser that cached the earlier failed state may need a hard refresh or a new tab; the server-side fix is complete.
+
+Dokploy v0.30.7 is available at the canonical `https://dokploy.18bro.site/` URL with valid HTTPS; `https://dokploy.31-97-47-189.sslip.io/` remains an emergency fallback. Hostinger currently has this record:
+
+- Type: `A`
+- Name: `dokploy`
+- Value: `31.97.47.189`
+- TTL: `300` during the validation window, then `14400` for steady state
+
+The game and shared Traefik edge were created by Docker Compose before Dokploy and are therefore Docker-engine resources rather than Dokploy database projects. They are visible in Dokploy's **Docker** page as Compose projects `18bro` (working directory `/opt/18bro`) and `traefik-edge` (working directory `/opt/traefik`), but they do not increment the Projects/Services cards.
+
+Do not create a second Dokploy-owned copy while GitHub Actions still runs `docker compose` over SSH. To make 18Bro a native Dokploy project, schedule one ownership migration: create/import a Compose service using the existing immutable GHCR image and external `proxy` network, stop the direct-SSH Compose project, then change the GitHub workflow to call Dokploy's deployment hook/API. Only one controller may own the production container. Dokploy should consume the existing shared Traefik edge rather than bind another proxy to ports 80/443.

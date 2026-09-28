@@ -6,7 +6,7 @@
 
 This repository creates a community web game around that story for a related crypto project. It is not an official, licensed, or partnered production. The intended opportunity is to meet the current cultural moment with a polished, globally accessible game that people can open from a link and understand immediately.
 
-The original public URL was `18bro.fun`, but its previous server is unavailable. Treat the URL as **TBU — to be updated** until the operator confirms a live destination. The approved project tag is **Run for your chips.**
+The original public URL was `18bro.fun`, but its previous server is unavailable. The current production route is **https://18bro.site/game/**. The approved project tag is **Run for your chips.**
 
 ## Product goal
 
@@ -30,11 +30,11 @@ The player steals chips from a Hong Kong convenience store, escapes into a conti
 ## Current product
 
 - One continuous WebGL chase through market, commercial, intersection, and neon districts.
-- Deterministic pickup pressure through one non-crossing 3–6-chip trail every 28–36 metres, sparse wide-road traffic, and capped solvable cross traffic.
-- A telegraphed two-officer net pursuit with alternating 2–4 dodge attempts per officer, a distance-scaled 3–5-second warning, a one-prop planted-net/sack-lift/shoulder-contact carry sequence, the ordinary obstacle/car stream left intact, and a duration/attempt/difficulty reward with a 10,000-point floor and four rotating themed tags. Moped or Jetpack acquisition resolves an active pursuit as a scored escape, while a connecting net consumes one active Shield charge before it can capture 18Bro.
-- Keyboard, touch, pause, mute, reduced-motion, and fullscreen controls.
+- Deterministic pickup pressure through one non-crossing 3–6-chip trail every 28–36 metres, sparse wide-road traffic, and capped solvable cross traffic. Power pickups defer out of chip and hazard rows, and every new power differs from the prior two power spawns.
+- A telegraphed two-officer net pursuit with alternating 2–4 dodge attempts per officer, a distance-scaled 3–5-second warning, a one-prop planted-net/sack-lift/shoulder-contact carry sequence, the ordinary obstacle/car stream left intact, and a duration/attempt/difficulty reward with a 10,000-point floor and four rotating themed tags. A normal or Moon Boots jump at the strike boundary clears the net, while future patterns reserve a reachable escape lane without deleting existing hazards. Moped or Jetpack acquisition resolves an active pursuit as a scored escape, while a connecting net consumes one active Shield charge before it can capture 18Bro.
+- Borderless full-viewport play with keyboard controls on desktop, direct four-direction swipes on mobile, and shared pause, mute, and reduced-motion controls. Personal Best lives with the rest of the local Records rather than occupying the playfield.
 - Local records, missions, chip balance, fur colors, and hats stored in browser `localStorage`.
-- Powerups: magnet, Moon Boots, Speed Burst, electric scooter, Three-Paw Guard, double chips, and jetpack, each with an authored 3D pickup, subtle camera-facing color halo and matching persistent icon. Magnet and boots remain visible on the cat; Moon Boots own a ten-second high jump while Speed Burst owns acceleration. Sparse weighted selection makes Shield and Jetpack rare. Three-Paw Guard owns three hits over fifteen seconds; Jetpack owns only its ten-second airborne route, budgets chips from remaining flight and speed overlap, preserves visible chips through descent, and lands directly into run. Chip pickups share a soft camera-facing gold glow and bouncy spawn/retirement motion.
+- Powerups: magnet, Moon Boots, Speed Burst, electric scooter, Three-Paw Guard, double chips, and jetpack, each with an authored 3D pickup, subtle camera-facing color halo and matching persistent icon. Magnet and boots remain visible on the cat; Moon Boots own a ten-second high jump while Speed Burst owns acceleration. Sparse weighted selection makes Shield and Jetpack rare. Three-Paw Guard owns three hits over fifteen seconds; Jetpack owns only its ten-second airborne route, budgets chips from remaining flight and speed overlap, keeps the independent ground chip/hazard stream alive and uncollectible while airborne, preserves visible flight chips through descent, reserves a safe future landing lane, and lands directly into run. Chip pickups share a soft camera-facing gold glow and bouncy spawn/retirement motion.
 - Pursuit escapes use a local two-panel guard/cat achievement banner with four non-repeating tags, deterministic scaled score copy, and a static Reduced Motion presentation. Pausing freezes pickup cards, pursuit rewards, score additions, banners and toasts on their current frame and remaining lifetime; the pause modal always covers those in-run layers.
 - No account, backend, API key, active analytics, or shared leaderboard.
 
@@ -42,7 +42,7 @@ The player steals chips from a Hong Kong convenience store, escapes into a conti
 
 - Modular game: `dist/index.html`, served locally with `npm start` and hosted from `dist/`.
 - Review tools: `dist/preview.html` and the in-game developer panel.
-- Standalone release: generated by `scripts/export-game.mjs`; local output goes to `release/`. The peeking-18Bro favicon and split pursuit-success artwork are embedded into this artifact.
+- Standalone release: generated by `scripts/export-game.mjs`; local output goes to `release/`. The peeking-18Bro favicon, 512-pixel first-load mark, and split pursuit-success artwork are embedded into this artifact. The first-load overlay waits for textures, the selected model family, and one rendered frame before leaving.
 
 ## Stack
 
@@ -63,11 +63,10 @@ Localization and analytics boundaries are specified in `../architecture/localiza
 
 The visual target is a readable, charming, PS1-inspired game rather than indiscriminate low resolution. The 18Bro silhouette, expressive face, Hong Kong setting, obstacle readability, responsive controls, and stable performance take priority over decorative detail that disappears during play.
 
-Players can switch between Original and Refreshed visual families. Refreshed loads the authored cat, human and power-up templates atomically and stays consistent through every complete hero clip, cosmetic, officer, cashier, rider, nearby crowd member and pickup. Responsive roll/jump chaining and scooter-specific mount/jump/dodge poses are part of the product feel. Clear Retro, Classic Pixel and Coarser picture modes remain independent from the model family. Arcade and 18Bro Sticker typography are also independent saved preferences.
+Players can switch between Original and Refreshed visual families; Refreshed is the default and Original is the explicit fallback. Refreshed loads the authored cat, human and power-up templates atomically and stays consistent through every complete hero clip, cosmetic, officer, cashier, rider, nearby crowd member and pickup. Responsive roll/jump chaining and scooter-specific mount/jump/dodge poses are part of the product feel. Clear Retro, Classic Pixel and Coarser picture modes remain independent from the model family. Arcade and 18Bro Sticker typography are also independent saved preferences.
 
 ## Open product questions
 
 1. What is the related crypto project's public name and destination?
-2. Where will `18bro.fun` point when a replacement public website is ready?
-3. Is the first release a dedicated URL, an embed in the crypto-project site, or the standalone HTML?
-4. What consent copy, Yandex Metrica tag ID, Meta Pixel ID, and success metrics are approved?
+2. Should `18bro.fun` redirect to the production `18bro.site/game/` route?
+3. What consent copy, Yandex Metrica tag ID, Meta Pixel ID, and success metrics are approved?

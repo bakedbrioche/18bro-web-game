@@ -53,13 +53,13 @@ const modules=[
  'vendor/addons/utils/SkeletonUtils.js',
  'vendor/addons/loaders/GLTFLoader.js',
  'choreography.mjs','customization.mjs','model-config.mjs','presentation-config.mjs','model-manifest.mjs','character-assets.mjs','character-animation.mjs',
- 'route.mjs','net-pursuit.mjs','core.mjs','crowd.mjs','material-assets.mjs','district-scene.mjs','scene.mjs','audio.mjs'
+ 'route.mjs','net-pursuit.mjs','core.mjs','crowd.mjs','material-assets.mjs','district-scene.mjs','scene.mjs','audio.mjs','loading-screen.mjs'
 ];
 if([...read('app.mjs').matchAll(importPattern)].some(match=>match[3].split('?')[0]==='./analytics.mjs'))modules.push('analytics.mjs');
 modules.push('app.mjs');
 const code=`const standaloneModules=Object.create(null);\nconst embeddedAmbience=${JSON.stringify(ambience)};\nconst embeddedTextures=${JSON.stringify(images)};\nglobalThis.__18BRO_EMBEDDED_MODELS__=${JSON.stringify(models)};\nglobalThis.__18BRO_POWER_ICONS__=${JSON.stringify(powerIcons)};\nglobalThis.__18BRO_UI_IMAGES__=${JSON.stringify(uiImages)};\n${modules.map(bundle).join('')}`;
 const font=fs.readFileSync(path.join(src,'vendor/VT323.ttf')).toString('base64');
 const css=read('style.css').replace('./vendor/VT323.ttf','data:font/ttf;base64,'+font);
-const html=read('index.html').replace(/<link rel="icon" type="image\/png" sizes="128x128" href="assets\/icons\/favicon[.]png">/,()=>`<link rel="icon" type="image/png" sizes="128x128" href="${uiImages.favicon}">`).replace(/<link rel="stylesheet" href="style[.]css[^"]*">/,()=>`<style>${css}</style>`).replace(/<script type="module" src="app\.mjs[^\"]*"><\/script>/,()=>`<script type="module">${code.replace(/<\/script/gi,'<\\/script')}</script>`);
+const html=read('index.html').replace(/<link rel="icon" type="image\/png" sizes="128x128" href="assets\/icons\/favicon[.]png">/,()=>`<link rel="icon" type="image/png" sizes="128x128" href="${uiImages.favicon}">`).replace(/<link rel="stylesheet" href="style[.]css[^"]*">/,()=>`<style>${css}</style>`).replace(/<script type="module" src="loading-screen\.mjs[^\"]*"><\/script>/,'').replace(/<script type="module" src="app\.mjs[^\"]*"><\/script>/,()=>`<script type="module">${code.replace(/<\/script/gi,'<\\/script')}</script>`);
 fs.mkdirSync(path.dirname(out),{recursive:true});fs.writeFileSync(out,html);
 console.log(JSON.stringify({file:out,bytes:Buffer.byteLength(html)}));

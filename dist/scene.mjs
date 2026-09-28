@@ -228,7 +228,7 @@ export class GameScene {
   // geometry instead of cloning references that cosmetic changes later dispose.
   const jetpack=this.makeJetpack();jetpack.position.set(0,0,0);jetpack.rotation.set(0,0,0);jetpack.scale.setScalar(.8/scale);backSocket.add(jetpack);const jetFlames=jetpack.getObjectByName('jet_flames');
   const shield=this.makeShield();shield.position.y=1.05;root.add(shield);
-  const expression=this.prepareAuthoredExpression(asset),capMark=hat;Object.assign(capMark.userData,{mark:'official-layout-integrated',geometryOnly:true,pieceCount:6,whiteBackingMeshes:0,textMeshes:0,surfaceProjected:true,surfaceRelief:.008});
+  const expression=this.prepareAuthoredExpression(asset),capMark=hat;Object.assign(capMark.userData,{mark:'user-supplied-logo-texture-integrated',geometryOnly:false,pieceCount:1,whiteBackingMeshes:0,textMeshes:0,surfaceProjected:true,surfaceRelief:.006,texture:'embedded-cap-atlas'});
   asset.scene.updateMatrixWorld(true);
   const cloneWearable=(name,parent)=>{const source=this.authoredPowerupTemplate?.wearables.get(name);if(!source)throw new Error(`Authored hero cannot attach ${name}`);const wearable=source.clone(true);wearable.name=`18bro_${name}`;wearable.position.set(0,0,0);wearable.scale.setScalar(1);const sceneQ=new THREE.Quaternion(),parentQ=new THREE.Quaternion();asset.scene.getWorldQuaternion(sceneQ);parent.getWorldQuaternion(parentQ);wearable.quaternion.copy(sceneQ.invert().multiply(parentQ).invert());wearable.visible=false;parent.add(wearable);return wearable;};
   // The magnet stays on the authored grip socket. Its attachment rotation
@@ -455,21 +455,22 @@ export class GameScene {
  ellipsoid(parent,mat,x,y,z,sx,sy,sz){const mesh=new THREE.Mesh(this.sphere,mat);mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);parent.add(mesh);return mesh;}
  makeSevenMark(parent){
   const g=new THREE.Group();g.name='18bro_cap_mark';parent.add(g);
-  // The existing cream crown is the only backing. Each colored shape is bent
-  // onto the crown tangent so the identity stays flush in oblique gameplay
-  // views instead of reading as a detached badge.
+  // The supplied mark is one transparent texture on a subdivided curved grid.
+  // Its vertices follow the cream crown so profile views cannot reveal a flat,
+  // detached badge and the full logo silhouette stays intact.
   g.position.set(0,.24,.376);g.rotation.x=-.82;g.scale.setScalar(.86);
-  const conform=(geometry)=>{const p=geometry.attributes.position;for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i);p.setZ(i,.003-.45*x*x-.16*y*y);}p.needsUpdate=true;geometry.computeVertexNormals();geometry.computeBoundingBox();Object.assign(geometry.userData,{surfaceProjected:true,frontAxis:'positive_z',maximumRelief:.003});return geometry;};
-  const flat=(shape,material,name,order)=>{const mesh=new THREE.Mesh(conform(new THREE.ShapeGeometry(shape,18)),material);mesh.name=name;mesh.renderOrder=order;g.add(mesh);return mesh;};
-  const polygon=(points)=>{const shape=new THREE.Shape();shape.moveTo(...points[0]);for(const point of points.slice(1))shape.lineTo(...point);shape.closePath();return shape;};
-  const rounded=(cx,cy,w,h,r)=>{const s=new THREE.Shape();s.moveTo(cx-w/2+r,cy-h/2);s.lineTo(cx+w/2-r,cy-h/2);s.quadraticCurveTo(cx+w/2,cy-h/2,cx+w/2,cy-h/2+r);s.lineTo(cx+w/2,cy+h/2-r);s.quadraticCurveTo(cx+w/2,cy+h/2,cx+w/2-r,cy+h/2);s.lineTo(cx-w/2+r,cy+h/2);s.quadraticCurveTo(cx-w/2,cy+h/2,cx-w/2,cy+h/2-r);s.lineTo(cx-w/2,cy-h/2+r);s.quadraticCurveTo(cx-w/2,cy-h/2,cx-w/2+r,cy-h/2);s.closePath();return s;};
-  flat(rounded(-.091,.069,.178,.066,.022),this.m.orange,'cap_mark_orange_lozenge',12);
-  flat(polygon([[-.010,.118],[.158,.129],[.149,.074],[.116,.055],[.087,.023],[.063,-.016],[.049,-.076],[-.012,-.076],[.002,-.007],[.033,.043],[.071,.080],[-.007,.066]]),this.m.red,'cap_mark_red_seven',13);
-  for(const [index,x] of [-.102,0,.102].entries())flat(rounded(x,-.115,.063,.058,.019),this.m.green,`cap_mark_green_${index+1}`,13);
-  flat(rounded(0,-.193,.063,.069,.020),this.m.red,'cap_mark_red_lower',13);
-  Object.assign(g.userData,{mark:'official-layout-geometric',geometryOnly:true,pieceCount:6,whiteBackingMeshes:0,textMeshes:0,surfaceProjected:true,surfaceRelief:.003,layout:'orange_lozenge_red_seven_three_green_one_red'});return g;
- }
- prepareProceduralExpression(parts){
+  const columns=6,rows=4,positions=[],uvs=[],indices=[];
+  for(let row=0;row<=rows;row++)for(let column=0;column<=columns;column++){
+   const x=mix(-.205,.205,column/columns),y=mix(-.145,.145,row/rows),z=.003-.45*x*x-.16*y*y;
+   positions.push(x,y,z);uvs.push(column/columns,row/rows);
+  }
+  for(let row=0;row<rows;row++)for(let column=0;column<columns;column++){
+   const a=row*(columns+1)+column,b=a+1,c=a+columns+1,d=c+1;indices.push(a,b,d,a,d,c);
+  }
+  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));geometry.setIndex(indices);geometry.computeVertexNormals();geometry.computeBoundingBox();Object.assign(geometry.userData,{surfaceProjected:true,frontAxis:'positive_z',maximumRelief:.003,grid:[columns,rows]});
+  const decal=new THREE.Mesh(geometry,this.m.capLogo);decal.name='cap_mark_official_texture';decal.renderOrder=13;g.add(decal);
+  Object.assign(g.userData,{mark:'user-supplied-logo-texture',geometryOnly:false,pieceCount:1,whiteBackingMeshes:0,textMeshes:0,surfaceProjected:true,surfaceRelief:.003,texture:'cap-logo.png',grid:[columns,rows]});return g;
+ } prepareProceduralExpression(parts){
   const all=[...parts.eyes,...parts.pupils,...parts.lids,...parts.brows,parts.mouth];
   const bases=new Map(all.map(object=>[object,{position:object.position.clone(),scale:object.scale.clone(),rotation:object.rotation.clone()}]));
   return {mode:'existing-procedural-face',amount:0,...parts,bases};

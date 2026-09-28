@@ -109,6 +109,8 @@ export class NetPursuitController {
     this.targetX = this.lanes[Math.floor(this.lanes.length / 2)];
     this.lockedTargetX = this.targetX;
     this.playerX = this.targetX;
+    this.playerAirborne = false;
+    this.openLanes = this.lanes.map((_, lane) => lane);
     this.caught = false;
     this.outcome = null;
     this.bonusAwarded = 0;
@@ -212,7 +214,9 @@ export class NetPursuitController {
   }
 
   _beginStrike() {
-    this.lockedTargetX = this.targetX;
+    const playerLane=nearestLaneIndex(this.playerX,this.lanes);
+    const reachableEscape=this.openLanes.filter(lane=>lane!==playerLane);
+    this.lockedTargetX = reachableEscape.length ? this.targetX : this.lanes[(playerLane+(this.guardIndex===0?1:this.lanes.length-1))%this.lanes.length];
     this._setPhase('strike', NET_PURSUIT.strikeSeconds);
     this._emit('netstrike', { guardIndex: this.guardIndex, targetX: this.lockedTargetX });
   }
@@ -220,6 +224,16 @@ export class NetPursuitController {
   _resolveStrike() {
     this.attemptsRemaining[this.guardIndex]--;
     this.attemptsResolved++;
+    if (Math.abs(this.playerX - this.lockedTargetX) <= NET_PURSUIT.catchRadius && this.playerAirborne) {
+      this._emit('netdodged', {
+        guardIndex: this.guardIndex,
+        targetX: this.lockedTargetX,
+        reason: 'jump',
+        attemptsRemaining: Object.freeze([...this.attemptsRemaining]),
+      });
+      this._setPhase('recovery', this._recoveryDuration());
+      return;
+    }
     if (Math.abs(this.playerX - this.lockedTargetX) <= NET_PURSUIT.catchRadius && this.strikeShielded) {
       this._emit('netblocked', {
         guardIndex: this.guardIndex,
@@ -308,11 +322,13 @@ export class NetPursuitController {
     this.elapsed += step;
   }
 
-  update(dt, { playerLane = Math.floor(this.lanes.length / 2), playerX, distance = this.distance, shielded = false } = {}) {
+  update(dt, { playerLane = Math.floor(this.lanes.length / 2), playerX, playerY = 0, playerGrounded = true, airborne = false, openLanes = this.openLanes, distance = this.distance, shielded = false } = {}) {
     let remaining = Math.max(0, finite(dt));
     this.playerX = this._resolvePlayerX(playerLane, playerX);
     this.distance = Math.max(this.distance, Math.max(0, finite(distance, this.distance)));
     this.difficulty = Math.max(this.difficulty, netPursuitDifficulty(this.distance));
+    this.playerAirborne = airborne === true || playerGrounded === false || finite(playerY) > .08;
+    this.openLanes = Array.isArray(openLanes) ? [...new Set(openLanes.map(value=>Math.round(finite(value,-1))).filter(lane=>lane>=0&&lane<this.lanes.length))] : this.lanes.map((_,lane)=>lane);
     this.strikeShielded = shielded === true;
     if (!ACTIVE_PHASES.has(this.phase) || remaining <= 0) return this.snapshot();
 
@@ -352,10 +368,10 @@ export class NetPursuitController {
     const dangerLane = nearestLaneIndex(markerX, this.lanes);
     const candidateEscapeLanes = this.lanes
       .map((x, lane) => ({ lane, clearance: Math.abs(x - markerX) }))
-      .filter(({ clearance }) => clearance > NET_PURSUIT.catchRadius)
+      .filter(({ lane, clearance }) => clearance > NET_PURSUIT.catchRadius && this.openLanes.includes(lane))
       .sort((a, b) => b.clearance - a.clearance || (this.guardIndex === 0 ? b.lane - a.lane : a.lane - b.lane))
       .map(({ lane }) => lane);
-    const escapeLane = candidateEscapeLanes[0] ?? (dangerLane === 0 ? 1 : 0);
+    const escapeLane = candidateEscapeLanes[0] ?? null;
     const strikeIn = this.phase === 'telegraph'
       ? Math.max(0, this.phaseDuration - this.phaseElapsed)
       : this.phase === 'approach'
@@ -370,7 +386,7 @@ export class NetPursuitController {
       minimumOpenEscapeLanes: this.state === 'active' && this.phase !== 'retreat' ? 1 : 0,
       dangerLane,
       candidateEscapeLanes,
-      keepClearLanes: this.state === 'active' && this.phase !== 'retreat' ? [escapeLane] : [],
+      keepClearLanes: this.state === 'active' && this.phase !== 'retreat' && escapeLane !== null ? [escapeLane] : [],
       strikeIn,
       minimumDodgeSeconds: NET_PURSUIT.minimumDodgeSeconds,
       protectForSeconds,

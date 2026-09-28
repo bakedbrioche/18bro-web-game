@@ -5,10 +5,10 @@ function game(){const g=new RunnerGame({random:()=>.21});g.start({skipIntro:true
 function tick(g,t,dt=1/120){for(let n=0;n<Math.ceil(t/dt);n++)g.update(Math.min(dt,t-n*dt));}
 function empty(g){g.entities.forEach(e=>e.active=false);g._spawnCursor=1e9;g._coinSectionCursor=1e9;}
 test('street edition starts faster, keeps one level, and uses only supported powers',()=>{let g=game();assert.equal(g.speed,10.4);assert.deepEqual(THEMES,['HONG KONG']);assert.deepEqual(Object.keys(POWER_DURATIONS),['magnet','moon','speedburst','moped','shield','doublechips','jetpack']);assert.equal(g.activatePower('frenzy'),false);assert.equal(g.activatePower('rocket'),false);assert.equal(g.activatePower('giant'),false);assert.equal(g.activatePower('skateboard'),false);assert.equal(g.spawnEntity('chip',1,-30),null);});
-test('power-up selection is weighted, sparse and never repeats immediately',()=>{
+test('power-up selection is weighted, sparse and excludes both preceding kinds',()=>{
  let seed=11;const g=new RunnerGame({random:()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296)}),seen=[];
  for(let i=0;i<100000;i++)seen.push(g._nextPowerKind());
- for(let i=1;i<seen.length;i++)assert.notEqual(seen[i],seen[i-1]);
+ for(let i=1;i<seen.length;i++){assert.notEqual(seen[i],seen[i-1]);if(i>1)assert.notEqual(seen[i],seen[i-2]);}
  const count=Object.fromEntries(Object.keys(POWER_SPAWN.weights).map(kind=>[kind,seen.filter(value=>value===kind).length]));
  assert.ok(count.magnet>count.moon&&count.moon>count.speedburst&&count.speedburst>count.doublechips);
  assert.ok(count.doublechips>count.moped&&count.moped>count.shield&&count.shield>count.jetpack,JSON.stringify(count));
@@ -50,13 +50,13 @@ test('ordinary chip lengths follow the explicit 1:3:3:1 bell distribution',()=>{
  const total=routes.length,expected={3:1/8,4:3/8,5:3/8,6:1/8};
  for(const [length,ratio]of Object.entries(expected))assert.ok(Math.abs(counts[length]/total-ratio)<.018,JSON.stringify(counts));
 });
-test('broad intersections use varied ordinary routes and Jetpack suppresses them',()=>{
+test('broad intersections keep ordinary ground routes streaming during Jetpack',()=>{
  let seed=29;const make=()=>new RunnerGame({random:()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296)});
  const g=make();g.entities.forEach(e=>e.active=false);g._spawnPattern(700);
  const coins=g.entities.filter(e=>e.active&&e.ordinaryCoin);assert.ok(coins.length>=3&&coins.length<=6);
  assert.ok(COIN_SEQUENCES.patterns.includes(coins[0].coinPattern));
  const jet=make();jet.entities.forEach(e=>e.active=false);jet.activatePower('jetpack');jet._spawnPattern(700);
- assert.equal(jet.entities.some(e=>e.active&&e.ordinaryCoin),false);
+ assert.equal(jet.entities.some(e=>e.active&&e.ordinaryCoin),true);
 });
 test('new obstacle groups are meaningfully closer with safe recovery spacing',()=>{for(let speed of [10.4,15,26])for(let tier=1;tier<=4;tier++){const spacing=obstacleSpacing(speed,tier);assert.ok(spacing/speed>MOTION.slideDuration+.2);if(tier===1)assert.ok(spacing<Math.max(17,speed*1.6+4));}});
 test('all templates and 10000 generated traffic patterns leave a clear lane',()=>{let seed=4;const g=new RunnerGame({random:()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296)});PATTERNS.forEach(p=>assert.ok(validatePattern(p)));for(let i=0;i<10000;i++){g.tier=i%4+1;const p=g._makePattern();assert.ok(validatePattern(p));assert.equal(p.slots[p.safeLane],null);}assert.equal(validatePattern({slots:['traffic','traffic','traffic']}),false);});
@@ -229,8 +229,9 @@ test('seeded chip sections stay spaced as one non-crossing trail',()=>{
   assert.ok(first[index-1].max<first[index].min,'chip sections do not overlap');
  }
  const jet=make();jet.entities.forEach(e=>e.active=false);jet.activatePower('jetpack');jet._coinSectionCursor=jet.distance;
- assert.deepEqual(jet._maybeSpawnCoinSection({safeLane:1,rowId:999,z:-45,y:1,spawnDistance:jet.distance+45}),[]);
- assert.equal(jet.entities.some(e=>e.active&&e.coinSectionId===999),false);
+ const duringFlight=jet._maybeSpawnCoinSection({safeLane:1,rowId:999,z:-45,y:1,spawnDistance:jet.distance+45});
+ assert.ok(duringFlight.length>=3&&duringFlight.every(e=>!e.flightTrail));
+ assert.equal(jet.entities.some(e=>e.active&&e.coinSectionId===duringFlight[0].coinSectionId),true);
 });
 
 test('broad roads retain sparse forward cars with at least two open lanes',()=>{
@@ -254,4 +255,28 @@ test('descending landings on reachable obstacle roofs continue the run',()=>{
   assert.equal(g.state,'RUNNING',type);assert.equal(g.player.roofEntityId,obstacle.id,type);
   assert.equal(g.player.y,obstacle.height,type);assert.equal(g.mistakes,0,type);
  }
+});
+
+test('pursuit and Jetpack landing planners reserve reachable lanes without deleting hazards',()=>{
+ const g=game();empty(g);g._startNetPursuit();const lane=g.netPursuit.safety.keepClearLanes[0];
+ for(let row=0;row<40;row++){
+  g.entities.forEach(e=>e.active=false);const rowId=g._rowId;g._spawnPattern(80+row*.01);
+  const hazards=g.entities.filter(e=>e.active&&e.rowId===rowId&&['blocker','jump','slide','traffic','scooter'].includes(e.type));
+  assert.ok(hazards.length>0);assert.equal(hazards.some(e=>e.lane===lane),false);
+ }
+ const existing=g.spawnEntity('blocker',lane,-4);g.update(1/120);assert.equal(existing.active,true,'fair planning never despawns an existing hazard');
+});
+
+test('power pickups defer past chip trails and obstacle rows keep every ordinary chip reachable',()=>{
+ const g=game();empty(g);g._rowId=3;g._coinSectionCursor=60;
+ g._makePattern=()=>({slots:['slide',null,'blocker'],safeLane:1});
+ const firstRow=g._rowId;g._spawnPattern(60);
+ const coins=g.entities.filter(e=>e.active&&e.rowId===firstRow&&e.ordinaryCoin);
+ assert.ok(coins.length>=3);assert.ok(coins.every(e=>e.lane===1&&e.coinPattern==='straight'));
+ assert.equal(g.entities.some(e=>e.active&&e.rowId===firstRow&&Object.hasOwn(POWER_DURATIONS,e.type)),false,'booster is deferred when the chip section owns the row');
+ const nextRow=g._rowId;g._spawnPattern(90);
+ const pickup=g.entities.find(e=>e.active&&e.rowId===nextRow&&Object.hasOwn(POWER_DURATIONS,e.type));
+ assert.ok(pickup,'deferred booster appears on the next clear reward row');
+ assert.ok(g.entities.filter(e=>e.active&&e.type==='coin').every(coin=>Math.abs(coin.z-pickup.z)>=7.5));
+ assert.equal(g.entities.some(e=>e.active&&e.rowId===nextRow&&['blocker','jump','slide','traffic','scooter'].includes(e.type)&&e.lane===pickup.lane),false);
 });

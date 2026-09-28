@@ -4,6 +4,8 @@ Decision records preserve why a non-obvious choice was made. Numbers are sequent
 
 | ID | Title | Date | Status |
 |---|---|---|---|
+| DEC-027 | Give the runner the full viewport and gate it on render readiness (`DEC-027-full-viewport-render-ready-loading.md`) | 2026-09-29 | ACCEPTED |
+| DEC-026 | Reserve future routes and texture the cap mark (DEC-026-reserve-future-routes-and-texture-cap.md) | 2026-09-29 | ACCEPTED |
 | DEC-025 | Publish immutable images behind a shared Traefik edge (`DEC-025-immutable-images-traefik-edge.md`) | 2026-09-28 | ACCEPTED |
 | DEC-024 | Treat power-up geometry and rendered UI art as one versioned asset (`DEC-024-version-model-and-ui-art-together.md`) | 2026-09-28 | ACCEPTED |
 | DEC-023 | Preserve pursuit world pressure and version power-up identity (`DEC-023-pursuit-world-and-powerup-v5.md`) | 2026-09-28 | ACCEPTED |

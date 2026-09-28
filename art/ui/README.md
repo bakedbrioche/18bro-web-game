@@ -14,7 +14,9 @@ Blender 5.2 and FFmpeg on `PATH` are required to rebuild the animation. The stan
 
 ## Browser favicon
 
-`dist/assets/icons/favicon.png` is the 128 × 128 calm peeking-18Bro browser mark. Codex created it with the built-in OpenAI image tool on 2026-09-28 using the user-supplied official front view as the strict identity anchor, then downsampled the selected 1024 × 1024 output with Lanczos. The orange tab mark preserves the official low brows, half-lidded oval eyes, forehead, ears and branded green/white cap so the character remains recognizable at 16 × 16. The full-resolution output and prompt provenance live in the ignored `tmp/imagegen/2026-09-28/favicon-sleepy/` workbench.
+`dist/assets/icons/favicon.png` is the 128 × 128 calm peeking-18Bro browser mark. Codex created it with the built-in OpenAI image tool on 2026-09-28 using the user-supplied official front view as the strict identity anchor, then downsampled the selected 1254 × 1254 output with Lanczos. The orange tab mark preserves the official low brows, half-lidded oval eyes, forehead, ears and branded green/white cap so the character remains recognizable at 16 × 16. The full-resolution output and prompt provenance live in the ignored `tmp/imagegen/2026-09-28/favicon-sleepy/` workbench.
+
+`dist/assets/icons/loading-icon.png` is a 512 × 512 Lanczos derivative of that same selected 1254 × 1254 source. The first-load overlay displays it at a responsive CSS size and rounds its corners with CSS, so the browser favicon remains optimized for tabs while the loading screen retains the source detail. Both runtime PNGs are embedded in the standalone release through `globalThis.__18BRO_UI_IMAGES__`.
 
 The preceding surprised peeking mark is tracked at `art/ui/archive/favicon-peek-v1.png`; the earlier guard-and-cat chase mark remains at `art/ui/archive/favicon-chase-v1.png`. Both are archive assets and are not loaded by the game. The standalone exporter embeds the exact current runtime PNG into the favicon link.
 ## Pursuit escape banner

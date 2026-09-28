@@ -69,20 +69,20 @@ test('speed burst cannot extend Jetpack chips or trigger a post-landing jump',()
  assert.equal(events.findLast(e=>e.type==='powerend'&&e.kind==='jetpack')?.reason,'expired');
  tick(g,.5);assert.equal(g.player.y,0);assert.equal(g.player.anim,'run');
 });
-test('jetpack removes and suppresses ordinary chips without suppressing hazards or powers',()=>{
+test('jetpack preserves and streams ground chips and hazards without collecting below the flight path',()=>{
  const g=empty(),ahead=g.spawnEntity('coin',0,-20),behind=g.spawnEntity('coin',2,4);
  const hazard=g.spawnEntity('blocker',0,-25),power=g.spawnEntity('shield',2,-24);
  g.activatePower('magnet');g.activatePower('jetpack');
- assert.equal(ahead.active,true);assert.equal(ahead.retiring,true);assert.equal(behind.active,true);assert.equal(hazard.active,true);assert.equal(power.active,true);
- g._rowId=3;g._spawnPattern(80);
- assert.equal(g.entities.some(e=>e.active&&e.rowId===3&&e.type==='coin'&&!e.flightTrail),false);
+ assert.equal(ahead.active,true);assert.equal(ahead.retiring,false);assert.equal(behind.active,true);assert.equal(hazard.active,true);assert.equal(power.active,true);
+ g._rowId=3;g._coinSectionCursor=80;g._spawnPattern(80);
+ assert.equal(g.entities.some(e=>e.active&&e.rowId===3&&e.type==='coin'&&!e.flightTrail),true);
  assert.ok(g.entities.some(e=>e.active&&e.rowId===3&&['blocker','jump','slide','traffic','scooter'].includes(e.type)));
- assert.ok(g.entities.some(e=>e.active&&e.rowId===3&&Object.hasOwn(POWER_DURATIONS,e.type)));
- const ordinary=g.spawnEntity('coin',0,-.5,{y:2.2});ordinary.magnetLatched=true;const x=ordinary.x;
- tick(g,.05);assert.equal(ordinary.active,true);assert.equal(ordinary.x,x);assert.equal(ordinary.x,LANES[0]);assert.equal(ordinary.magnetic,false);
- tick(g,.3);assert.equal(ahead.active,false,'cleared ground chips finish their visual retirement');
-});
-test('moped exposes mount, stunt-jump and randomized side-dodge animation state',()=>{
+ const ordinary=g.spawnEntity('coin',0,-.5,{y:1});ordinary.magnetLatched=true;const x=ordinary.x;
+ tick(g,.3);assert.equal(ordinary.active,true);assert.equal(ordinary.x,x);assert.equal(ordinary.x,LANES[0]);assert.equal(ordinary.magnetic,false);
+ const flight=g.powers.active.get('jetpack');assert.ok(Number.isInteger(flight.landingLane));
+ const landingRow=g._rowId;g._spawnPattern(flight.landingDistance);
+ assert.equal(g.entities.some(e=>e.active&&e.rowId===landingRow&&['blocker','jump','slide','traffic','scooter'].includes(e.type)&&e.lane===flight.landingLane),false);
+});test('moped exposes mount, stunt-jump and randomized side-dodge animation state',()=>{
  const g=empty();g.activatePower('moped');assert.ok(g.player.mopedMount>0);
  tick(g,.7);assert.equal(g.player.mopedMount,0);g.input('jump');assert.ok(g.player.y===0&&g.player.vy>0);tick(g,.1);
  assert.equal(g.input('slide'),true);assert.equal(g.player.anim,'roll');assert.ok(Math.abs(g.player.mopedSlideSide)===1);

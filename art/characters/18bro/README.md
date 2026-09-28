@@ -54,11 +54,7 @@ children of the forearms at the wrist centers. The back socket remains on the
 spine. Hat and fur material names remain `hat` and `fur`.
 
 
-The cap keeps its existing cream crown as the only backing for the mascot mark.
-Six explicitly triangulated, surface-projected colored pieces form one orange
-lozenge, one curved red 7, three green marks and one red lower mark. Keep the
-ink shallow and inspect front, three-quarter and side renders; do not replace it
-with a floating white badge or text mesh.
+The cap keeps its existing cream crown as the only backing for the mascot mark.\nOne 6 × 4 projected decal grid embeds the normalized user-supplied logo reference\nin the existing palette atlas and follows the crown at 0.006 m relief. Inspect\nfront, three-quarter and side renders; do not replace it with detached badge\ngeometry. Provenance and release-rights responsibility live in `art/references/README.md`.
 
 To regenerate source, runtime GLB, local manifest, validation, and review PNGs:
 

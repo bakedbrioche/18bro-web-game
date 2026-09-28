@@ -2,6 +2,8 @@
 
 Newest first; the top entry is the next session’s entry point.
 
+- **2026-09-29-fair-routes-cap-and-live-tls.md** - Jump-safe pursuits, full-viewport responsive play, render-ready loading, curved cap mark, valid production TLS and Dokploy monitoring notes.
+
 - **2026-09-28-production-deployment.md** - Verified GHCR/GitHub Actions deployment to a restricted Hostinger VPS behind the shared Traefik edge at `/game/`; DNS cutover remains for the domain owner.
 
 - **2026-09-28-pursuit-world-powerup-v5.md** - Pursuit-world preservation, pause-layer ownership, and revision-5 Magnet/Moon Boots.

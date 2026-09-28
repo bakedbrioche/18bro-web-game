@@ -19,6 +19,7 @@ SOURCE = ROOT / 'art/characters/18bro/18bro.blend'
 OUTPUT = ROOT / 'dist/assets/models/18bro-v1.glb'
 REVIEW = ROOT / 'release/model-review'
 MANIFEST = SOURCE.parent / 'manifest.json'
+CAP_LOGO_TEXTURE = ROOT / 'dist/assets/textures/cap-logo.png'
 for directory in (SOURCE.parent, OUTPUT.parent, REVIEW):
     directory.mkdir(parents=True, exist_ok=True)
 
@@ -54,6 +55,31 @@ for y in range(512):
     for x in range(512):
         index = (y // 128) * 4 + x // 128
         pixels.extend(COLORS[entries[min(index, len(entries) - 1)]])
+# Embed the user-supplied 7-Eleven mark into the unused top row of the shared
+# palette. Transparent pixels inherit the cream crown; colored pixels are
+# normalized to this asset's existing orange/red/green identity swatches.
+assert CAP_LOGO_TEXTURE.exists(), CAP_LOGO_TEXTURE
+logo_image = bpy.data.images.load(str(CAP_LOGO_TEXTURE), check_existing=False)
+logo_width, logo_height = logo_image.size
+logo_pixels = list(logo_image.pixels)
+logo_x, logo_y, logo_target_width, logo_target_height = 320, 384, 192, 128
+for target_y in range(logo_target_height):
+    source_y = min(logo_height - 1, round(target_y * (logo_height - 1) / (logo_target_height - 1)))
+    for target_x in range(logo_target_width):
+        source_x = min(logo_width - 1, round(target_x * (logo_width - 1) / (logo_target_width - 1)))
+        source_index = (source_y * logo_width + source_x) * 4
+        r, g, b, a = logo_pixels[source_index:source_index + 4]
+        if a < .5:
+            color = COLORS['cream']
+        elif g > r:
+            color = COLORS['green']
+        elif g > .05:
+            color = COLORS['orange']
+        else:
+            color = COLORS['red']
+        target_index = ((logo_y + target_y) * 512 + logo_x + target_x) * 4
+        pixels[target_index:target_index + 4] = color
+bpy.data.images.remove(logo_image)
 palette.pixels[:] = pixels
 palette.pack()
 materials = {}
@@ -270,10 +296,9 @@ for j in range(3):
         a=j*7+i; faces.append((a,a+1,a+8,a+7))
 mesh('cap_cream_panel',verts,faces,'cream','hat')
 
-# Structural 18Bro cap mark, integrated directly into the curved cream panel.
-# The white crown panel is its background: there is no badge plate, text, or
-# floating socket overlay. Every colored vertex follows the analytic crown
-# surface with an eight-millimeter shallow ink relief.
+# One texture-preserving decal follows the dome as a subdivided grid. The logo
+# source is embedded into the existing hat atlas above, so the GLB remains one
+# self-contained three-material asset with no runtime texture fetch.
 def cap_panel_front_y(x,z):
     for j in range(len(caprings)-1):
         a,b=caprings[j:j+2]
@@ -285,86 +310,44 @@ def cap_panel_front_y(x,z):
             return cy-(ry+.012)*math.sqrt(max(0,1-(x/(rx+.008))**2))
     raise ValueError(('cap logo outside crown',x,z))
 
-cap_logo_objects=[]
-cap_logo_offsets=[]
-
-def rounded_rect_polygon(cx,cz,width,height,radius,steps=4):
-    # Six vertices keep the PS1-scale mark inside the existing hero budget.
-    # The diagonal shoulders soften the silhouette without tiny geometry.
-    return [
-        (cx-width/2+radius,cz+height/2),(cx+width/2-radius,cz+height/2),
-        (cx+width/2,cz),(cx+width/2-radius,cz-height/2),
-        (cx-width/2+radius,cz-height/2),(cx-width/2,cz),
-    ]
-
-def cap_logo_piece(name,polygon,color,center_fan=False):
-    """Project explicit front-facing triangles onto the curved cream crown.
-
-    A single non-planar n-gon is not a decal: Blender triangulates it with
-    long straight chords that pass through the convex cap surface. The old
-    mark therefore rendered as disconnected triangular scraps. Tessellating
-    in artwork space and projecting every triangle vertex keeps the complete
-    silhouette 8 mm above the panel from every
-    review angle and in the exported GLB.
-    """
-    outline=[Vector((x,z,0)) for x,z in polygon]
-    if center_fan:
-        center=sum(outline,Vector())/len(outline)
-        coarse=[(center,outline[index],outline[(index+1)%len(outline)]) for index in range(len(outline))]
-    else:
-        coarse=[tuple(outline[index] for index in triangle) for triangle in tessellate_polygon([outline])]
-    projected=[]
-    faces=[]
-
-    def emit_triangle(a,b,c):
-        start=len(projected)
-        for point in (a,b,c):
-            x,z=point.x,point.y
-            surface=cap_panel_front_y(x,z)
-            y=surface-.008
-            projected.append((x,y,z))
-            cap_logo_offsets.append(abs(y-surface))
-        # The visible cap front is -Y. Correct winding independently for
-        # every emitted triangle so Three.js FrontSide culling is deterministic.
-        va,vb,vc=(Vector(projected[start+i]) for i in range(3))
-        face=(start,start+1,start+2)
-        if (vb-va).cross(vc-va).y>0:
-            face=(start,start+2,start+1)
-        faces.append(face)
-
-    for triangle in coarse:
-        emit_triangle(*triangle)
-    obj=mesh(name,projected,faces,color,'hat')
-    obj['cap_logo_piece']=name
-    obj['surface_projected']=True
-    obj['front_winding']='negative_y'
-    cap_logo_objects.append(obj)
-    return obj
-
-# Match the official mascot mark as six simple colored elements: one orange
-# rounded lozenge, one clean curved/slanted red seven, three green marks and
-# one red lower mark. The existing cream crown panel remains the only backing.
-cap_logo_piece('cap_logo_orange_lozenge',
-    rounded_rect_polygon(-.091,2.599,.178,.066,.022),'orange',center_fan=True)
-cap_logo_piece('cap_logo_red_seven_stroke',[
-    (-.010,2.648),(.158,2.659),(.149,2.604),(.116,2.585),
-    (.087,2.553),(.063,2.514),(.049,2.454),(-.012,2.454),
-    (.002,2.523),(.033,2.573),(.071,2.610),(-.007,2.596),
-],'red')
-for index,x in enumerate((-.102,0,.102)):
-    cap_logo_piece('cap_logo_green_mark_'+str(index+1),
-        rounded_rect_polygon(x,2.415,.063,.058,.019),'green')
-cap_logo_piece('cap_logo_red_lower_mark',
-    rounded_rect_polygon(0,2.337,.063,.069,.020),'red')
+logo_columns,logo_rows=6,4
+logo_min_x,logo_max_x=-.205,.205
+logo_min_z,logo_max_z=2.335,2.635
+logo_relief=.006
+logo_vertices=[]
+for row in range(logo_rows+1):
+    z=logo_min_z+(logo_max_z-logo_min_z)*row/logo_rows
+    for column in range(logo_columns+1):
+        x=logo_min_x+(logo_max_x-logo_min_x)*column/logo_columns
+        logo_vertices.append((x,cap_panel_front_y(x,z)-logo_relief,z))
+logo_faces=[]
+for row in range(logo_rows):
+    for column in range(logo_columns):
+        a=row*(logo_columns+1)+column
+        logo_faces.extend(((a,a+1,a+logo_columns+2),(a,a+logo_columns+2,a+logo_columns+1)))
+cap_logo=mesh('cap_logo_texture_decal',logo_vertices,logo_faces,'cream','hat')
+uv=cap_logo.data.uv_layers.active
+u_min,u_max=(logo_x+.5)/512,(logo_x+logo_target_width-.5)/512
+v_min,v_max=(logo_y+.5)/512,(logo_y+logo_target_height-.5)/512
+for polygon in cap_logo.data.polygons:
+    for loop_index in polygon.loop_indices:
+        vertex_index=cap_logo.data.loops[loop_index].vertex_index
+        row,column=divmod(vertex_index,logo_columns+1)
+        uv.data[loop_index].uv=(u_min+(u_max-u_min)*column/logo_columns,v_min+(v_max-v_min)*row/logo_rows)
+cap_logo['cap_logo_piece']='user_supplied_texture'
+cap_logo['surface_projected']=True
+cap_logo['front_winding']='negative_y'
+cap_logo['texture_region_pixels']=[logo_x,logo_y,logo_target_width,logo_target_height]
 cap_logo_metrics={
-    'designRevision':6,
-    'structure':'orange_lozenge_red_stroke_three_green_one_red',
-    'pieceCount':len(cap_logo_objects),
-    'orangeLozenges':1,'redStrokes':1,'greenMiddleMarks':3,'redLowerMarks':1,
+    'designRevision':7,
+    'structure':'single_curved_user_supplied_logo_texture',
+    'pieceCount':1,'textureMeshes':1,'geometryOnly':False,
     'whiteBackingMeshes':0,'textMeshes':0,
     'surfaceProjected':True,'frontWinding':'negative_y',
-    'surfaceReliefMeters':max(cap_logo_offsets),
-    'surfaceReliefLimitMeters':.009,
+    'surfaceReliefMeters':logo_relief,'surfaceReliefLimitMeters':.007,
+    'grid':[logo_columns,logo_rows],
+    'textureRegionPixels':[logo_x,logo_y,logo_target_width,logo_target_height],
+    'source':'art/references/7-eleven-logo-user-reference-2026-09-28.png',
 }
 billverts=[]
 for layer in (0,1):
@@ -970,13 +953,13 @@ report={'blender':bpy.app.version_string,'source':str(SOURCE.relative_to(ROOT)),
  'bytes':len(blob),'sha256':hashlib.sha256(blob).hexdigest(),
  'animation_metrics':clip_metrics,
  'rig_version':5,
- 'design_revision':6,
+ 'design_revision':7,
  'cap_logo':cap_logo_metrics,
  'socket_rest_orientation':'socket_hat +Y bone axis = model +Z in Blender; no twist. Parent props using the socket world transform, never the Original head.',
  'notes':['Complete in-place quaternion clips; the animation mixer exclusively owns every imported bone.',
           'Run/walk use baked two-joint IK for planted contacts; arms and legs have independent concealed skin caps.',
           'fall is a protective limb pose only: the gameplay root supplies the fall direction.',
-          'Original palette atlas and geometry; structural cap mark is authored in repository geometry.']}
+          'Original palette atlas and geometry; user-supplied cap mark is embedded in the hat atlas and projected on the crown.']}
 
 # Inspect deformed geometry at every authored frame. A successful export alone
 # cannot detect an exploding skin, a non-closing loop, or a floor penetration.
@@ -1033,18 +1016,18 @@ rig.animation_data.action = None
 scene.frame_set(0); reset_pose(); bpy.context.view_layer.update()
 
 manifest = {
- 'assetId':'18bro-v1','rigVersion':5,'designRevision':6,
+ 'assetId':'18bro-v1','rigVersion':5,'designRevision':7,
  'source':str(SOURCE.relative_to(ROOT)).replace('\\','/'),
  'output':str(OUTPUT.relative_to(ROOT)).replace('\\','/'),
  'sha256':report['sha256'],'blenderVersion':bpy.app.version_string,
- 'exportPreset':'18bro-blender-5.2-v6','bytes':len(blob),
+ 'exportPreset':'18bro-blender-5.2-v7','bytes':len(blob),
  'bounds':{'min':[minimum[0],minimum[2],-maximum[1]],
            'max':[maximum[0],maximum[2],-minimum[1]]},
  'boundsBlenderZUp':{'min':minimum,'max':maximum},
  'triangles':tris,'materials':3,'bones':len(bones),'clips':clipnames,
  'clipMetadata':{name:{'duration':data['duration'],'loop':data['loop']} for name,data in clip_metrics.items()},
  'sockets':report['sockets'],'capLogo':cap_logo_metrics,
- 'provenance':'Original procedural Blender asset and authored animation for the 18Bro community game; no imported model, texture, logo, or animation.',
+ 'provenance':'Original procedural Blender model and animation for the 18Bro community game. Cap branding texture is derived from a user-supplied official-logo reference stored under art/references; project owner is responsible for brand-use authorization.',
 }
 MANIFEST.write_text(json.dumps(manifest,indent=2)+'\n')
 (REVIEW/'validation.json').write_text(json.dumps(report,indent=2))

@@ -6,7 +6,7 @@ The roadway image is `dist/assets/textures/asphalt.png`, copied unchanged from t
 
 The convenience store, interior tiles, walls, shelves, packets, bottles, cans, noodle cups, checkout, cooler cabinets and signage are built from editable Three.js geometry and solid-color materials. The clerk is an articulated procedural character. No store photographs, shelf images, refrigerator images or generated atlas are used.
 
-Residential facades use solid materials with modeled windows, frames, ledges and air conditioners. Street signs, banners, taxi labels and the character's cap logo use small code-generated text graphics; they do not use imported photographs.
+Residential facades use solid materials with modeled windows, frames, ledges and air conditioners. Street signs, banners and taxi labels use small code-generated text graphics. The character cap uses the user-supplied logo reference documented in `art/references/README.md`; the normalized runtime decal is `dist/assets/textures/cap-logo.png` and the Refreshed hero embeds the same pixels in its palette atlas.
 
 The clerk uses four varied subtitles with no voice audio. Shelf stock and fittings are 3D geometry, including cans, noodle cups, sandwich packs and rice balls.
 

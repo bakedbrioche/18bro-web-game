@@ -213,19 +213,7 @@ export class RunnerGame {
   _startNetPursuit() {
     if(this.state!=='RUNNING'||this.netPursuit?.active)return false;
     this.netPursuit=this._netPursuitController.start({playerLane:this.player.lane,playerX:this.player.x,distance:this.distance});
-    this._protectNetEscapeLane();return true;
-  }
-  _protectNetEscapeLane() {
-    const pursuit=this.netPursuit;if(!pursuit?.active)return;
-    const lanes=pursuit.safety?.keepClearLanes||[];if(!lanes.length)return;
-    const horizon=Math.max(8,(pursuit.safety.protectForSeconds||0)*Math.max(this.speed,10.4)+5);
-    for(const entity of this.entities){
-      if(!entity.active||!HAZARDS.has(entity.type)||entity.z>4||entity.z< -horizon)continue;
-      const blocks=entity.type==='crossTraffic'
-        ?lanes.some(lane=>Math.abs(entity.x-LANES[lane])<entity.width/2+.65)
-        :lanes.includes(entity.lane);
-      if(blocks)entity.active=false;
-    }
+    return true;
   }
   _updateNetPursuit(dt) {
     const eligible=!this.debug.invincible&&!this.netPursuit?.active&&this.distance>=this._nextNetPursuitDistance&&!this.route.branch&&this.route.id!=='intersection'&&!this.powers.has('jetpack')&&!this.powers.has('moped')&&this.player.grounded;
@@ -234,7 +222,6 @@ export class RunnerGame {
     this.netPursuit=this._netPursuitController.update(dt,{playerLane:this.player.lane,playerX:this.player.x,distance:this.distance,shielded:this.powers.has('shield')&&this.shieldGrace<=0});
     const pursuitTarget=this.netPursuit.phase==='retreat'?12:this.netPursuit.active?1.65:this.policeDistance;
     this.policeDistance+=(pursuitTarget-this.policeDistance)*(1-Math.exp(-dt*(this.netPursuit.phase==='retreat'?2.4:4.2)));
-    this._protectNetEscapeLane();
   }
   seekArea(distance) {
     this.start({skipIntro:true});this.distance=clamp(Number(distance)||ROUTE.start,0,ROUTE.end-1);
@@ -472,8 +459,6 @@ export class RunnerGame {
       return spacing;
     }
     const pattern = this._makePattern();
-    const pursuitLane=this.netPursuit?.active?this.netPursuit.safety?.keepClearLanes?.[0]:null;
-    if(Number.isInteger(pursuitLane)&&pursuitLane>=0&&pursuitLane<3){pattern.slots[pursuitLane]=null;pattern.safeLane=pursuitLane;}
     const rowId = this._rowId++;
     const z = this.distance - spawnDistance;
     for (let lane = 0; lane < 3; lane++) {

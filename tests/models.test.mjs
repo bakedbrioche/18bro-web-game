@@ -272,6 +272,14 @@ test('magnet is held upright with one centred signal that fades through a roll',
 });
 
 
+test('Original equipment mirrors the revision 5 Magnet and Moon sneaker identity',()=>{
+ const s=modelFactory(),cat=s.makeCat('18bro'),magnet=cat.magnet;
+ assert.deepEqual({...magnet.userData},{gripAtBottom:true,raisedToPlayerRight:true,designRevision:5,halves:'left_blue_right_red',poleEnds:'aligned_gray',goldZapCount:1,sideZapCount:0});
+ const arc=magnet.getObjectByName('magnet_u_arc');assert.ok(arc?.isMesh);assert.equal(arc.material.length,2);assert.equal(arc.geometry.groups.length,2);assert.equal(arc.geometry.groups[0].count,arc.geometry.groups[1].count);
+ assert.ok(magnet.getObjectByName('magnet_blue_left_pole'));assert.ok(magnet.getObjectByName('magnet_red_right_pole'));assert.ok(magnet.getObjectByName('magnet_gray_end_L'));assert.ok(magnet.getObjectByName('magnet_gray_end_R'));assert.ok(magnet.getObjectByName('magnet_gold_zap'));assert.equal(magnet.children.filter(child=>child.name.includes('zap')).length,1);
+ cat.moonBoots.forEach((boot,index)=>{assert.equal(boot.userData.designRevision,5);assert.equal(boot.userData.shoeStyle,'layered_mid_top_court_sneaker');assert.equal(boot.userData.rearWingCount,0);assert.equal(boot.userData.heelArrow,index?'red':'green');for(const name of ['moon_outsole','moon_midsole','moon_sculpted_upper','moon_padded_toe','moon_heel_counter','moon_padded_collar','moon_ankle_opening','moon_tongue','moon_arrow_outline','moon_arrow_face'])assert.ok(boot.getObjectByName(name),`${boot.name} ${name}`);assert.equal(boot.children.filter(child=>child.name.startsWith('moon_lace_')).length,4);assert.equal(boot.getObjectByName('moon_arrow_face').userData.colorIdentity,index?'ear_red':'ear_green');assert.equal(boot.children.some(child=>child.name.toLowerCase().includes('wing')),false);const shoeBounds=new THREE.Box3().setFromObject(boot),arrowBounds=new THREE.Box3().setFromObject(boot.getObjectByName('moon_arrow_outline'));assert.ok(shoeBounds.containsBox(arrowBounds),'rear arrow stays inside the sneaker silhouette');});
+});
+
 test('all boosters share a camera-facing soft aura tinted to their identity',()=>{
  const s=modelFactory(),types=['magnet','moon','moped','shield','doublechips','jetpack','speedburst'];
  for(const type of types){const power=s.makeEntity(type,3),aura=power.getObjectByName('powerup_soft_aura');assert.ok(aura?.isSprite,type+' aura is a billboard');assert.equal(aura.material,s.m.powerAura[type]);assert.equal(aura.material.isSpriteMaterial,true);s.animatePowerup(power,type,.25,3,false);assert.ok(aura.scale.x>1.6&&aura.scale.x<1.85);}

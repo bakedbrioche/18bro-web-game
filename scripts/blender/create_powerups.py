@@ -210,53 +210,6 @@ def paw(shape, center, scale, color, transform=None):
         shape.ellipsoid((x+xx*scale,y,z+zz*scale),(rr*scale,.045*scale,rr*1.1*scale),color,sides=8,latitudes=4,transform=transform)
 
 
-def build_magnet():
-    s=Shape('magnet')
-    outer=[(-.55,.58),(-.55,-.02)]
-    outer += [(.55*math.cos(a),-.02+.55*math.sin(a)) for a in [math.pi+i*math.pi/12 for i in range(1,13)]]
-    outer += [(.55,.58),(.27,.58),(.27,-.02)]
-    outer += [(.27*math.cos(a),-.02+.27*math.sin(a)) for a in [2*math.pi-i*math.pi/12 for i in range(1,13)]]
-    outer += [(-.27,.58)]
-    s.prism(outer,.29,'coral',bevel=.038)
-    # Thick cream sleeves and polished mint pole ends keep the U readable.
-    for side in (-1,1):
-        s.rounded_box((side*.41,0,.49),(.31,.33,.24),'cream',.035)
-        s.rounded_box((side*.41,-.177,.51),(.20,.034,.115),'mint',.015)
-        s.rounded_box((side*.41,-.157,.22),(.075,.033,.20),'gold',.012)
-        bolt=[(side*.71,.20),(side*.65,.05),(side*.78,.11),(side*.68,-.13),(side*.88,.12),(side*.74,.10)]
-        s.prism(bolt,.10,'gold',y=-.015)
-    s.rounded_box((0,-.159,-.39),(.31,.05,.11),'teal_dark',.015)
-    return s.finish()
-
-
-def build_moon():
-    s=Shape('moon')
-    for side in (-1,1):
-        tf=matrix((side*.31, .08 if side<0 else -.09, .07 if side<0 else -.035),
-                  (0,side*-.08,side*-.18))
-        # Broad sculpted toe, soft ankle and a contrasting stepped sole.
-        s.rounded_box((0,-.07,-.29),(.49,.84,.15),'cream',.045,tf)
-        s.rounded_box((0,-.09,-.22),(.48,.82,.10),'teal_dark',.035,tf)
-        s.loft([(-.19,.23,.36,0,-.07,.55),(-.09,.24,.37,0,-.08,.70),
-                (.10,.21,.27,0,.005,.78),(.29,.19,.22,0,.08,.70),
-                (.36,.17,.20,0,.08,.75)],'lime',12,True,tf)
-        s.loft([(.20,.203,.229,0,.08,.75),(.34,.207,.232,0,.08,.75),
-                (.40,.18,.21,0,.08,.80)],'teal',12,False,tf)
-        s.loft([(.401,.139,.159,0,.08,.80),(.42,.14,.16,0,.08,.80)],'ink',12,False,tf)
-        # Laces follow the sloping instep instead of becoming a floating decal.
-        for i in range(4):
-            s.tube([(-.13,-.38+i*.036,.0+i*.060),(.13,-.38+i*.036,.0+i*.060)],.025,'ivory',6,tf)
-        s.ellipsoid((0,-.409,-.12),(.18,.036,.045),'mint',12,4,tf)
-        for i in range(3):
-            s.rounded_box((0,-.34+i*.28,-.34),(.31,.075,.025),'gold',.007,tf)
-        # Orange heel wing makes the airborne function readable without text.
-        for i in range(3):
-            s.prism([(-.14+i*.10,.06),(-.10+i*.10,.45+i*.055),(-.035+i*.10,.16)],.10,'orange',y=.29,transform=tf)
-    star(s,(-.65,-.09,.50),.18,'gold',4)
-    star(s,(.51,-.06,.63),.12,'cream',4)
-    return s.finish()
-
-
 def build_moped():
     s=Shape('moped')
     for y in (-.51,.45):
@@ -410,71 +363,10 @@ def build_speedburst():
     return s.finish()
 
 
-def build_wearable_magnet():
-    s=Shape('wearable_magnet')
-    # The grip is at the lower bridge. No floating pickup lightning belongs on
-    # this carried version: its U silhouette and contrasting pole tips read best.
-    outer=[(-.255,.46),(-.255,.235)]
-    outer += [(.255*math.cos(a),.235+.255*math.sin(a))
-              for a in [math.pi+i*math.pi/10 for i in range(1,11)]]
-    outer += [(.255,.46),(.125,.46),(.125,.235)]
-    outer += [(.125*math.cos(a),.235+.125*math.sin(a))
-              for a in [2*math.pi-i*math.pi/10 for i in range(1,11)]]
-    outer += [(-.125,.46)]
-    s.prism(outer,.145,'coral',y=-.080,bevel=.016)
-    for side in (-1,1):
-        s.rounded_box((side*.19,-.080,.427),(.153,.177,.125),'cream',.017)
-        s.rounded_box((side*.19,-.180,.43),(.100,.022,.064),'mint',.008)
-        s.rounded_box((side*.19,-.162,.288),(.036,.023,.083),'gold',.007)
-    s.rounded_box((0,-.002,.008),(.158,.128,.096),'teal_dark',.016)
-    s.rounded_box((0,-.160,.05),(.125,.024,.065),'cream',.008)
-    paw(s,(0,-.179,.057),.155,'teal')
-    return s.finish(name='wearable_magnet',normalize=False,
-                    origin_contract='paw_grip_origin; glTF_Y_up; front_+Z; units_meters')
-
-
-def build_wearable_moon(label):
-    s=Shape('wearable_moon_'+label)
-    side=-1 if label=='L' else 1
-    # Local origin is the ankle pivot, not the bottom of the sole. At the
-    # authored hero rest ankle (Z=.11), the sole sits precisely on the ground.
-    s.loft([(-.110,.174,.232,0,-.073,.60),(-.086,.191,.252,0,-.075,.65),
-            (-.048,.191,.252,0,-.075,.65),(-.026,.178,.238,0,-.075,.65)],'cream',12,False)
-    s.loft([(-.035,.183,.244,0,-.075,.66),(.017,.186,.247,0,-.071,.72),
-            (.091,.173,.224,0,-.052,.77),(.160,.148,.158,0,-.008,.78),
-            (.225,.142,.140,0,.014,.78)],'lime',12,True)
-    del s.faces[-1:]; del s.colors[-1:]; del s.smoothing[-1:]
-    # Dark opening with a genuine hollow rim; the original cat ankle enters
-    # here. Do not cap the opening with a disk that would intersect its leg.
-    rings=[]
-    for z,rx,ry in ((.173,.150,.158),(.243,.152,.159),(.267,.142,.149),
-                    (.267,.126,.132),(.222,.126,.132)):
-        rings.append((z,rx,ry,0,.014,.76))
-    # loft normally caps endpoints; remove those caps so the cuff is a sleeve.
-    first_face=len(s.faces)
-    s.loft(rings,'teal',12,True)
-    del s.faces[-2:]; del s.colors[-2:]; del s.smoothing[-2:]
-    for i in range(first_face+36,first_face+48):
-        s.colors[i]=COLORS['teal_dark']
-    # Broad padded toe and four cream lace bars follow the rounded instep.
-    s.ellipsoid((0,-.315,.039),(.137,.032,.046),'mint',12,4)
-    for i in range(3):
-        z=.080+i*.043
-        y=-.294+i*.060
-        s.tube([(-.090,y+.033,z),(0,y,z+.005),(.090,y+.033,z)],.0125,'ivory',6)
-    for i in range(3):
-        s.rounded_box((0,-.240+i*.158,-.111),(.246,.043,.018),'gold',.005)
-    # Mirrored lateral flight feathers are visible from the chase camera and
-    # differentiate left/right. They stay below the shin to avoid knee clipping.
-    tf=matrix((side*.144,.136,.068),(0,0,side*-.17))
-    for i in range(3):
-        s.prism([(side*-.037,.015),(side*(.008+i*.025),.124+i*.020),
-                 (side*(.035+i*.029),.048)],.065,'orange',y=.012+i*.025,transform=tf)
-    s.rounded_box((0,.158,.071),(.171,.045,.123),'teal_dark',.012)
-    paw(s,(0,-.186,.074),.225,'cream',matrix(rotation=(0,0,math.pi)))
-    return s.finish(name='wearable_moon_'+label,normalize=False,
-                    origin_contract='ankle_pivot_origin; glTF_Y_up; toe_+Z; sole_Y_minus_0_12; units_meters')
-
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from powerup_models_v5 import make_builders
+build_magnet,build_moon,build_wearable_magnet,build_wearable_moon=make_builders(Shape,matrix,Matrix,math,COLORS)
 
 objects = {key: builder() for key,builder in (
     ('magnet',build_magnet),('moon',build_moon),('moped',build_moped),
@@ -558,8 +450,8 @@ camera.location=(3.2,-6.0,3.0)
 aim(camera,(0,0,0))
 
 effects={
-    'magnet':dict(label='Chip Magnet',color='#ed593a',secondary='#59d9ed',aura='two counter-rotating magnetic arcs; inward chip sparks',bobAmplitude=.075,bobHz=1.1,spinHz=.16),
-    'moon':dict(label='Moon Paws',color='#b3ec59',secondary='#f7c343',aura='upward chevrons and rising star motes',bobAmplitude=.12,bobHz=1.25,spinHz=.12),
+    'magnet':dict(label='Chip Magnet',color='#ed593a',secondary='#1578dc',aura='one centred magnetic signal above a gold zap',bobAmplitude=.075,bobHz=1.1,spinHz=.16),
+    'moon':dict(label='Moon Paws',color='#b3ec59',secondary='#126148',aura='contained green/red heel arrows and rising star motes',bobAmplitude=.12,bobHz=1.25,spinHz=.12),
     'moped':dict(label='Snack Scooter',color='#70ead0',secondary='#ff8b29',aura='tilted speed hoop with two trailing dashes',bobAmplitude=.065,bobHz=.9,spinHz=.10),
     'shield':dict(label='Snack Guard',color='#59d9ed',secondary='#fff2ce',aura='three slow curved shell arcs and breathing paw glints',bobAmplitude=.07,bobHz=.85,spinHz=.13),
     'doublechips':dict(label='Double Crunch',color='#f7c343',secondary='#ed593a',aura='twin golden orbits and tiny four-point sparkles',bobAmplitude=.09,bobHz=1.0,spinHz=.14),
@@ -568,7 +460,7 @@ effects={
 }
 
 report={
-    'schemaVersion':2,'assetId':'powerups-v1','revision':3,'blenderVersion':bpy.app.version_string,
+    'schemaVersion':2,'assetId':'powerups-v1','revision':5,'blenderVersion':bpy.app.version_string,
     'source':'art/powerups/powerups.blend','output':'dist/assets/models/powerups-v1.glb',
     'sha256':hashlib.sha256(blob).hexdigest(),'bytes':len(blob),'materials':1,'materialNames':['powerup_palette'],
     'coordinates':'glTF Y-up; forward +Z; pickup roots: centered, max dimension 1.4; wearable roots: paw/ankle pivot, authored meter scale',

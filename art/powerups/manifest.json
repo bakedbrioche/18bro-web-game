@@ -1,12 +1,12 @@
 {
   "schemaVersion": 2,
   "assetId": "powerups-v1",
-  "revision": 3,
+  "revision": 5,
   "blenderVersion": "5.2.2 LTS",
   "source": "art/powerups/powerups.blend",
   "output": "dist/assets/models/powerups-v1.glb",
-  "sha256": "90543b21c1dcfb4f22a2b89ac18f14dd7ea2b27fdb8528fea3e76653ec5d3560",
-  "bytes": 643248,
+  "sha256": "c2a688f4862f5a9691997b0d0740757b05ccec19f849cf5ba206a7014efeec50",
+  "bytes": 556800,
   "materials": 1,
   "materialNames": [
     "powerup_palette"
@@ -18,39 +18,39 @@
     "magnet": {
       "root": "powerup_magnet",
       "mesh": "mesh_magnet",
-      "triangles": 696,
-      "vertices": 368,
+      "triangles": 404,
+      "vertices": 212,
       "bounds": {
         "min": [
+          -0.5292635560035706,
           -0.699999988079071,
-          -0.4693182110786438,
-          -0.14278410375118256
+          -0.14081323146820068
         ],
         "max": [
+          0.5292635560035706,
           0.699999988079071,
-          0.4693182110786438,
-          0.14278410375118256
+          0.14081323146820068
         ]
       },
       "icon": {
         "path": "dist/assets/icons/powerup-magnet.png",
         "width": 256,
         "height": 256,
-        "bytes": 44285,
-        "sha256": "817266c6dc20dc81d9e95a127c6e12e1b086b42d3526b0812a529d3f3e771980",
+        "bytes": 45073,
+        "sha256": "c7a604d9bba527ec9adc349e6ab6fdfdeea6dab2bc118a2b386ae2669a86dd81",
         "alphaBoundsBottomOrigin": [
-          41,
-          64,
-          214,
-          202
+          58,
+          37,
+          197,
+          218
         ],
-        "opaquePixels": 10551
+        "opaquePixels": 10467
       },
       "effects": {
         "label": "Chip Magnet",
         "color": "#ed593a",
-        "secondary": "#59d9ed",
-        "aura": "two counter-rotating magnetic arcs; inward chip sparks",
+        "secondary": "#1578dc",
+        "aura": "one centred magnetic signal above a gold zap",
         "bobAmplitude": 0.075,
         "bobHz": 1.1,
         "spinHz": 0.16
@@ -59,39 +59,39 @@
     "moon": {
       "root": "powerup_moon",
       "mesh": "mesh_moon",
-      "triangles": 1552,
-      "vertices": 844,
+      "triangles": 1752,
+      "vertices": 952,
       "bounds": {
         "min": [
           -0.699999988079071,
-          -0.5584732294082642,
-          -0.4945840835571289
+          -0.39953339099884033,
+          -0.6524853706359863
         ],
         "max": [
           0.699999988079071,
-          0.5584732294082642,
-          0.4945840835571289
+          0.39953339099884033,
+          0.6524853706359863
         ]
       },
       "icon": {
         "path": "dist/assets/icons/powerup-moon.png",
         "width": 256,
         "height": 256,
-        "bytes": 61277,
-        "sha256": "7e4111bef7389947af42fbd48e143b4944f1739298ba370c751d398a2e628f5c",
+        "bytes": 65535,
+        "sha256": "3213e2ff95ef247f6cc369fe94ba94ad365a9385dbd74309df990cf13e6baa3a",
         "alphaBoundsBottomOrigin": [
+          32,
           40,
-          26,
-          223,
-          209
+          234,
+          211
         ],
-        "opaquePixels": 17601
+        "opaquePixels": 23359
       },
       "effects": {
         "label": "Moon Paws",
         "color": "#b3ec59",
-        "secondary": "#f7c343",
-        "aura": "upward chevrons and rising star motes",
+        "secondary": "#126148",
+        "aura": "contained green/red heel arrows and rising star motes",
         "bobAmplitude": 0.12,
         "bobHz": 1.25,
         "spinHz": 0.12
@@ -216,7 +216,7 @@
         "secondary": "#ed593a",
         "aura": "twin golden orbits and tiny four-point sparkles",
         "bobAmplitude": 0.09,
-        "bobHz": 1.0,
+        "bobHz": 1,
         "spinHz": 0.14
       }
     },
@@ -307,24 +307,24 @@
     "magnet": {
       "root": "wearable_magnet",
       "mesh": "mesh_wearable_magnet",
-      "triangles": 1084,
-      "vertices": 570,
+      "triangles": 364,
+      "vertices": 192,
       "bounds": {
         "min": [
-          -0.26649999618530273,
-          -0.03999999910593033,
-          -0.06199999898672104
+          -0.33500000834465027,
+          -0.04482325166463852,
+          -0.01000000536441803
         ],
         "max": [
-          0.26649999618530273,
-          0.4894999861717224,
-          0.19099999964237213
+          0.33500000834465027,
+          0.699999988079071,
+          0.17000000178813934
         ]
       },
       "dimensions": [
-        0.5329999923706055,
-        0.5294999852776527,
-        0.25299999862909317
+        0.6700000166893005,
+        0.7448232397437096,
+        0.18000000715255737
       ],
       "attachTo": "socket_carry_L",
       "origin": "center of paw grip on lower bridge",
@@ -344,24 +344,24 @@
     "moon_L": {
       "root": "wearable_moon_L",
       "mesh": "mesh_wearable_moon_L",
-      "triangles": 1170,
-      "vertices": 638,
+      "triangles": 876,
+      "vertices": 476,
       "bounds": {
         "min": [
-          -0.25164711475372314,
+          -0.18199999630451202,
           -0.11999999731779099,
-          -0.23539751768112183
+          -0.2590000033378601
         ],
         "max": [
-          0.19099999964237213,
-          0.2669999897480011,
-          0.34700000286102295
+          0.18199999630451202,
+          0.2750000059604645,
+          0.3720000088214874
         ]
       },
       "dimensions": [
-        0.4426471143960953,
-        0.3869999870657921,
-        0.5823975205421448
+        0.36399999260902405,
+        0.39500000327825546,
+        0.6310000121593475
       ],
       "attachTo": "foot_L",
       "origin": "ankle pivot; sole is Y=-0.12",
@@ -376,24 +376,24 @@
     "moon_R": {
       "root": "wearable_moon_R",
       "mesh": "mesh_wearable_moon_R",
-      "triangles": 1170,
-      "vertices": 638,
+      "triangles": 876,
+      "vertices": 476,
       "bounds": {
         "min": [
-          -0.19099999964237213,
+          -0.18199999630451202,
           -0.11999999731779099,
-          -0.23539751768112183
+          -0.2590000033378601
         ],
         "max": [
-          0.25164711475372314,
-          0.2669999897480011,
-          0.34700000286102295
+          0.18199999630451202,
+          0.2750000059604645,
+          0.3720000088214874
         ]
       },
       "dimensions": [
-        0.4426471143960953,
-        0.3869999870657921,
-        0.5823975205421448
+        0.36399999260902405,
+        0.39500000327825546,
+        0.6310000121593475
       ],
       "attachTo": "foot_R",
       "origin": "ankle pivot; sole is Y=-0.12",
@@ -406,7 +406,7 @@
       ]
     }
   },
-  "pickupTriangles": 9279,
-  "wearableTriangles": 3424,
-  "triangles": 12703
+  "pickupTriangles": 9187,
+  "wearableTriangles": 2116,
+  "triangles": 11303
 }

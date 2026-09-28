@@ -8,6 +8,8 @@ import {validateGlb} from '../validate-assets.mjs';
 
 const root = new URL('../../', import.meta.url);
 const manifest = JSON.parse(await readFile(new URL('art/powerups/manifest.json', root), 'utf8'));
+assert.equal(manifest.revision, 5, 'power-up asset revision');
+
 const bytes = await readFile(new URL(manifest.output, root));
 const types = ['magnet', 'moon', 'moped', 'shield', 'doublechips', 'jetpack', 'speedburst'];
 const wearables = ['magnet', 'moon_L', 'moon_R'];
@@ -27,6 +29,19 @@ for (const type of types) {
   assert.ok(mesh?.isMesh, `${type}: directly cloneable named mesh`);
   assert.ok(mesh.material.vertexColors && mesh.geometry.attributes.color, `${type}: preserved vertex colors`);
   assert.ok(!mesh.material.map, `${type}: texture-free`);
+  if (type === 'magnet') {
+    assert.equal(mesh.userData.design_revision, 5);
+    assert.equal(mesh.userData.magnet_halves, 'left_blue_right_red');
+    assert.equal(mesh.userData.pole_ends, 'aligned_gray');
+    assert.equal(mesh.userData.gold_zap_count, 1);
+    assert.equal(mesh.userData.side_zap_count, 0);
+  }
+  if (type === 'moon') {
+    assert.equal(mesh.userData.design_revision, 5);
+    assert.equal(mesh.userData.silhouette, 'original_mid_top_court_sneakers');
+    assert.equal(mesh.userData.rear_wing_count, 0);
+    assert.equal(mesh.userData.heel_arrows, 'left_green_right_red');
+  }
   assert.deepEqual(mesh.position.toArray(), [0, 0, 0]);
   assert.deepEqual(mesh.quaternion.toArray(), [0, 0, 0, 1]);
   assert.deepEqual(mesh.scale.toArray(), [1, 1, 1]);
@@ -59,8 +74,26 @@ for (const type of wearables) {
   assert.equal(mesh.parent, parsed.scene, `${type}: wearable is not nested in a pickup`);
   assert.ok(mesh.material.vertexColors && mesh.geometry.attributes.color, `${type}: preserved vertex colors`);
   assert.ok(!mesh.material.map, `${type}: texture-free`);
+  if (type === 'magnet') {
+    assert.equal(mesh.userData.design_revision, 5);
+    assert.equal(mesh.userData.magnet_halves, 'left_blue_right_red');
+    assert.equal(mesh.userData.pole_ends, 'aligned_gray');
+    assert.equal(mesh.userData.gold_zap_count, 1);
+    assert.equal(mesh.userData.side_zap_count, 0);
+  }
   assert.equal(mesh.userData.booster_type, undefined, `${type}: wearable cannot be mistaken for pickup`);
   assert.equal(mesh.userData.wearable_type, `wearable_${type}`);
+  assert.equal(mesh.userData.design_revision, 5);
+  if (type === 'magnet') {
+    assert.equal(mesh.userData.magnet_halves, 'left_blue_right_red');
+    assert.equal(mesh.userData.pole_ends, 'aligned_gray');
+    assert.equal(mesh.userData.gold_zap_count, 1);
+    assert.equal(mesh.userData.side_zap_count, 0);
+  } else {
+    assert.equal(mesh.userData.shoe_style, 'original_mid_top_court_sneaker');
+    assert.equal(mesh.userData.rear_wing_count, 0);
+    assert.equal(mesh.userData.heel_arrow, type === 'moon_L' ? 'green' : 'red');
+  }
   assert.deepEqual(mesh.position.toArray(), [0, 0, 0]);
   assert.deepEqual(mesh.quaternion.toArray(), [0, 0, 0, 1]);
   assert.deepEqual(mesh.scale.toArray(), [1, 1, 1]);
@@ -70,8 +103,13 @@ for (const type of wearables) {
     assert.ok(Math.abs(n - entry.bounds[key][axis]) < 1e-5, `${type}: actual ${key} bounds`);
   });
   size.toArray().forEach((n, axis) => assert.ok(Math.abs(n - entry.dimensions[axis]) < 1e-5));
-  assert.ok(size.x > .25 && size.x < .60 && size.y > .30 && size.y < .60 && size.z > .15 && size.z < .60,
-    `${type}: attachment remains at authored character scale`);
+  if (type === 'magnet') {
+    assert.ok(size.x > .55 && size.x < .75 && size.y > .65 && size.y < .80 && size.z > .15 && size.z < .30,
+      `${type}: zap-topped attachment remains at authored character scale`);
+  } else {
+    assert.ok(size.x > .35 && size.x < .60 && size.y > .30 && size.y < .50 && size.z > .50 && size.z < .65,
+      `${type}: sneaker attachment remains at authored character scale`);
+  }
   if (type.startsWith('moon_')) {
     assert.equal(entry.attachTo, `foot_${type.slice(-1)}`);
     assert.ok(Math.abs(bounds.min.y + .12) < .012, `${type}: ankle-relative sole placement`);
@@ -86,6 +124,7 @@ for (const type of wearables) {
   assert.equal(clone.geometry, mesh.geometry);
   const triangles = mesh.geometry.index.count / 3;
   assert.equal(triangles, entry.triangles);
+  assert.ok(triangles >= (type === 'magnet' ? 300 : 750), `${type}: purposeful volumetric detail`);
   report.wearables[type] = {root: mesh.name, attachTo: entry.attachTo, triangles, size: size.toArray()};
 }
 assert.equal(Object.values(report.assets).reduce((sum, entry) => sum + entry.triangles, 0), manifest.pickupTriangles);

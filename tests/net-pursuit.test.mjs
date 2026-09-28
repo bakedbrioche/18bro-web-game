@@ -174,16 +174,17 @@ function placeRunnerInLane(game, lane) {
   game.player.laneElapsed = game.player.laneDuration ?? 1;
 }
 
-test('RunnerGame schedules pursuits, preserves an escape lane and awards the bonus once', () => {
+test('RunnerGame schedules pursuits without removing hazards and awards the bonus once', () => {
   const events = [], game = emptyRunner(events);
   assert.equal(game._startNetPursuit(), true);
   const protectedLane = game.netPursuit.safety.keepClearLanes[0];
   const otherLane = [0, 1, 2].find(lane => lane !== protectedLane);
   const protectedHazard = game.spawnEntity('blocker', protectedLane, -5);
   const otherHazard = game.spawnEntity('blocker', otherLane, -5);
-  game._protectNetEscapeLane();
-  assert.equal(protectedHazard.active, false);
+  game.update(1 / 120);
+  assert.equal(protectedHazard.active, true);
   assert.equal(otherHazard.active, true);
+  protectedHazard.active = false;
   otherHazard.active = false;
 
   for (let elapsed = 0; elapsed < 90 && game.netPursuit.active; elapsed += 1 / 120) {
@@ -198,6 +199,22 @@ test('RunnerGame schedules pursuits, preserves an escape lane and awards the bon
   assert.equal(events.filter(event => event.type === 'netpursuitsuccess').length, 1);
   assert.ok(game.score >= NET_PURSUIT.bonus);
   assert.ok(game._nextNetPursuitDistance >= game.distance + NET_PURSUIT_SCHEDULE.repeatMin - 1e-6);
+});
+
+test('active pursuits do not suppress generated obstacles or cars', () => {
+  const game = emptyRunner();
+  game._startNetPursuit();
+  const pursuitLane = game.netPursuit.safety.keepClearLanes[0];
+  const otherLane = [0, 1, 2].find(lane => lane !== pursuitLane);
+  game._makePattern = () => {
+    const slots = [null, null, null];
+    slots[pursuitLane] = 'blocker';
+    slots[otherLane] = 'traffic';
+    return { slots, safeLane: [0, 1, 2].find(lane => !slots[lane]) };
+  };
+  game._spawnPattern(50);
+  assert.ok(game.entities.some(entity => entity.active && entity.type === 'blocker' && entity.lane === pursuitLane));
+  assert.ok(game.entities.some(entity => entity.active && entity.type === 'traffic' && entity.lane === otherLane));
 });
 
 test('RunnerGame net capture stays visible through netted lift and carry before game over', () => {

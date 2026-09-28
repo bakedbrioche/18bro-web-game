@@ -1,6 +1,6 @@
 # Authored pickups
 
-`powerups.blend` is the editable original art. `scripts/blender/create_powerups.py`
+`powerups.blend` is the editable original art. `scripts/blender/create_powerups.py` plus the focused revision-5 geometry module `scripts/blender/powerup_models_v5.py`
 rebuilds the scene, the seven-pickup/three-wearable GLB, the seven transparent
 256px icons and this
 folder's machine-readable `manifest.json`. No external artwork or fonts are used.
@@ -29,11 +29,12 @@ alpha coverage and effects hints. The simulation owns pickup position. Runtime
 presentation can add the per-type bob, orbit/aura and glints listed in the manifest;
 these effects are deliberately absent from the collision shape and icon alpha.
 
-Designs are original: coral horseshoe magnet, lime winged moon boots, mint delivery
+Designs are original: split blue/red horseshoe magnet with aligned gray poles and one gold zap, lime mid-top Moon sneakers with contained ear-green/ear-red heel arrows, mint delivery
 scooter, cat-ear paw shield, twin golden chips in an orange packet, cream/teal
 twin-tank jetpack, and a cyan diamond/lightning Speed Burst. The matching UI
 pictures are rendered directly from these models from one consistent three-quarter
 studio camera.
+The revision-5 Magnet and Moon sneaker metadata is enforced by `validate-powerups.mjs`: one gold zap, zero side zaps, aligned gray poles, zero rear wings and exact left-green/right-red heel arrows.
 The wearable magnet's origin is the lower bridge of its U shape and its recommended
 runtime rotation is identity. Attach that origin to the cat's carry socket; do not
 restore the former quarter-turn wrist correction. The runtime adds the animated

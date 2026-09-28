@@ -26,9 +26,9 @@ export const MODEL_MANIFEST=Object.freeze([
  Object.freeze({
  assetId:'powerups-v1',category:'props',rigVersion:0,
   source:'art/powerups/powerups.blend',output:'dist/assets/models/powerups-v1.glb',
-  sha256:'90543b21c1dcfb4f22a2b89ac18f14dd7ea2b27fdb8528fea3e76653ec5d3560',
-  blenderVersion:'5.2.2 LTS',exportPreset:'18bro-blender-5.2-powerups-v3',bytes:643248,
-  triangles:12703,materials:1,bones:0,clips:Object.freeze([]),sockets:Object.freeze([]),
+  sha256:'c2a688f4862f5a9691997b0d0740757b05ccec19f849cf5ba206a7014efeec50',
+  blenderVersion:'5.2.2 LTS',exportPreset:'18bro-blender-5.2-powerups-v5',bytes:556800,
+  triangles:11303,materials:1,bones:0,clips:Object.freeze([]),sockets:Object.freeze([]),
   roots:Object.freeze(['powerup_magnet','powerup_moon','powerup_moped','powerup_shield','powerup_doublechips','powerup_jetpack','powerup_speedburst']),
   wearables:Object.freeze(['wearable_magnet','wearable_moon_L','wearable_moon_R']),
   provenance:'Original geometry authored in repository Python with Blender. No external media, fonts or source artwork.'

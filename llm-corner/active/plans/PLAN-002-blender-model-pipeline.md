@@ -23,6 +23,7 @@ scripts/
   blender/create_18bro.py
   blender/create_human.py
   blender/create_powerups.py
+  blender/powerup_models_v5.py
   blender/validate_human.py
   blender/validate-human-runtime.mjs
   blender/validate-powerups.mjs
@@ -158,5 +159,5 @@ The refreshed procedural hero can ship as an interim visual improvement if autho
 ## 11. Reference-led animation record — 2026-09-26
 
 - Hero rig v5 remains at 3,972 triangles, 20 joints, three materials and 18 complete in-place clips. The expressive jump uses the full ascent/descent timeline; scooter jump extends the lower body behind the gripped bars, and left/right side-saddle dodges move the body outside the scooter cowl.
-- Power-ups revision 3 exports seven pickup roots plus three wearables in a 643,248-byte, 12,703-triangle GLB. Shield paw marks use four toes in both the authored pickup and runtime energy sphere.
+- Power-ups revision 5 exports seven pickup roots plus three wearables in a 556,800-byte, 11,303-triangle GLB. The Magnet has blue/red halves, aligned gray poles and one gold zap; Moon Boots are layered mid-top sneakers with no wings and contained ear-green/ear-red heel arrows. Shield paw marks use four toes in both the authored pickup and runtime energy sphere.
 - Exact GPT Image prompts, inputs, outputs and notes live only in the ignored dated workbench defined by docs/conventions/generative-reference-workbench.md. Shipped results are rebuilt in Blender or code and validated normally.

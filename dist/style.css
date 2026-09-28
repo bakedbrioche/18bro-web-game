@@ -190,4 +190,5 @@ body.reduced-motion .pursuit-reward.show .pursuit-panel{transform:none}body.redu
 @media(max-width:620px){.pursuit-reward{top:16%;height:160px}.pursuit-reward strong{font-size:clamp(25px,8.1vw,38px)}.pursuit-reward #pursuit-reward-score{bottom:9px}.score-line{gap:6px}.score-bonus{font-size:clamp(25px,7vw,34px)}}
 
 /* Pause freezes transient feedback exactly where it is; resume continues the same animation. */
+#pause-panel{z-index:40}
 .game-shell.paused .power-pickup,.game-shell.paused .pursuit-reward,.game-shell.paused .pursuit-reward::before,.game-shell.paused .pursuit-reward *,.game-shell.paused .score-bonus,.game-shell.paused .hit-flash,.game-shell.paused .run-banner,.game-shell.paused .toast{animation-play-state:paused!important}

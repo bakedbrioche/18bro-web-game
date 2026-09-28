@@ -32,6 +32,8 @@ There is no dependency installation or third-party bundler. Browser dependencies
 
 Authored character and power-up source lives under `art/`; generated, validated runtime GLBs and pickup icons live under `dist/assets/`. See `character-assets.md` for the current Original/Refreshed boundary.
 
+Net-pursuit safety data guides telegraph presentation only. The simulation must not deactivate existing hazards or rewrite ordinary obstacle/car patterns merely because a pursuit is active. The pause modal owns the highest interactive in-game layer while transient feedback remains frozen beneath it.
+
 `dist/` is the editable source of truth. Do not edit generated `release/` files. The checked-in root `18Bro-Snack-Heist.html` is a release snapshot and must be regenerated deliberately when preparing a standalone release.
 
 ## Persistence boundary

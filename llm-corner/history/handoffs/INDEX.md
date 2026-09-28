@@ -2,6 +2,8 @@
 
 Newest first; the top entry is the next session’s entry point.
 
+- **2026-09-28-pursuit-world-powerup-v5.md** - Pursuit-world preservation, pause-layer ownership, and revision-5 Magnet/Moon Boots.
+
 - **2026-09-28-power-pursuit-pause-polish.md** - Mobility pursuit escapes, shielded net blocks, pause-safe feedback, tinted booster halos and matched Refreshed guard cadence.
 
 - **2026-09-28-packet-expression-favicon-polish.md** - Closed manifold chip packet, measured existing-eye surprise, shallow cap badge and calm peeking favicon; changes remain uncommitted for review.

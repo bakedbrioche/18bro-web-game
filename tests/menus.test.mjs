@@ -207,6 +207,9 @@ test('pause freezes popup lifetimes and CSS animations until play resumes',()=>{
  assert.equal(a.get('power-pickup').hidden,true);assert.equal(a.get('pursuit-reward').hidden,true);
  const css=fs.readFileSync(new URL('../dist/style.css',import.meta.url),'utf8');
  assert.match(css,/[.]game-shell[.]paused [.]power-pickup[\s\S]*animation-play-state:paused!important/);
+  const pauseLayer=Number(css.match(/#pause-panel\{z-index:(\d+)\}/)?.[1]);
+  assert.ok(pauseLayer>25,'pause panel must cover transient run feedback');
+  assert.ok(pauseLayer>35,'pause panel must cover developer and gameplay overlays');
 });
 
 test('net capture remains visible before the Busted results sequence',()=>{

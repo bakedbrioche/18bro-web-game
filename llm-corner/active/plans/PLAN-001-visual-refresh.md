@@ -199,3 +199,11 @@ Defer fur rendering, city-wide remodeling, compression infrastructure, and an ex
 - Moved only the existing eye and pupil geometry forward during surprise, retracted the existing lids by measured depth, and preserved exact Original transforms and Refreshed vertex restoration.
 - Replaced the floating cap blocks with a shallow ordered badge containing a white panel, orange bar, one curved red 7 and block-built green ELEVEN treatment.
 - Replaced the tab icon with a calm peeking-18Bro crop anchored to the official half-lidded eyes and low brows; archived the preceding peeking favicon and retained the generated source/prompt in the ignored workbench.
+
+### Phase U - pursuit pressure, pause ownership and power-up revision 5 - complete
+
+- Removed pursuit-only hazard deletion and pattern rewriting so active net chases retain the ordinary obstacle and traffic stream.
+- Made the pause modal the highest in-game layer while pickup cards, pursuit rewards, score additions, toasts and their remaining lifetimes stay frozen underneath it.
+- Rebuilt Magnet as a blue-left/red-right split U with aligned gray ends and one gold zap, shared by Refreshed assets and the Original fallback.
+- Rebuilt Moon Boots as wingless layered mid-top sneakers with contained green-left/red-right heel arrows, shared by Refreshed assets and the Original fallback.
+- Advanced the reproducible power-up asset to revision 5 and synchronized the GLB, changed icons, manifests, validator, model metadata and regression tests.

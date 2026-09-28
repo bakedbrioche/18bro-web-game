@@ -18,7 +18,7 @@ flowchart LR
 
 - `Dockerfile` and `.dockerignore`: minimal static image and a build context containing only `dist/` plus Nginx configuration.
 - `docker-compose.yml`: local Docker review at `http://localhost:4173`.
-- `docker-compose.proxy.yml`: shared Traefik v3.5 edge, Docker discovery, ports 80/443, HTTP/3, health check, and persistent Let's Encrypt state.
+- `docker-compose.proxy.yml`: shared Traefik v3.6 edge, Docker discovery, ports 80/443, HTTP/3, health check, and persistent Let's Encrypt state.
 - `docker-compose.prod.yml`: immutable GHCR game image, private `proxy` network membership, and all `/game` HTTP/HTTPS routing labels.
 - `deploy/nginx.conf`: correct `.mjs` and `.glb` MIME types, short asset revalidation, security headers, gzip, SPA fallback, and `/healthz`.
 - `.github/workflows/deploy-production.yml`: verify, publish, pinned-key SSH update, proxy/game container waits, and internal/external `/game/healthz` checks.

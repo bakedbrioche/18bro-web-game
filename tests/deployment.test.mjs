@@ -21,7 +21,7 @@ test('container image contains only the verified static game and health configur
 
 test('shared Traefik edge owns public ports and discovers private services through labels',()=>{
  const proxy=read('docker-compose.proxy.yml'),game=read('docker-compose.prod.yml');
- assert.match(proxy,/image: traefik:v3[.]5/);
+ assert.match(proxy,/image: traefik:v3[.]6/);
  assert.match(proxy,/--providers[.]docker[.]exposedbydefault=false/);
  assert.match(proxy,/--providers[.]docker[.]network=proxy/);
  assert.match(proxy,/--certificatesresolvers[.]letsencrypt[.]acme[.]httpchallenge[.]entrypoint=web/);

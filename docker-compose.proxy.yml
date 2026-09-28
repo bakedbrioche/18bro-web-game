@@ -2,7 +2,7 @@ name: traefik-edge
 
 services:
   traefik:
-    image: traefik:v3.5
+    image: traefik:v3.6
     init: true
     restart: unless-stopped
     security_opt:

@@ -11,7 +11,7 @@ The game previously had no repeatable production host, container definition, CI 
 
 Package the authoritative `dist/` tree in a minimal Nginx image after `npm run verify`. Publish immutable `sha-<commit>` and convenience `latest` tags to the fork's GHCR namespace. Deploy the immutable tag through a GitHub Actions SSH job using a dedicated VPS account, a repository-stored private deployment key, and a pinned ED25519 host record. Use the job-scoped `GITHUB_TOKEN` for registry login.
 
-Run Traefik v3.5 as a shared edge stack on ports 80, 443/TCP, and 443/UDP. Enable Docker discovery with `exposedByDefault=false`, keep application containers private on the external `proxy` network, and require explicit routing labels. Register 18Bro at `/game/`, redirect the missing trailing slash, strip the prefix before Nginx, and use an HTTP-01 Let's Encrypt resolver after DNS cutover. Persist certificate state in a named volume.
+Run Traefik v3.6 as a shared edge stack on ports 80, 443/TCP, and 443/UDP. Enable Docker discovery with `exposedByDefault=false`, keep application containers private on the external `proxy` network, and require explicit routing labels. Register 18Bro at `/game/`, redirect the missing trailing slash, strip the prefix before Nginx, and use an HTTP-01 Let's Encrypt resolver after DNS cutover. Persist certificate state in a named volume.
 
 ## Consequences
 

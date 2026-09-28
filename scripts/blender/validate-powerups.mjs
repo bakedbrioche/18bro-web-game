@@ -8,7 +8,7 @@ import {validateGlb} from '../validate-assets.mjs';
 
 const root = new URL('../../', import.meta.url);
 const manifest = JSON.parse(await readFile(new URL('art/powerups/manifest.json', root), 'utf8'));
-assert.equal(manifest.revision, 5, 'power-up asset revision');
+assert.equal(manifest.revision, 6, 'power-up asset revision');
 
 const bytes = await readFile(new URL(manifest.output, root));
 const types = ['magnet', 'moon', 'moped', 'shield', 'doublechips', 'jetpack', 'speedburst'];
@@ -30,14 +30,17 @@ for (const type of types) {
   assert.ok(mesh.material.vertexColors && mesh.geometry.attributes.color, `${type}: preserved vertex colors`);
   assert.ok(!mesh.material.map, `${type}: texture-free`);
   if (type === 'magnet') {
-    assert.equal(mesh.userData.design_revision, 5);
+    assert.equal(mesh.userData.design_revision, 6);
     assert.equal(mesh.userData.magnet_halves, 'left_blue_right_red');
-    assert.equal(mesh.userData.pole_ends, 'aligned_gray');
+    assert.equal(mesh.userData.pole_ends, 'symmetric_aligned_gray');
     assert.equal(mesh.userData.gold_zap_count, 1);
     assert.equal(mesh.userData.side_zap_count, 0);
+    assert.equal(mesh.userData.curve_profile, 'analytic_tangent_horseshoe');
+    assert.equal(mesh.userData.cross_section, 'rounded_elliptic');
+    assert.ok(mesh.userData.curve_samples >= 30);
   }
   if (type === 'moon') {
-    assert.equal(mesh.userData.design_revision, 5);
+    assert.equal(mesh.userData.design_revision, 6);
     assert.equal(mesh.userData.silhouette, 'original_mid_top_court_sneakers');
     assert.equal(mesh.userData.rear_wing_count, 0);
     assert.equal(mesh.userData.heel_arrows, 'left_green_right_red');
@@ -75,19 +78,22 @@ for (const type of wearables) {
   assert.ok(mesh.material.vertexColors && mesh.geometry.attributes.color, `${type}: preserved vertex colors`);
   assert.ok(!mesh.material.map, `${type}: texture-free`);
   if (type === 'magnet') {
-    assert.equal(mesh.userData.design_revision, 5);
+    assert.equal(mesh.userData.design_revision, 6);
     assert.equal(mesh.userData.magnet_halves, 'left_blue_right_red');
-    assert.equal(mesh.userData.pole_ends, 'aligned_gray');
-    assert.equal(mesh.userData.gold_zap_count, 1);
+    assert.equal(mesh.userData.pole_ends, 'symmetric_aligned_gray');
+    assert.equal(mesh.userData.gold_zap_count, 0);
+    assert.equal(mesh.userData.curve_profile, 'analytic_tangent_horseshoe');
+    assert.equal(mesh.userData.cross_section, 'rounded_elliptic');
+    assert.ok(mesh.userData.curve_samples >= 30);
     assert.equal(mesh.userData.side_zap_count, 0);
   }
   assert.equal(mesh.userData.booster_type, undefined, `${type}: wearable cannot be mistaken for pickup`);
   assert.equal(mesh.userData.wearable_type, `wearable_${type}`);
-  assert.equal(mesh.userData.design_revision, 5);
+  assert.equal(mesh.userData.design_revision, 6);
   if (type === 'magnet') {
     assert.equal(mesh.userData.magnet_halves, 'left_blue_right_red');
-    assert.equal(mesh.userData.pole_ends, 'aligned_gray');
-    assert.equal(mesh.userData.gold_zap_count, 1);
+    assert.equal(mesh.userData.pole_ends, 'symmetric_aligned_gray');
+    assert.equal(mesh.userData.gold_zap_count, 0);
     assert.equal(mesh.userData.side_zap_count, 0);
   } else {
     assert.equal(mesh.userData.shoe_style, 'original_mid_top_court_sneaker');
@@ -104,8 +110,8 @@ for (const type of wearables) {
   });
   size.toArray().forEach((n, axis) => assert.ok(Math.abs(n - entry.dimensions[axis]) < 1e-5));
   if (type === 'magnet') {
-    assert.ok(size.x > .55 && size.x < .75 && size.y > .65 && size.y < .80 && size.z > .15 && size.z < .30,
-      `${type}: zap-topped attachment remains at authored character scale`);
+    assert.ok(size.x > .60 && size.x < .68 && size.y > .68 && size.y < .76 && size.z > .12 && size.z < .16,
+      `${type}: clean horseshoe attachment remains at authored character scale`);
   } else {
     assert.ok(size.x > .35 && size.x < .60 && size.y > .30 && size.y < .50 && size.z > .50 && size.z < .65,
       `${type}: sneaker attachment remains at authored character scale`);
@@ -116,7 +122,7 @@ for (const type of wearables) {
     assert.ok(bounds.max.z > .25 && bounds.min.z < -.10, `${type}: toe faces +Z`);
   } else {
     assert.equal(entry.attachTo, 'socket_carry_L');
-    assert.ok(bounds.min.y < 0 && bounds.min.y > -.10 && bounds.max.y > .40, `${type}: lower-bridge grip pivot`);
+    assert.ok(bounds.min.y >= -.001 && bounds.min.y < .02 && bounds.max.y > .68, `${type}: lower-bridge grip pivot`);
   }
   const clone = mesh.clone();
   clone.position.y = 4;

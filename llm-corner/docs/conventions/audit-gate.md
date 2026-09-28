@@ -16,6 +16,7 @@ For changes to `dist/app.mjs`, `dist/scene.mjs`, `dist/district-scene.mjs`, `dis
 3. Verify the menu, start or skip the intro, confirm score/distance advances, pause, and resume.
 4. Use `dist/preview.html` for deterministic character/route comparisons.
 5. Check mobile sizing/touch when the change can affect them.
+6. Stop the local server and any isolated browser/debug profile started for the review. Confirm the development port and debugging port no longer listen before closing the task.
 
 ## Safety review
 

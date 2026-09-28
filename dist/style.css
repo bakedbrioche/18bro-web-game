@@ -84,11 +84,11 @@ body.reduced-motion .game-shell.speedburst .speed-surge::before,body.reduced-mot
 .power-icon-fallback{display:grid;place-items:center;color:var(--power-accent,#73efd2);font-size:25px;line-height:1;text-shadow:0 0 10px currentColor;transition:opacity .12s ease}
 .power-icon-frame>.power-icon-fallback{position:absolute;inset:0;z-index:0}
 .power-pill:not(.icon-loading):not(.icon-missing) .power-icon-fallback{opacity:0}
-.power-pill.icon-missing .power-icon-fallback,.power-pill.icon-loading .power-icon-fallback{opacity:1}
+.power-pill.icon-missing .power-icon-fallback{opacity:1}.power-pill.icon-loading .power-icon-fallback{opacity:0}
 .power-pill.icon-missing img{display:none}
 .power-pickup>.power-icon-fallback{position:relative;z-index:1;flex:0 0 76px;width:76px;height:76px;color:var(--pickup-accent);font-size:38px}
-.power-pickup:not(.icon-loading):not(.icon-missing)>.power-icon-fallback{display:none}
-.power-pickup.icon-loading>img{opacity:.18}.power-pickup.icon-missing>img{display:none}
+.power-pickup:not(.icon-missing)>.power-icon-fallback{display:none}
+.power-pickup.icon-loading>img{opacity:0}.power-pickup.icon-missing>img{display:none}
 @media(max-width:800px){.power-pill>.power-icon-frame{flex-basis:34px;width:34px;height:34px;min-width:34px}.power-pickup>.power-icon-fallback{flex-basis:62px;width:62px;height:62px}}
 
 /* Centered, staged run result. RESULT_WAVE_ENABLED in app.mjs is the code-level switch. */

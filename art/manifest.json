@@ -6,10 +6,10 @@
                        "rigVersion":  5,
                        "source":  "art/characters/18bro/18bro.blend",
                        "output":  "dist/assets/models/18bro-v1.glb",
-                       "sha256":  "d3068a6adbad2b23afecf3b194fd948ce25d027878db5e19e392e31b37244f07",
+                       "sha256":  "25a6f2d9a4c10b2b1a8596ec9b1106acc3b90685785117e27e7f2d2ac373ac73",
                        "blenderVersion":  "5.2.2 LTS",
-                       "exportPreset":  "18bro-blender-5.2-v5",
-                       "bytes":  878992,
+                       "exportPreset":  "18bro-blender-5.2-v6",
+                       "bytes":  883316,
                        "bounds":  {
                                       "min":  [
                                                   -0.9662122130393982,
@@ -34,7 +34,7 @@
                                                             2.7360000610351562
                                                         ]
                                             },
-                       "triangles":  3972,
+                       "triangles":  3982,
                        "materials":  3,
                        "bones":  20,
                        "clips":  [
@@ -254,13 +254,13 @@
                        "rigVersion":  0,
                        "source":  "art/powerups/powerups.blend",
                        "output":  "dist/assets/models/powerups-v1.glb",
-                       "sha256":  "c2a688f4862f5a9691997b0d0740757b05ccec19f849cf5ba206a7014efeec50",
+                       "sha256":  "de853f52656bb29931f504b32d19297098b1540a1f9b71a4794bc5a9dd621483",
                        "blenderVersion":  "5.2.2 LTS",
-                       "exportPreset":  "18bro-blender-5.2-powerups-v5",
-                       "bytes":  556800,
-                       "triangles":  11303,
-                       "pickupTriangles":  9187,
-                       "wearableTriangles":  2116,
+                       "exportPreset":  "18bro-blender-5.2-powerups-v6",
+                       "bytes":  583788,
+                       "triangles":  12971,
+                       "pickupTriangles":  10027,
+                       "wearableTriangles":  2944,
                        "materials":  1,
                        "bones":  0,
                        "clips":  [

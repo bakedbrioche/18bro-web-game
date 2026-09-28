@@ -16,3 +16,4 @@
 4. `dist/` is editable source. Standalone HTML is generated output; do not hand-edit generated copies.
 5. Preserve the contracts in `contracts.md`. A contract change needs a decision record and matching tests/docs in the same commit.
 6. Subagents and parallel workers never stage or commit. The chief owns integration, validation, and Git mutations.
+7. **A pickup model and its UI image are one deliverable.** Every added or revised power-up model must regenerate its icon from the accepted final 3D geometry, synchronize icon/model manifests and standalone embedding, and pass real popup plus sidebar review. A stale image, fallback glyph, broken decode, or model/icon mismatch blocks acceptance.

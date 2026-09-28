@@ -53,6 +53,13 @@ to the socket. `socket_hat` is centered at Blender Z = 2.30. Carry sockets are
 children of the forearms at the wrist centers. The back socket remains on the
 spine. Hat and fur material names remain `hat` and `fur`.
 
+
+The cap keeps its existing cream crown as the only backing for the mascot mark.
+Six explicitly triangulated, surface-projected colored pieces form one orange
+lozenge, one curved red 7, three green marks and one red lower mark. Keep the
+ink shallow and inspect front, three-quarter and side renders; do not replace it
+with a floating white badge or text mesh.
+
 To regenerate source, runtime GLB, local manifest, validation, and review PNGs:
 
 ```powershell

@@ -1,12 +1,12 @@
 {
   "schemaVersion": 2,
   "assetId": "powerups-v1",
-  "revision": 5,
+  "revision": 6,
   "blenderVersion": "5.2.2 LTS",
   "source": "art/powerups/powerups.blend",
   "output": "dist/assets/models/powerups-v1.glb",
-  "sha256": "c2a688f4862f5a9691997b0d0740757b05ccec19f849cf5ba206a7014efeec50",
-  "bytes": 556800,
+  "sha256": "de853f52656bb29931f504b32d19297098b1540a1f9b71a4794bc5a9dd621483",
+  "bytes": 583788,
   "materials": 1,
   "materialNames": [
     "powerup_palette"
@@ -18,33 +18,33 @@
     "magnet": {
       "root": "powerup_magnet",
       "mesh": "mesh_magnet",
-      "triangles": 404,
-      "vertices": 212,
+      "triangles": 1244,
+      "vertices": 644,
       "bounds": {
         "min": [
-          -0.5292635560035706,
-          -0.699999988079071,
-          -0.14081323146820068
+          -0.43199244141578674,
+          -0.7000000476837158,
+          -0.09254541993141174
         ],
         "max": [
-          0.5292635560035706,
-          0.699999988079071,
-          0.14081323146820068
+          0.43199244141578674,
+          0.7000000476837158,
+          0.09254541993141174
         ]
       },
       "icon": {
         "path": "dist/assets/icons/powerup-magnet.png",
         "width": 256,
         "height": 256,
-        "bytes": 45073,
-        "sha256": "c7a604d9bba527ec9adc349e6ab6fdfdeea6dab2bc118a2b386ae2669a86dd81",
+        "bytes": 41708,
+        "sha256": "6a2e4be6ebf24478142a063c48a7af12581bc34d65a017848c4274fd9ea152b3",
         "alphaBoundsBottomOrigin": [
-          58,
-          37,
-          197,
-          218
+          73,
+          38,
+          182,
+          217
         ],
-        "opaquePixels": 10467
+        "opaquePixels": 8990
       },
       "effects": {
         "label": "Chip Magnet",
@@ -307,24 +307,24 @@
     "magnet": {
       "root": "wearable_magnet",
       "mesh": "mesh_wearable_magnet",
-      "triangles": 364,
-      "vertices": 192,
+      "triangles": 1192,
+      "vertices": 616,
       "bounds": {
         "min": [
-          -0.33500000834465027,
-          -0.04482325166463852,
-          -0.01000000536441803
+          -0.31679999828338623,
+          0,
+          0.012132174335420132
         ],
         "max": [
-          0.33500000834465027,
-          0.699999988079071,
-          0.17000000178813934
+          0.31679999828338623,
+          0.7194846868515015,
+          0.1478678286075592
         ]
       },
       "dimensions": [
-        0.6700000166893005,
-        0.7448232397437096,
-        0.18000000715255737
+        0.6335999965667725,
+        0.7194846868515015,
+        0.13573565427213907
       ],
       "attachTo": "socket_carry_L",
       "origin": "center of paw grip on lower bridge",
@@ -406,7 +406,7 @@
       ]
     }
   },
-  "pickupTriangles": 9187,
-  "wearableTriangles": 2116,
-  "triangles": 11303
+  "pickupTriangles": 10027,
+  "wearableTriangles": 2944,
+  "triangles": 12971
 }

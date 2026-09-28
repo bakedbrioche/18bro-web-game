@@ -1,6 +1,6 @@
 # Authored pickups
 
-`powerups.blend` is the editable original art. `scripts/blender/create_powerups.py` plus the focused revision-5 geometry module `scripts/blender/powerup_models_v5.py`
+`powerups.blend` is the editable original art. `scripts/blender/create_powerups.py` plus the focused revision-6 geometry module `scripts/blender/powerup_models_v6.py`
 rebuilds the scene, the seven-pickup/three-wearable GLB, the seven transparent
 256px icons and this
 folder's machine-readable `manifest.json`. No external artwork or fonts are used.
@@ -34,7 +34,11 @@ scooter, cat-ear paw shield, twin golden chips in an orange packet, cream/teal
 twin-tank jetpack, and a cyan diamond/lightning Speed Burst. The matching UI
 pictures are rendered directly from these models from one consistent three-quarter
 studio camera.
-The revision-5 Magnet and Moon sneaker metadata is enforced by `validate-powerups.mjs`: one gold zap, zero side zaps, aligned gray poles, zero rear wings and exact left-green/right-red heel arrows.
+Every accepted model revision must ship its freshly rendered 256px icon in the same
+change. Update the icon hash and byte count in `manifest.json`, verify popup and
+sidebar decoding in a real browser, and confirm the exporter embeds the exact PNG;
+a fallback glyph or stale render means the asset revision is incomplete.
+Revision-6 identity metadata is enforced by `validate-powerups.mjs`: the pickup Magnet has one gold zap, the wearable Magnet has no zap, both use zero side zaps and aligned gray poles, and the Moon sneakers retain zero rear wings with exact left-green/right-red heel arrows.
 The wearable magnet's origin is the lower bridge of its U shape and its recommended
 runtime rotation is identity. Attach that origin to the cat's carry socket; do not
 restore the former quarter-turn wrist correction. The runtime adds the animated

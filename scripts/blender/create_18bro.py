@@ -12,6 +12,7 @@ import hashlib
 import sys
 import bpy
 from mathutils import Vector, Quaternion, Euler
+from mathutils.geometry import tessellate_polygon
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / 'art/characters/18bro/18bro.blend'
@@ -268,16 +269,103 @@ for j in range(3):
     for i in range(6):
         a=j*7+i; faces.append((a,a+1,a+8,a+7))
 mesh('cap_cream_panel',verts,faces,'cream','hat')
-# Deliberately no official logo: a small original orange chip diamond.
-def cap_front_y(x,z):
+
+# Structural 18Bro cap mark, integrated directly into the curved cream panel.
+# The white crown panel is its background: there is no badge plate, text, or
+# floating socket overlay. Every colored vertex follows the analytic crown
+# surface with an eight-millimeter shallow ink relief.
+def cap_panel_front_y(x,z):
     for j in range(len(caprings)-1):
         a,b=caprings[j:j+2]
         if a[0]<=z<=b[0]:
             t=(z-a[0])/(b[0]-a[0])
-            rx=a[1]*(1-t)+b[1]*t;ry=a[2]*(1-t)+b[2]*t;cy=a[3]*(1-t)+b[3]*t
-            return cy-ry*math.sqrt(1-(x/rx)**2)-.020
-badge=[(0,2.51),(.056,2.455),(0,2.40),(-.056,2.455)]
-mesh('cap_chip_badge',[(x,cap_front_y(x,z),z) for x,z in badge],[(0,1,2,3)],'orange','hat')
+            rx=a[1]*(1-t)+b[1]*t
+            ry=a[2]*(1-t)+b[2]*t
+            cy=a[3]*(1-t)+b[3]*t
+            return cy-(ry+.012)*math.sqrt(max(0,1-(x/(rx+.008))**2))
+    raise ValueError(('cap logo outside crown',x,z))
+
+cap_logo_objects=[]
+cap_logo_offsets=[]
+
+def rounded_rect_polygon(cx,cz,width,height,radius,steps=4):
+    # Six vertices keep the PS1-scale mark inside the existing hero budget.
+    # The diagonal shoulders soften the silhouette without tiny geometry.
+    return [
+        (cx-width/2+radius,cz+height/2),(cx+width/2-radius,cz+height/2),
+        (cx+width/2,cz),(cx+width/2-radius,cz-height/2),
+        (cx-width/2+radius,cz-height/2),(cx-width/2,cz),
+    ]
+
+def cap_logo_piece(name,polygon,color,center_fan=False):
+    """Project explicit front-facing triangles onto the curved cream crown.
+
+    A single non-planar n-gon is not a decal: Blender triangulates it with
+    long straight chords that pass through the convex cap surface. The old
+    mark therefore rendered as disconnected triangular scraps. Tessellating
+    in artwork space and projecting every triangle vertex keeps the complete
+    silhouette 8 mm above the panel from every
+    review angle and in the exported GLB.
+    """
+    outline=[Vector((x,z,0)) for x,z in polygon]
+    if center_fan:
+        center=sum(outline,Vector())/len(outline)
+        coarse=[(center,outline[index],outline[(index+1)%len(outline)]) for index in range(len(outline))]
+    else:
+        coarse=[tuple(outline[index] for index in triangle) for triangle in tessellate_polygon([outline])]
+    projected=[]
+    faces=[]
+
+    def emit_triangle(a,b,c):
+        start=len(projected)
+        for point in (a,b,c):
+            x,z=point.x,point.y
+            surface=cap_panel_front_y(x,z)
+            y=surface-.008
+            projected.append((x,y,z))
+            cap_logo_offsets.append(abs(y-surface))
+        # The visible cap front is -Y. Correct winding independently for
+        # every emitted triangle so Three.js FrontSide culling is deterministic.
+        va,vb,vc=(Vector(projected[start+i]) for i in range(3))
+        face=(start,start+1,start+2)
+        if (vb-va).cross(vc-va).y>0:
+            face=(start,start+2,start+1)
+        faces.append(face)
+
+    for triangle in coarse:
+        emit_triangle(*triangle)
+    obj=mesh(name,projected,faces,color,'hat')
+    obj['cap_logo_piece']=name
+    obj['surface_projected']=True
+    obj['front_winding']='negative_y'
+    cap_logo_objects.append(obj)
+    return obj
+
+# Match the official mascot mark as six simple colored elements: one orange
+# rounded lozenge, one clean curved/slanted red seven, three green marks and
+# one red lower mark. The existing cream crown panel remains the only backing.
+cap_logo_piece('cap_logo_orange_lozenge',
+    rounded_rect_polygon(-.091,2.599,.178,.066,.022),'orange',center_fan=True)
+cap_logo_piece('cap_logo_red_seven_stroke',[
+    (-.010,2.648),(.158,2.659),(.149,2.604),(.116,2.585),
+    (.087,2.553),(.063,2.514),(.049,2.454),(-.012,2.454),
+    (.002,2.523),(.033,2.573),(.071,2.610),(-.007,2.596),
+],'red')
+for index,x in enumerate((-.102,0,.102)):
+    cap_logo_piece('cap_logo_green_mark_'+str(index+1),
+        rounded_rect_polygon(x,2.415,.063,.058,.019),'green')
+cap_logo_piece('cap_logo_red_lower_mark',
+    rounded_rect_polygon(0,2.337,.063,.069,.020),'red')
+cap_logo_metrics={
+    'designRevision':6,
+    'structure':'orange_lozenge_red_stroke_three_green_one_red',
+    'pieceCount':len(cap_logo_objects),
+    'orangeLozenges':1,'redStrokes':1,'greenMiddleMarks':3,'redLowerMarks':1,
+    'whiteBackingMeshes':0,'textMeshes':0,
+    'surfaceProjected':True,'frontWinding':'negative_y',
+    'surfaceReliefMeters':max(cap_logo_offsets),
+    'surfaceReliefLimitMeters':.009,
+}
 billverts=[]
 for layer in (0,1):
     for row in (0,1,2):
@@ -298,7 +386,7 @@ for row in (0,1):
     a=row*13; billfaces.append((a,a+13,a+52,a+39))
     a=row*13+12;billfaces.append((a+39,a+52,a+13,a))
 mesh('cap_bill',billverts,billfaces,'green','hat')
-ellipsoid('cap_button',(0,.045,2.706),(.063,.062,.03),'darkgreen','hat',segments=12,rings=6)
+ellipsoid('cap_button',(0,.045,2.706),(.063,.062,.03),'darkgreen','hat',segments=10,rings=6)
 
 # Rig. Mesh root and armature root remain identity; clips never translate root.
 armdata=bpy.data.armatures.new('18bro_rig_data')
@@ -882,11 +970,13 @@ report={'blender':bpy.app.version_string,'source':str(SOURCE.relative_to(ROOT)),
  'bytes':len(blob),'sha256':hashlib.sha256(blob).hexdigest(),
  'animation_metrics':clip_metrics,
  'rig_version':5,
+ 'design_revision':6,
+ 'cap_logo':cap_logo_metrics,
  'socket_rest_orientation':'socket_hat +Y bone axis = model +Z in Blender; no twist. Parent props using the socket world transform, never the Original head.',
  'notes':['Complete in-place quaternion clips; the animation mixer exclusively owns every imported bone.',
           'Run/walk use baked two-joint IK for planted contacts; arms and legs have independent concealed skin caps.',
           'fall is a protective limb pose only: the gameplay root supplies the fall direction.',
-          'Original palette atlas and geometry; no imported logos.']}
+          'Original palette atlas and geometry; structural cap mark is authored in repository geometry.']}
 
 # Inspect deformed geometry at every authored frame. A successful export alone
 # cannot detect an exploding skin, a non-closing loop, or a floor penetration.
@@ -943,17 +1033,17 @@ rig.animation_data.action = None
 scene.frame_set(0); reset_pose(); bpy.context.view_layer.update()
 
 manifest = {
- 'assetId':'18bro-v1','rigVersion':5,
+ 'assetId':'18bro-v1','rigVersion':5,'designRevision':6,
  'source':str(SOURCE.relative_to(ROOT)).replace('\\','/'),
  'output':str(OUTPUT.relative_to(ROOT)).replace('\\','/'),
  'sha256':report['sha256'],'blenderVersion':bpy.app.version_string,
- 'exportPreset':'18bro-blender-5.2-v5','bytes':len(blob),
+ 'exportPreset':'18bro-blender-5.2-v6','bytes':len(blob),
  'bounds':{'min':[minimum[0],minimum[2],-maximum[1]],
            'max':[maximum[0],maximum[2],-minimum[1]]},
  'boundsBlenderZUp':{'min':minimum,'max':maximum},
  'triangles':tris,'materials':3,'bones':len(bones),'clips':clipnames,
  'clipMetadata':{name:{'duration':data['duration'],'loop':data['loop']} for name,data in clip_metrics.items()},
- 'sockets':report['sockets'],
+ 'sockets':report['sockets'],'capLogo':cap_logo_metrics,
  'provenance':'Original procedural Blender asset and authored animation for the 18Bro community game; no imported model, texture, logo, or animation.',
 }
 MANIFEST.write_text(json.dumps(manifest,indent=2)+'\n')

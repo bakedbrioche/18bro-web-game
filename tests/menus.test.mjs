@@ -59,6 +59,7 @@ function app(initialSave,{modelHook=true}={}){
    showReward:(bonus,tag=0)=>vm.runInContext(`showPursuitReward(${Number(bonus)},${Number(tag)})`,context),
    step:now=>vm.runInContext(`loop(${Number(now)})`,context),
   powerPill:type=>vm.runInContext(`powerPills.get(${JSON.stringify(type)})`,context),
+  powerIconPreloads:()=>vm.runInContext('powerIconPreloads',context),
   finishResults:()=>vm.runInContext('updateResultSequence(999999)',context),
   saved:()=>JSON.parse(saved.get('18bro.save.v1'))};
 }
@@ -186,12 +187,14 @@ test('Speed Burst uses a motion-aware screen-edge surge instead of a cat particl
 });
 test('power art keeps the same decoded image nodes through pause and resume',()=>{
  const a=app();a.get('start-run').click();a.game.start({skipIntro:true});a.game.activatePower('magnet');a.updateHUD();
- const first=a.powerPill('magnet');assert.ok(first);first.icon.onload?.();assert.equal(first.icon.src,'assets/icons/powerup-magnet.png');assert.equal(first.icon.srcWrites,1);
+ const preloads=a.powerIconPreloads();assert.equal(preloads.length,7);assert.deepEqual(Array.from(preloads,icon=>icon.src).sort(),['doublechips','jetpack','magnet','moon','moped','shield','speedburst'].map(type=>'assets/icons/powerup-'+type+'.png?v=6').sort());
+ const first=a.powerPill('magnet');assert.ok(first);first.icon.onload?.();assert.equal(first.icon.src,'assets/icons/powerup-magnet.png?v=6');assert.equal(first.icon.srcWrites,1);
  a.game.pause();a.updateHUD();a.game.resume();a.updateHUD();
  const resumed=a.powerPill('magnet');assert.equal(resumed.card,first.card);assert.equal(resumed.icon,first.icon);assert.equal(resumed.icon.srcWrites,1);
  a.showPickup('magnet');const pickup=a.get('power-pickup-icon');pickup.onload?.();const writes=pickup.srcWrites;
  a.game.pause();a.showPickup('magnet');assert.equal(a.get('power-pickup-icon'),pickup);assert.equal(pickup.srcWrites,writes);
  a.game.resume();a.game.activatePower('shield');a.updateHUD();const shield=a.powerPill('shield');assert.equal(shield.time.textContent,'15s · ×3');assert.match(shield.card.getAttribute('aria-label'),/3 shields remaining/);
+ const css=fs.readFileSync(new URL('../dist/style.css',import.meta.url),'utf8');assert.match(css,/[.]power-pill[.]icon-loading [.]power-icon-fallback\{opacity:0\}/);assert.match(css,/[.]power-pickup:not\([.]icon-missing\)>[.]power-icon-fallback\{display:none\}/);
 });
 
 

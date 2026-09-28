@@ -2,11 +2,11 @@ export const MODEL_MANIFEST=Object.freeze([
  Object.freeze({
   assetId:'18bro-v1',category:'character',rigVersion:5,
   source:'art/characters/18bro/18bro.blend',output:'dist/assets/models/18bro-v1.glb',
-  sha256:'d3068a6adbad2b23afecf3b194fd948ce25d027878db5e19e392e31b37244f07',
-  blenderVersion:'5.2.2 LTS',exportPreset:'18bro-blender-5.2-v5',bytes:878992,
+  sha256:'25a6f2d9a4c10b2b1a8596ec9b1106acc3b90685785117e27e7f2d2ac373ac73',
+  blenderVersion:'5.2.2 LTS',exportPreset:'18bro-blender-5.2-v6',bytes:883316,
   bounds:Object.freeze({min:Object.freeze([-.9662122130393982,.003000006079673767,-.4952065646648407]),max:Object.freeze([.7856764793395996,2.7360000610351562,.6499999761581421])}),
   boundsBlenderZUp:Object.freeze({min:Object.freeze([-.9662122130393982,-.6499999761581421,.003000006079673767]),max:Object.freeze([.7856764793395996,.4952065646648407,2.7360000610351562])}),
-  triangles:3972,materials:3,bones:20,
+  triangles:3982,materials:3,bones:20,
   clips:Object.freeze(['carry','caught','celebrate','fall','idle','jetpack','jump','moped_jump','moped_mount','moped_slide_L','moped_slide_R','ride','roll','run','slide','snack','stumble','walk']),
   sockets:Object.freeze(['socket_hat','socket_bag','socket_back','socket_carry_L','socket_carry_R']),
   provenance:'Original procedural Blender asset and authored animation for the 18Bro community game; no imported model, texture, logo, or animation.'
@@ -26,9 +26,9 @@ export const MODEL_MANIFEST=Object.freeze([
  Object.freeze({
  assetId:'powerups-v1',category:'props',rigVersion:0,
   source:'art/powerups/powerups.blend',output:'dist/assets/models/powerups-v1.glb',
-  sha256:'c2a688f4862f5a9691997b0d0740757b05ccec19f849cf5ba206a7014efeec50',
-  blenderVersion:'5.2.2 LTS',exportPreset:'18bro-blender-5.2-powerups-v5',bytes:556800,
-  triangles:11303,materials:1,bones:0,clips:Object.freeze([]),sockets:Object.freeze([]),
+  sha256:'de853f52656bb29931f504b32d19297098b1540a1f9b71a4794bc5a9dd621483',
+  blenderVersion:'5.2.2 LTS',exportPreset:'18bro-blender-5.2-powerups-v6',bytes:583788,
+  triangles:12971,materials:1,bones:0,clips:Object.freeze([]),sockets:Object.freeze([]),
   roots:Object.freeze(['powerup_magnet','powerup_moon','powerup_moped','powerup_shield','powerup_doublechips','powerup_jetpack','powerup_speedburst']),
   wearables:Object.freeze(['wearable_magnet','wearable_moon_L','wearable_moon_R']),
   provenance:'Original geometry authored in repository Python with Blender. No external media, fonts or source artwork.'

@@ -365,7 +365,7 @@ def build_speedburst():
 
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parent))
-from powerup_models_v5 import make_builders
+from powerup_models_v6 import make_builders
 build_magnet,build_moon,build_wearable_magnet,build_wearable_moon=make_builders(Shape,matrix,Matrix,math,COLORS)
 
 objects = {key: builder() for key,builder in (
@@ -460,7 +460,7 @@ effects={
 }
 
 report={
-    'schemaVersion':2,'assetId':'powerups-v1','revision':5,'blenderVersion':bpy.app.version_string,
+    'schemaVersion':2,'assetId':'powerups-v1','revision':6,'blenderVersion':bpy.app.version_string,
     'source':'art/powerups/powerups.blend','output':'dist/assets/models/powerups-v1.glb',
     'sha256':hashlib.sha256(blob).hexdigest(),'bytes':len(blob),'materials':1,'materialNames':['powerup_palette'],
     'coordinates':'glTF Y-up; forward +Z; pickup roots: centered, max dimension 1.4; wearable roots: paw/ankle pivot, authored meter scale',

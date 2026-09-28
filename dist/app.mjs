@@ -12,7 +12,13 @@ const STORE_KEY='18bro.save.v1';
 const skinDefs=[{id:'18bro',name:'18BRO',price:0,color:'#85cd59'},{id:'business',name:'BUSINESS',price:250,color:'#b9c4bd'},{id:'police',name:'POLICE',price:400,color:'#728ccc'},{id:'astronaut',name:'ASTRONAUT',price:650,color:'#d6dfec'},{id:'gold',name:'GOLD',price:1000,color:'#e8c850'},{id:'ceo',name:'CEO 18BRO',price:1500,color:'#e29949'}];
 const powerNames={magnet:'CHIP MAGNET',moon:'MOON BOOTS',speedburst:'SPEED BURST',moped:'CHIP SCOOTER',shield:'THREE-PAW GUARD',doublechips:'DOUBLE CHIPS',jetpack:'JETPACK'};
 const powerGlyphs={magnet:'∩',moon:'↟',speedburst:'»',moped:'➤',shield:'◇',doublechips:'2×',jetpack:'↑'};
-const powerIcons=Object.freeze(globalThis.__18BRO_POWER_ICONS__||Object.fromEntries(Object.keys(powerNames).map(type=>[type,`assets/icons/powerup-${type}.png`])));
+const POWERUP_ART_REVISION=6;
+const powerIcons=Object.freeze(globalThis.__18BRO_POWER_ICONS__||Object.fromEntries(Object.keys(powerNames).map(type=>[type,`assets/icons/powerup-${type}.png?v=${POWERUP_ART_REVISION}`])));
+// Warm every authored power-up render while the menu/intro is visible. The HUD
+// and pickup card then reuse the browser cache instead of flashing a fallback
+// glyph on the first frame of a newly collected booster. This also works in the
+// standalone build, where the exporter supplies data URLs in powerIcons.
+const powerIconPreloads=Object.freeze(Object.entries(powerIcons).map(([type,source])=>{const image=document.createElement('img');image.alt='';image.decoding='async';image.dataset.powerIconPreload=type;image.src=source;return image;}));
 const uiImages=Object.freeze(globalThis.__18BRO_UI_IMAGES__||{chip:'assets/icons/chip.png','chip-turntable':'assets/icons/chip-turntable.png','pursuit-guard':'assets/icons/pursuit-guard.png','pursuit-cat':'assets/icons/pursuit-cat.png'});
 const RESULT_WAVE_ENABLED=true;
 const RESULT_COUNT_MS=3000;

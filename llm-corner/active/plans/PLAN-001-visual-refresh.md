@@ -207,3 +207,11 @@ Defer fur rendering, city-wide remodeling, compression infrastructure, and an ex
 - Rebuilt Magnet as a blue-left/red-right split U with aligned gray ends and one gold zap, shared by Refreshed assets and the Original fallback.
 - Rebuilt Moon Boots as wingless layered mid-top sneakers with contained green-left/red-right heel arrows, shared by Refreshed assets and the Original fallback.
 - Advanced the reproducible power-up asset to revision 5 and synchronized the GLB, changed icons, manifests, validator, model metadata and regression tests.
+
+### Phase V - production Magnet and cap identity correction - complete
+
+- Rebuild pickup and wearable Magnet geometry around a smooth, unmistakable horseshoe silhouette with symmetric gray poles, blue-left/red-right halves and one pickup-only gold zap.
+- Remove every zap from the wearable Magnet and validate the in-hand rear and oblique gameplay silhouette.
+- Rebuild the cap mark as six flush colored elements on the existing white crown panel, matching the official orange/red/green arrangement without a floating badge, text treatment or detached planes.
+- Regenerate the Magnet pickup icon from the accepted 3D pickup and verify the exact image in both the pickup popup and persistent power sidebar, including standalone embedding and graceful load behavior.
+- Review Original and Refreshed models, customization replacement, popup/sidebar UI and representative gameplay camera views in a real browser.

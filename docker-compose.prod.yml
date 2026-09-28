@@ -10,32 +10,35 @@ services:
     expose:
       - "80"
     networks:
-      - edge
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  caddy:
-    image: caddy:2-alpine
-    init: true
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    depends_on:
-      game:
-        condition: service_healthy
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    networks:
-      - edge
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.services.18bro.loadbalancer.server.port=80"
+      - "traefik.http.routers.18bro-ip-http.rule=PathPrefix(`/game`)"
+      - "traefik.http.routers.18bro-ip-http.entrypoints=web"
+      - "traefik.http.routers.18bro-ip-http.priority=10"
+      - "traefik.http.routers.18bro-ip-http.middlewares=18bro-game-chain"
+      - "traefik.http.routers.18bro-ip-http.service=18bro"
+      - "traefik.http.routers.18bro-domain-http.rule=(Host(`18bro.site`) || Host(`www.18bro.site`)) && PathPrefix(`/game`)"
+      - "traefik.http.routers.18bro-domain-http.entrypoints=web"
+      - "traefik.http.routers.18bro-domain-http.priority=100"
+      - "traefik.http.routers.18bro-domain-http.middlewares=18bro-https-redirect"
+      - "traefik.http.routers.18bro-domain-http.service=18bro"
+      - "traefik.http.routers.18bro-domain-https.rule=(Host(`18bro.site`) || Host(`www.18bro.site`)) && PathPrefix(`/game`)"
+      - "traefik.http.routers.18bro-domain-https.entrypoints=websecure"
+      - "traefik.http.routers.18bro-domain-https.priority=100"
+      - "traefik.http.routers.18bro-domain-https.tls=true"
+      - "traefik.http.routers.18bro-domain-https.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.18bro-domain-https.middlewares=18bro-game-chain"
+      - "traefik.http.routers.18bro-domain-https.service=18bro"
+      - "traefik.http.middlewares.18bro-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.18bro-https-redirect.redirectscheme.permanent=true"
+      - "traefik.http.middlewares.18bro-game-slash.redirectregex.regex=^(https?://[^/]+/game)$$"
+      - "traefik.http.middlewares.18bro-game-slash.redirectregex.replacement=$${1}/"
+      - "traefik.http.middlewares.18bro-game-slash.redirectregex.permanent=true"
+      - "traefik.http.middlewares.18bro-game-strip.stripprefix.prefixes=/game"
+      - "traefik.http.middlewares.18bro-game-chain.chain.middlewares=18bro-game-slash,18bro-game-strip"
     logging:
       driver: json-file
       options:
@@ -43,8 +46,5 @@ services:
         max-file: "3"
 
 networks:
-  edge:
-
-volumes:
-  caddy_data:
-  caddy_config:
+  proxy:
+    external: true

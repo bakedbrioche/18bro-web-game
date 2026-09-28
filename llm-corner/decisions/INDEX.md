@@ -4,7 +4,7 @@ Decision records preserve why a non-obvious choice was made. Numbers are sequent
 
 | ID | Title | Date | Status |
 |---|---|---|---|
-| DEC-025 | Publish immutable game images and let Caddy own the public edge (`DEC-025-immutable-images-caddy-edge.md`) | 2026-09-28 | ACCEPTED |
+| DEC-025 | Publish immutable images behind a shared Traefik edge (`DEC-025-immutable-images-traefik-edge.md`) | 2026-09-28 | ACCEPTED |
 | DEC-024 | Treat power-up geometry and rendered UI art as one versioned asset (`DEC-024-version-model-and-ui-art-together.md`) | 2026-09-28 | ACCEPTED |
 | DEC-023 | Preserve pursuit world pressure and version power-up identity (`DEC-023-pursuit-world-and-powerup-v5.md`) | 2026-09-28 | ACCEPTED |
 | DEC-022 | Keep pursuit outcomes and transient feedback on the gameplay clock (DEC-022-power-pursuit-and-pause-contract.md) | 2026-09-28 | ACCEPTED |

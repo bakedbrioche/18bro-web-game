@@ -11,6 +11,7 @@ on:
       - "Dockerfile"
       - ".dockerignore"
       - "docker-compose.prod.yml"
+      - "docker-compose.proxy.yml"
       - "package.json"
       - "server.mjs"
       - "scripts/**"
@@ -58,7 +59,6 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and publish immutable image
-        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -85,7 +85,7 @@ jobs:
           printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
-      - name: Deploy immutable image to Hostinger
+      - name: Deploy immutable image through shared Traefik edge
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
@@ -97,14 +97,14 @@ jobs:
           target="$VPS_USER@$VPS_HOST"
           ssh_options=(-i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes)
 
-          ssh "${ssh_options[@]}" "$target" 'mkdir -p /opt/18bro/deploy'
+          ssh "${ssh_options[@]}" "$target" 'mkdir -p /opt/18bro /opt/traefik'
           scp "${ssh_options[@]}" docker-compose.prod.yml "$target:/opt/18bro/docker-compose.prod.yml"
-          scp "${ssh_options[@]}" deploy/Caddyfile "$target:/opt/18bro/deploy/Caddyfile"
+          scp "${ssh_options[@]}" docker-compose.proxy.yml "$target:/opt/traefik/docker-compose.yml"
 
           printf '%s' "$GHCR_TOKEN" | ssh "${ssh_options[@]}" "$target" "docker login ghcr.io --username '$GHCR_USER' --password-stdin"
-          ssh "${ssh_options[@]}" "$target" "set -eu; cd /opt/18bro; printf '%s\n' 'IMAGE=$IMAGE' > .env; docker compose -f docker-compose.prod.yml config --quiet; docker compose -f docker-compose.prod.yml pull; docker compose -f docker-compose.prod.yml up -d --remove-orphans --wait; docker logout ghcr.io >/dev/null 2>&1 || true; docker image prune -f --filter 'until=168h'; curl --fail --silent --show-error http://127.0.0.1/healthz; docker compose -f docker-compose.prod.yml ps"
+          ssh "${ssh_options[@]}" "$target" "set -eu; docker network inspect proxy >/dev/null 2>&1 || docker network create proxy; docker rm -f 18bro-caddy-1 >/dev/null 2>&1 || true; cd /opt/traefik; docker compose config --quiet; docker compose pull; docker compose up -d --remove-orphans --wait; cd /opt/18bro; printf '%s\n' 'IMAGE=$IMAGE' > .env; docker compose -f docker-compose.prod.yml config --quiet; docker compose -f docker-compose.prod.yml pull; docker compose -f docker-compose.prod.yml up -d --remove-orphans --wait; docker logout ghcr.io >/dev/null 2>&1 || true; docker image prune -f --filter 'until=168h'; curl --fail --silent --show-error http://127.0.0.1/game/healthz; docker compose -f docker-compose.prod.yml ps; cd /opt/traefik; docker compose ps"
 
-      - name: Verify public VPS response
+      - name: Verify public VPS game response
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
-        run: curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 3 "http://$VPS_HOST/healthz"
+        run: curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 3 "http://$VPS_HOST/game/healthz"

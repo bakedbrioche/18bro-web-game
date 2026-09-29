@@ -47,7 +47,7 @@ COLORS = {
     'pad': (0.11, 0.22, 0.18, 1),
     'seam': (0.34, 0.49, 0.40, 1),
 }
-palette = bpy.data.images.new('18bro_palette_512', width=512, height=512, alpha=False)
+palette = bpy.data.images.new('18bro_palette_512', width=512, height=512, alpha=True)
 palette.colorspace_settings.name = 'sRGB'
 entries = list(COLORS)
 pixels = []
@@ -70,7 +70,12 @@ for target_y in range(logo_target_height):
         source_index = (source_y * logo_width + source_x) * 4
         r, g, b, a = logo_pixels[source_index:source_index + 4]
         if a < .5:
-            color = COLORS['cream']
+            # The projected logo mesh has different tessellated normals from
+            # the cream crown beneath it. Baking opaque cream into this
+            # background therefore reveals the decal rectangle under game
+            # lighting even when both surfaces use the same RGB value. Keep
+            # it transparent so the crown remains the only visible backing.
+            color = (*COLORS['cream'][:3], 0)
         elif g > r:
             color = COLORS['green']
         elif g > .05:
@@ -93,6 +98,10 @@ for name in ('fur', 'face', 'hat'):
     texture.image = palette
     texture.interpolation = 'Closest'
     mat.node_tree.links.new(texture.outputs['Color'], shader.inputs['Base Color'])
+    if name == 'hat':
+        mat.node_tree.links.new(texture.outputs['Alpha'], shader.inputs['Alpha'])
+        mat.blend_method = 'CLIP'
+        mat.alpha_threshold = .5
     materials[name] = mat
 
 parts = []
@@ -344,6 +353,7 @@ cap_logo_metrics={
     'pieceCount':1,'textureMeshes':1,'geometryOnly':False,
     'whiteBackingMeshes':0,'textMeshes':0,
     'surfaceProjected':True,'frontWinding':'negative_y',
+    'backgroundMode':'transparent_crown_reveal','alphaCutoff':.5,
     'surfaceReliefMeters':logo_relief,'surfaceReliefLimitMeters':.007,
     'grid':[logo_columns,logo_rows],
     'textureRegionPixels':[logo_x,logo_y,logo_target_width,logo_target_height],

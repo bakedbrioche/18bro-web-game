@@ -102,9 +102,7 @@ jobs:
           scp "${ssh_options[@]}" docker-compose.proxy.yml "$target:/opt/traefik/docker-compose.yml"
 
           printf '%s' "$GHCR_TOKEN" | ssh "${ssh_options[@]}" "$target" "docker login ghcr.io --username '$GHCR_USER' --password-stdin"
-          ssh "${ssh_options[@]}" "$target" "set -eu; docker network inspect proxy >/dev/null 2>&1 || docker network create proxy; docker rm -f 18bro-caddy-1 >/dev/null 2>&1 || true; cd /opt/traefik; docker compose config --quiet; docker compose pull; docker compose up -d --remove-orphans --wait; cd /opt/18bro; printf '%s\n' 'IMAGE=$IMAGE' > .env; docker compose -f docker-compose.prod.yml config --quiet; docker compose -f docker-compose.prod.yml pull; docker compose -f docker-compose.prod.yml up -d --remove-orphans --wait; docker logout ghcr.io >/dev/null 2>&1 || true; docker image prune -f --filter 'until=168h'; curl --fail --silent --show-error http://127.0.0.1/game/healthz; docker compose -f docker-compose.prod.yml ps; cd /opt/traefik; docker compose ps"
+          ssh "${ssh_options[@]}" "$target" "set -eu; docker network inspect proxy >/dev/null 2>&1 || docker network create proxy; docker rm -f 18bro-caddy-1 >/dev/null 2>&1 || true; cd /opt/traefik; docker compose config --quiet; docker compose pull; docker compose up -d --remove-orphans --wait; cd /opt/18bro; printf '%s\n' 'IMAGE=$IMAGE' > .env; docker compose -f docker-compose.prod.yml config --quiet; docker compose -f docker-compose.prod.yml pull; docker compose -f docker-compose.prod.yml up -d --remove-orphans --wait; docker logout ghcr.io >/dev/null 2>&1 || true; docker image prune -f --filter 'until=168h'; curl --fail --silent --show-error --header 'Host: 18bro.site' http://127.0.0.1/game/healthz; docker compose -f docker-compose.prod.yml ps; cd /opt/traefik; docker compose ps"
 
       - name: Verify public VPS game response
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-        run: curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 3 "http://$VPS_HOST/game/healthz"
+        run: curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 3 "https://18bro.site/game/healthz"

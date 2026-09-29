@@ -1,3 +1,5 @@
+export const LOADING_EXIT_MS=1050;
+
 export const LOADING_MESSAGES=Object.freeze([
  'Getting chips ready…',
  'Cleaning the hat…',
@@ -58,7 +60,7 @@ export function createLoadingScreen({
   await wait(Math.max(0,minimumVisibleMs-(now()-startedAt)));
   if(rotate!==undefined)globalRef.clearInterval?.(rotate);
   root.classList.add('is-leaving');documentRef.body?.classList.remove('boot-loading-active');
-  await wait(480);root.hidden=true;root.classList.remove('is-visible','is-leaving');
+  await wait(LOADING_EXIT_MS);root.hidden=true;root.classList.remove('is-visible','is-leaving');
  }
  function cancel(){cancelled=true;finished=true;if(rotate!==undefined)globalRef.clearInterval?.(rotate);root.hidden=true;root.classList.remove('is-visible','is-leaving');documentRef.body?.classList.remove('boot-loading-active');}
  return {root,finish,cancel};

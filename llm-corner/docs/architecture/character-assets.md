@@ -64,3 +64,7 @@ The human family lives in `art/characters/human/human.blend`, builds through `sc
 Power-up source lives in `art/powerups/powerups.blend`, builds through `scripts/blender/create_powerups.py` plus the focused revision-6 geometry module `scripts/blender/powerup_models_v6.py`, and exports one texture-free 583,788-byte GLB with 12,971 triangles: 10,027 across seven independently cloneable pickup roots and 2,944 across three wearable roots. Revision 6 gives both model sets the same power identity: a blue-left/red-right Magnet with aligned gray poles and one gold zap, plus layered mid-top Moon sneakers with no wings and contained rear arrows in the cat's exact ear green/red. The same builder renders seven 256x256 transparent icons. `scripts/blender/validate-powerups.mjs` checks revision/design metadata, the exact hash, root names, wearable pivots/dimensions, triangle counts, identity transforms, vertex colors and icon bytes.
 
 `art/manifest.json` and `dist/model-manifest.mjs` record both hashes, exported Y-up bounds and provenance. Rebuilds must update both manifests only after validation and visual review.
+
+### Cap logo backing
+
+The Refreshed cap logo atlas keeps transparent source pixels transparent (`alphaMode: MASK`, cutoff 0.5) so the cream crown is the single white backing surface. Never bake an opaque white rectangle behind the mark: small normal differences between the projected logo and crown make that rectangle visible in motion. Rebuild the Blender source and GLB together, then inspect front, three-quarter and side views.

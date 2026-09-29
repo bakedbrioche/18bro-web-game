@@ -69,7 +69,9 @@ export function createCharacterAssetStore({manifest = [], embeddedModels = {}, f
         if (!fetchImpl || !definition.output) throw new Error(`Character asset cannot be fetched: ${id}`);
         // Manifest output is repository relative; modules are served from dist/.
         const source = definition.url || definition.output.replace(/^dist[\\/]/, '').replaceAll('\\', '/');
-        const response = await fetchImpl(new URL(source, import.meta.url).href);
+        const requestUrl = new URL(source, import.meta.url);
+        if (definition.sha256) requestUrl.searchParams.set('v', definition.sha256.slice(0, 12));
+        const response = await fetchImpl(requestUrl.href);
         if (!response.ok) throw new Error(`Character asset request failed: ${response.status}`);
         bytes = bytesOf(await response.arrayBuffer());
       }

@@ -20,7 +20,7 @@ flowchart LR
 - `docker-compose.yml`: local Docker review at `http://localhost:4173`.
 - `docker-compose.proxy.yml`: shared Traefik v3.6 edge, Docker discovery, ports 80/443, HTTP/3, health check, and persistent Let's Encrypt state.
 - `docker-compose.prod.yml`: immutable GHCR game image, private `proxy` network membership, and all `/game` HTTP/HTTPS routing labels.
-- `deploy/nginx.conf`: correct `.mjs` and `.glb` MIME types, short asset revalidation, security headers, gzip, SPA fallback, and `/healthz`.
+- `deploy/nginx.conf`: correct `.mjs` and `.glb` MIME types, GET/HEAD-only delivery, casual direct-navigation and hotlink rejection, security/noindex headers, gzip, SPA fallback, and `/healthz`.
 - `.github/workflows/deploy-production.yml`: verify, publish, pinned-key SSH update, proxy/game container waits, and internal/external `/game/healthz` checks.
 
 ## GitHub configuration
@@ -45,6 +45,25 @@ They then register their own host or path through Traefik labels. Only the share
 
 Traefik mounts the Docker socket read-only for discovery. Treat write access to `docker-compose.proxy.yml` and membership in the `docker` group as administrator-level access.
 
+## Public runtime and private server boundary
+
+A globally playable browser game cannot keep its shipped JavaScript, GLB, PNG, CSS, font or audio files confidential: the player browser must receive them and can save them from DevTools or cache. `dist/` is therefore the deliberately public runtime boundary. Source Blender files, editable art, `.git`, `.env*`, SSH keys, Dokploy state and Traefik ACME data must never enter the image. The Docker build context allowlist and `COPY dist/` rule enforce that separation.
+
+Nginx accepts only GET and HEAD, disables directory listing, rejects dotfiles, sends CSP/CORP/no-sniff/noindex headers and returns 404 for ordinary browser top-level asset navigation and cross-site browser hotlinks. Fetch Metadata and `Accept` are spoofable, so these rules reduce casual browsing, indexing and third-party embedding; they do not authenticate a custom HTTP client. `robots.txt` is indexing guidance, not access control.
+
+The game container has no host port, runs with `no-new-privileges`, a read-only root filesystem, tmpfs-only Nginx runtime directories and a PID cap. Only exact `18bro.site`/`www.18bro.site` Traefik routes serve `/game`; the former host-agnostic raw-IP router is removed.
+
+For a private review, put BasicAuth or OIDC on the complete `/game/**` route and accept that authenticated reviewers can still copy downloaded assets. For future administration, use a separate host behind Tailscale, a fixed admin-IP allowlist or Cloudflare Access. Authenticate machine APIs with short-lived scoped OIDC/JWT tokens or mTLS; CORS, Origin, Host and Referer are never credentials. See `DEC-028-public-runtime-private-management-plane.md`.
+
+## Live VPS security snapshot (2026-09-29)
+
+A read-only external audit found ports 22, 80 and 443 reachable. Ports 2377, 7946 and 3000 were not externally reachable even though the single-node Dokploy Docker Swarm listens locally on 2377/7946. Only Traefik publishes host web ports; the 18Bro container exposes private port 80 and Dokploy exposes private port 3000 through Docker networking. Unattended upgrades are enabled. Fail2Ban is inactive. The restricted deploy account cannot read UFW or effective `sshd` policy, so those controls remain unverified from the repository account.
+
+Highest-value host follow-up: verify the Hostinger firewall and effective SSH policy as root, keep 2377/7946/3000 closed, move SSH and Dokploy behind Tailscale or a fixed admin-IP policy, disable SSH passwords/root login, and enable Fail2Ban or CrowdSec. Do these as a scheduled access change with a second live session so a firewall mistake cannot lock out the operator.
+
+The current GitHub deployment uses a pinned SSH host key, repository secrets, a job-scoped token and immutable SHA tags. A stronger later design uses a protected GitHub production Environment and a small deploy endpoint that validates GitHub OIDC and accepts only an approved image digest, or an ephemeral Tailscale GitHub node. Do not expose an unauthenticated POST deploy webhook.
+
+Official operational references: [Dokploy production hardening](https://docs.dokploy.com/docs/core/guides/production-hardening), [Dokploy account security](https://docs.dokploy.com/docs/core/account-security), [Docker daemon protection](https://docs.docker.com/engine/security/protect-access/), [GitHub secure use](https://docs.github.com/en/actions/reference/security/secure-use), [GitHub OIDC](https://docs.github.com/en/actions/reference/security/oidc), and [OWASP REST security](https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html).
 ## Operations
 
 The workflow uploads the two production Compose definitions, writes only the immutable image URI to `/opt/18bro/.env`, pulls the image, and runs both stacks with `--wait`.
@@ -60,7 +79,7 @@ cd /opt/18bro
 docker compose -f docker-compose.prod.yml ps
 docker compose -f docker-compose.prod.yml logs --tail=200 game
 
-curl --fail http://127.0.0.1/game/healthz
+curl --fail --header 'Host: 18bro.site' http://127.0.0.1/game/healthz
 ```
 
 Rollback by replacing `IMAGE=` in `/opt/18bro/.env` with an earlier `ghcr.io/tarasenkofedor/18bro-web-game:sha-<commit>` tag, then run:

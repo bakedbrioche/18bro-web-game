@@ -2,6 +2,8 @@
 
 Newest first; the top entry is the next session’s entry point.
 
+- **2026-09-29-brand-ui-public-boundary.md** - Responsive brand motion, reusable tooltip/HUD art, continuous cap white, graceful loading exit, public-runtime security boundary and live VPS surface audit.
+
 - **2026-09-29-fair-routes-cap-and-live-tls.md** - Jump-safe pursuits, full-viewport responsive play, render-ready loading, curved cap mark, valid production TLS and Dokploy monitoring notes.
 
 - **2026-09-28-production-deployment.md** - Verified GHCR/GitHub Actions deployment to a restricted Hostinger VPS behind the shared Traefik edge at `/game/`; DNS cutover remains for the domain owner.

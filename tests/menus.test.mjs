@@ -17,11 +17,11 @@ function app(initialSave,{modelHook=true}={}){
   getElementById:id=>elements.get(id),querySelectorAll:()=>[],
   addEventListener(){},createElement:tag=>element(tag)};
  function element(tag,id=''){
-  const attributes=new Map(),children=[];
+  const attributes=new Map(),children=[],nodeListeners={};
   const node={id,tagName:tag.toUpperCase(),hidden:false,disabled:false,inert:false,open:false,parentNode:null,children,
    textContent:'',classList:classes(),style:{},dataset:{},clientWidth:640,clientHeight:600,srcWrites:0,
    set innerHTML(html){registerElements(html);},
-   addEventListener(){},setAttribute(name,value){attributes.set(name,String(value));},getAttribute(name){return attributes.get(name);},
+   addEventListener(name,fn){(nodeListeners[name]??=[]).push(fn);},dispatchEvent(event){for(const fn of nodeListeners[event.type]||[])fn(event);},setAttribute(name,value){attributes.set(name,String(value));},getAttribute(name){return attributes.get(name);},
    append(...nodes){for(const child of nodes){child.parentNode=this;children.push(child);}},
    remove(){if(!this.parentNode)return;const index=this.parentNode.children.indexOf(this);if(index>=0)this.parentNode.children.splice(index,1);this.parentNode=null;},
    querySelectorAll:()=>[],
@@ -31,7 +31,7 @@ function app(initialSave,{modelHook=true}={}){
   return node;
  } function registerElements(html){
   for(const match of html.matchAll(/<(\w+)[^>]*\bid="([^"]+)"[^>]*>/g)){
-   const node=element(match[1],match[2]);node.hidden=/\bhidden\b/.test(match[0]);elements.set(node.id,node);
+   const node=element(match[1],match[2]);node.hidden=/\bhidden\b/.test(match[0]);for(const attribute of match[0].matchAll(/\b([\w-]+)="([^"]*)"/g))node.setAttribute(attribute[1],attribute[2]);elements.set(node.id,node);
   }
  }
  registerElements(fs.readFileSync(new URL('../dist/index.html',import.meta.url),'utf8'));
@@ -60,6 +60,7 @@ function app(initialSave,{modelHook=true}={}){
    step:now=>vm.runInContext(`loop(${Number(now)})`,context),
   powerPill:type=>vm.runInContext(`powerPills.get(${JSON.stringify(type)})`,context),
   powerIconPreloads:()=>vm.runInContext('powerIconPreloads',context),
+   chipBounceState:()=>vm.runInContext('({queue:chipBounceQueue,active:chipBounceActive,last:lastChipPickupCount})',context),
   finishResults:()=>vm.runInContext('updateResultSequence(999999)',context),
   saved:()=>JSON.parse(saved.get('18bro.save.v1'))};
 }
@@ -232,8 +233,8 @@ test('net-pursuit reward rotates themed copy and uses an accessible chase card w
  assert.equal(a.get('hud-score-bonus').classList.contains('show'),true);
  a.game.emit('netpursuitsuccess',{bonus:16000,tagIndex:2});
  assert.equal(reward.dataset.message,'TOO SLOW! 18BRO GOES!','repeated event tag advances to fresh copy');
- const html=fs.readFileSync(new URL('../dist/index.html',import.meta.url),'utf8');
  const source=fs.readFileSync(new URL('../dist/app.mjs',import.meta.url),'utf8');
+ const html=fs.readFileSync(new URL('../dist/index.html',import.meta.url),'utf8');
  const css=fs.readFileSync(new URL('../dist/style.css',import.meta.url),'utf8');
  assert.match(html,/id="pursuit-reward"[^>]+role="status"/);
  for(const tag of ['NET MISS! BRO LIVES!','COPS WHIFF! CHIPS SAFE!','NET DODGED! SNACKS SECURED!','TOO SLOW! 18BRO GOES!'])assert.match(source,new RegExp(tag.replace(/[!?]/g,'\\$&')));
@@ -303,4 +304,63 @@ test('desktop hides the mobile swipe hint while mobile rules reveal it',()=>{
  const css=fs.readFileSync(new URL('../dist/style.css',import.meta.url),'utf8');
  assert.match(css,/\.control-legend>\.mobile-control-hint\{display:none\}/);
  assert.match(css,/@media\(max-width:800px\)[\s\S]*\.mobile-control-hint\{display:inline!important/);
+});
+
+
+test('footer removes the misleading crescent control while mute and help stay reachable',()=>{
+ const html=fs.readFileSync(new URL('../dist/index.html',import.meta.url),'utf8');
+ const source=fs.readFileSync(new URL('../dist/app.mjs',import.meta.url),'utf8');
+ assert.doesNotMatch(html,/id="audio-toggle"/);
+ assert.doesNotMatch(source,/\$\('audio-toggle'\)/);
+ assert.match(html,/id="how-to"/);
+ assert.match(source,/e\.code==='KeyM'/);
+ const a=app();a.openPanel('settings');
+ assert.ok(a.get('setting-sfx'),'sound effects remain available in Settings');
+});
+
+test('model family note is an accessible reusable tooltip with exact mask color states',()=>{
+ const source=fs.readFileSync(new URL('../dist/app.mjs',import.meta.url),'utf8');
+ const a=app(undefined,{modelHook:false});a.openPanel('settings');
+ const trigger=a.get('model-tooltip-trigger'),note=a.get('model-preference-note');
+ assert.equal(trigger.getAttribute('aria-describedby'),'model-preference-note');
+ assert.equal(note.getAttribute('role'),'tooltip');
+ assert.match(source,/every move, cosmetic, character and power-up/);
+ trigger.click();assert.equal(trigger.getAttribute('aria-expanded'),'true');assert.equal(trigger.classList.contains('tooltip-open'),true);
+ trigger.onblur();assert.equal(trigger.getAttribute('aria-expanded'),'false');
+ const css=fs.readFileSync(new URL('../dist/style.css',import.meta.url),'utf8');
+ assert.match(source,/tooltip-tail[.]png/);
+ assert.match(css,/-webkit-mask:var\(--tooltip-tail\)/);
+ assert.match(css,/background:#f5822d/);
+ assert.match(css,/body[.]reduced-motion [.]tooltip-tail-icon/);
+ assert.match(css,/[.]settings-row,[.]settings-row>span,[.]settings-row small,[.]settings-row label\{text-align:left\}/);
+});
+
+test('HUD chip art queues a separate bounded bounce for a double-chip pickup',()=>{
+ const a=app();a.get('start-run').click();a.game.start({skipIntro:true});
+ a.game._pickup(a.game.spawnEntity('coin',1,0));
+ assert.equal(a.get('hud-chip-icon').classList.contains('chip-bounce'),true);
+ assert.deepEqual({...a.chipBounceState()},{queue:0,active:true,last:1});
+ a.game.activatePower('doublechips');a.game._pickup(a.game.spawnEntity('coin',1,0));
+ assert.deepEqual({...a.chipBounceState()},{queue:2,active:true,last:3});
+ const icon=a.get('hud-chip-icon');
+ icon.dispatchEvent({type:'animationend',animationName:'chip-hud-bounce'});
+ assert.deepEqual({...a.chipBounceState()},{queue:1,active:true,last:3});
+ icon.dispatchEvent({type:'animationend',animationName:'chip-hud-bounce'});
+ assert.deepEqual({...a.chipBounceState()},{queue:0,active:true,last:3});
+ icon.dispatchEvent({type:'animationend',animationName:'chip-hud-bounce'});
+ assert.deepEqual({...a.chipBounceState()},{queue:0,active:false,last:3});
+ const html=fs.readFileSync(new URL('../dist/index.html',import.meta.url),'utf8');
+ const css=fs.readFileSync(new URL('../dist/style.css',import.meta.url),'utf8');
+ assert.match(html,/id="hud-chip-icon"[^>]+assets\/icons\/chip-hud[.]png/);
+ assert.match(css,/@keyframes chip-hud-bounce/);assert.match(css,/34%\{transform:[^}]*-7px/);assert.match(css,/68%\{transform:[^}]*2px/);
+});
+
+test('main 18Bro wordmark fits its container and reuses the Busted letter wave',()=>{
+ const html=fs.readFileSync(new URL('../dist/index.html',import.meta.url),'utf8');
+ const css=fs.readFileSync(new URL('../dist/style.css',import.meta.url),'utf8');
+ assert.equal((html.match(/class="logo-letter /g)||[]).length,5);
+ assert.match(css,/[.]menu-story\{container-type:inline-size\}/);
+ assert.match(css,/[.]main-menu [.]logo-line\{[^}]*28cqw[^}]*letter-spacing:0/);
+ assert.match(css,/[.]logo-letter\{[^}]*animation:busted-letter-wave/);
+ assert.match(css,/body[.]reduced-motion [.]logo-letter/);
 });

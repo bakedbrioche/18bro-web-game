@@ -215,3 +215,13 @@ Defer fur rendering, city-wide remodeling, compression infrastructure, and an ex
 - Rebuild the cap mark as six flush colored elements on the existing white crown panel, matching the official orange/red/green arrangement without a floating badge, text treatment or detached planes.
 - Regenerate the Magnet pickup icon from the accepted 3D pickup and verify the exact image in both the pickup popup and persistent power sidebar, including standalone embedding and graceful load behavior.
 - Review Original and Refreshed models, customization replacement, popup/sidebar UI and representative gameplay camera views in a real browser.
+
+### Phase W - brand UI and public delivery boundary - complete
+
+- Remove the misleading crescent footer control while preserving Settings SFX and the `M` mute shortcut.
+- Fit the 18Bro wordmark to its responsive container and animate its five glyphs with the established smooth BUSTED wave; keep Reduced Motion static.
+- Left-align Settings copy and add the accessible reusable cat-tail help marker to the Models note.
+- Replace the HUD placeholder with a transparent generated chip render and queue one bounded bounce per collected chip.
+- Remove the cap decal's opaque white backing so the crown is the single continuous white surface.
+- Let the render-ready loading overlay leave through a soft 1.05-second fade and blur transition.
+- Define `dist/` as a public browser-runtime boundary, restrict production to GET/HEAD, reject casual direct navigation/cross-site embeds, run the container read-only and isolate private server/admin material outside the image.

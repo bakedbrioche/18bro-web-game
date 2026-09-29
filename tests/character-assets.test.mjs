@@ -21,7 +21,7 @@ function fixture(edit = () => {}) {
   result.writeUInt32LE(binary.length, 20 + json.length); result.writeUInt32LE(0x004e4942, 24 + json.length); binary.copy(result, 28 + json.length);
   return result;
 }
-const definition = {assetId: 'cat', output: 'dist/assets/models/cat-v1.glb', sockets: ['socket_hat'], clips: []};
+const definition = {assetId: 'cat', output: 'dist/assets/models/cat-v1.glb', sha256: 'abcdef1234567890', sockets: ['socket_hat'], clips: []};
 const createStore = (bytes, extra = {}) => createCharacterAssetStore({manifest: [definition], embeddedModels: {'cat-v1.glb': bytes}, ...extra});
 
 test('GLB validator accepts self-contained geometry and checks manifest hash and budgets', () => {
@@ -140,7 +140,7 @@ test('corrupt or externally linked assets use the procedural fallback before par
 test('failed requests are retryable and concurrent successful requests share one parse', async () => {
   let requests = 0, parses = 0;
   const store = createCharacterAssetStore({manifest: [definition], fetchImpl: async url => {
-    assert.ok(url.endsWith('/dist/assets/models/cat-v1.glb'));
+    assert.ok(url.endsWith('/dist/assets/models/cat-v1.glb?v=abcdef123456'),'model URL follows the manifest content hash');
     requests++; return {ok: requests > 1, status: 404, arrayBuffer: async () => fixture()};
   }, parse: async () => { parses++; return {scene: new THREE.Group(), animations: []}; }});
   assert.equal((await store.loadOrFallback('cat', () => ({}))).source, 'original');

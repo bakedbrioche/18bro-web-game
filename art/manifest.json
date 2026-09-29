@@ -7,10 +7,10 @@
       "designRevision": 7,
       "source": "art/characters/18bro/18bro.blend",
       "output": "dist/assets/models/18bro-v1.glb",
-      "sha256": "121d8e327e6ba37d149635495dd0dad6f5fb353150711f715d4ecfc7c1477c18",
+      "sha256": "20359d463a3422f084c15deac4a0446dd263912051cec18cd65c00847985f27f",
       "blenderVersion": "5.2.2 LTS",
       "exportPreset": "18bro-blender-5.2-v7",
-      "bytes": 881840,
+      "bytes": 883140,
       "bounds": {
         "min": [
           -0.9662122130393982,

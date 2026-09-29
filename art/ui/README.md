@@ -24,3 +24,11 @@ The preceding surprised peeking mark is tracked at `art/ui/archive/favicon-peek-
 `dist/assets/icons/pursuit-guard.png` and `pursuit-cat.png` are compact geometric crops of the user-supplied chase artwork. CSS joins them as two diagonally cut profile panels, adds a shadow overlay and achievement aura, then presents the existing rotating reward copy and score. The full four-panel capture collage, original chase image and user layout sketch are retained locally in the ignored `tmp/imagegen/2026-09-27/net-escape-banner/` workbench. The prior code-rendered orange/green banner is preserved as `art/ui/archive/pursuit-reward-v1.css` for future reuse and is not loaded at runtime.
 
 Both reward crops are embedded through `globalThis.__18BRO_UI_IMAGES__` in the standalone release. The live UI has no network dependency and provides a static Reduced Motion presentation.
+
+## HUD chip and reusable help mark
+
+`dist/assets/icons/chip-hud.png` is a transparent 256 × 256 static UI render derived with the built-in OpenAI image generator from the existing repository chip render. It preserves the curved ridged potato-chip identity at the HUD's 34–40 CSS-pixel size. The HUD reuses one persistent image node and queues one bounded bounce for every chip value gained, including Double Chips; Reduced Motion keeps it static. The standalone exporter embeds the exact PNG.
+
+`dist/assets/icons/tooltip-tail.png` is a transparent 256 × 256 white ring containing a curled cat-tail question mark. The generated concept was cleaned deterministically into a solid alpha mask. UI tooltips use it through a CSS mask so hover/focus can rotate the tail and change it from white to orange without a second bitmap. The Models setting is the first consumer; new contextual help should reuse this same trigger vocabulary and retain `aria-describedby`, `aria-expanded`, keyboard focus and Reduced Motion behavior.
+
+Prompts and intermediate generated images live in ignored `tmp/imagegen/2026-09-29/ui-brand-polish/`. Generated-source provenance must be retained there during active work, while only the reviewed runtime PNGs belong in `dist/`.

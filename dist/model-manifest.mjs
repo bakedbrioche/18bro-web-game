@@ -2,8 +2,8 @@ export const MODEL_MANIFEST=Object.freeze([
  Object.freeze({
   assetId:'18bro-v1',category:'character',rigVersion:5,designRevision:7,
   source:'art/characters/18bro/18bro.blend',output:'dist/assets/models/18bro-v1.glb',
-  sha256:'121d8e327e6ba37d149635495dd0dad6f5fb353150711f715d4ecfc7c1477c18',
-  blenderVersion:'5.2.2 LTS',exportPreset:'18bro-blender-5.2-v7',bytes:881840,
+  sha256:'20359d463a3422f084c15deac4a0446dd263912051cec18cd65c00847985f27f',
+  blenderVersion:'5.2.2 LTS',exportPreset:'18bro-blender-5.2-v7',bytes:883140,
   bounds:Object.freeze({min:Object.freeze([-.9662122130393982,.003000006079673767,-.4952065646648407]),max:Object.freeze([.7856764793395996,2.7360000610351562,.6499999761581421])}),
   boundsBlenderZUp:Object.freeze({min:Object.freeze([-.9662122130393982,-.6499999761581421,.003000006079673767]),max:Object.freeze([.7856764793395996,.4952065646648407,2.7360000610351562])}),
   triangles:3998,materials:3,bones:20,

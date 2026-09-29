@@ -18,6 +18,9 @@ test('standalone embeds exact model bytes and parses/clones them offline with ve
   const favicon=html.match(/<link rel="icon"[^>]+href="(data:image\/png;base64,[^"]+)"/)?.[1];
   assert.ok(favicon,'standalone embeds the peeking 18Bro favicon');
   assert.deepEqual(Buffer.from(favicon.split(',')[1],'base64'),fs.readFileSync(path.join(root,'dist/assets/icons/favicon.png')));
+  assert.match(html,/"chip-hud":"data:image\/png;base64,/,'standalone embeds the authored HUD chip');
+  assert.match(html,/"tooltip-tail":"data:image\/png;base64,/,'standalone embeds the tooltip tail mask');
+  assert.match(html,/id="hud-chip-icon"[^>]+src="data:image\/png;base64,/,'standalone initializes the HUD chip without an external request');
   assert.doesNotMatch(html,/@keyframes result-chip-spin\{/,'standalone does not fake 3D rotation with CSS');
   assert.match(html,/[.]result-wave-enabled [.]result-title>span\{animation:busted-letter-wave/,'standalone keeps the flowing BUSTED wave');
   const code=html.match(/<script type="module">([\s\S]*?)<\/script>/)?.[1];

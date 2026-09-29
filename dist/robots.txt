@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /game/assets/
+Disallow: /game/vendor/
+Disallow: /game/*.mjs
+Disallow: /game/*.css

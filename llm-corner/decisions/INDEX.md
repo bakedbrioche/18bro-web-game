@@ -4,6 +4,8 @@ Decision records preserve why a non-obvious choice was made. Numbers are sequent
 
 | ID | Title | Date | Status |
 |---|---|---|---|
+| DEC-029 | Keep brand motion responsive and contextual help reusable (`DEC-029-responsive-brand-and-tooltip.md`) | 2026-09-29 | ACCEPTED |
+| DEC-028 | Keep the browser runtime public and isolate the management plane (`DEC-028-public-runtime-private-management-plane.md`) | 2026-09-29 | ACCEPTED |
 | DEC-027 | Give the runner the full viewport and gate it on render readiness (`DEC-027-full-viewport-render-ready-loading.md`) | 2026-09-29 | ACCEPTED |
 | DEC-026 | Reserve future routes and texture the cap mark (DEC-026-reserve-future-routes-and-texture-cap.md) | 2026-09-29 | ACCEPTED |
 | DEC-025 | Publish immutable images behind a shared Traefik edge (`DEC-025-immutable-images-traefik-edge.md`) | 2026-09-28 | ACCEPTED |

@@ -5,7 +5,7 @@ import fs from 'node:fs';
 const read=(name)=>fs.readFileSync(new URL(`../${name}`,import.meta.url),'utf8');
 
 test('container image contains only the verified static game and health configuration',()=>{
- const dockerfile=read('Dockerfile'),ignore=read('.dockerignore'),nginx=read('deploy/nginx.conf');
+ const dockerfile=read('Dockerfile'),ignore=read('.dockerignore'),nginx=read('deploy/nginx.conf'),robots=read('dist/robots.txt');
  assert.match(dockerfile,/^FROM nginx:stable-alpine/m);
  assert.match(dockerfile,/COPY dist\/ \/usr\/share\/nginx\/html\//);
  assert.match(dockerfile,/HEALTHCHECK[\s\S]*127[.]0[.]0[.]1\/healthz/);
@@ -17,6 +17,33 @@ test('container image contains only the verified static game and health configur
  assert.match(nginx,/default_type application\/javascript/);
  assert.match(nginx,/location ~\* \\.glb\$/);
  assert.match(nginx,/default_type model\/gltf-binary/);
+ assert.match(nginx,/autoindex off/);
+ assert.match(robots,/Disallow: \/game\/assets\//);
+ assert.match(robots,/Disallow: \/game\/vendor\//);
+});
+
+test('static asset policy blocks direct navigation and cross-site hotlinks without relying on Referer',()=>{
+ const nginx=read('deploy/nginx.conf');
+ assert.match(nginx,/map "\$uri\|\$http_sec_fetch_site\|\$http_sec_fetch_mode\|\$http_sec_fetch_dest\|\$http_accept" \$deny_static_asset_request/);
+ assert.match(nginx,/\\\|cross-site\\\| 1;/);
+ assert.match(nginx,/\\\|navigate\\\|document\\\| 1;/);
+ assert.match(nginx,/text\/html 1;/);
+ assert.match(nginx,/if \(\$deny_static_asset_request\)[\s\S]*return 404;/);
+ assert.match(nginx,/if \(\$request_method !~ \^\(GET\|HEAD\)\$\)[\s\S]*return 405;/);
+ assert.doesNotMatch(nginx,/valid_referers|\$invalid_referer/);
+ assert.match(nginx,/add_header Cross-Origin-Resource-Policy "same-origin" always/);
+ assert.match(nginx,/add_header X-Robots-Tag \$asset_robots always/);
+ assert.match(nginx,/noindex, noarchive/);
+});
+
+test('security and cache headers share server scope so locations cannot suppress protection',()=>{
+ const nginx=read('deploy/nginx.conf');
+ assert.match(nginx,/add_header Content-Security-Policy "default-src 'self';[^"]+frame-ancestors 'self'" always/);
+ assert.match(nginx,/add_header X-Content-Type-Options "nosniff" always/);
+ assert.match(nginx,/add_header Referrer-Policy "strict-origin-when-cross-origin" always/);
+ assert.match(nginx,/add_header X-Frame-Options "SAMEORIGIN" always/);
+ assert.match(nginx,/add_header Cache-Control \$asset_cache_control always/);
+ assert.equal((nginx.match(/add_header Cache-Control/g)||[]).length,1,'cache header has one server-level owner');
 });
 
 test('shared Traefik edge owns public ports and discovers private services through labels',()=>{
@@ -31,9 +58,13 @@ test('shared Traefik edge owns public ports and discovers private services throu
  assert.match(game,/image: \$\{IMAGE:\?Set IMAGE/);
  const gameSection=game.slice(game.indexOf('  game:'));
  assert.doesNotMatch(gameSection,/\n\s+ports:/);
+ assert.match(gameSection,/read_only: true/);
+ assert.match(gameSection,/tmpfs:[\s\S]*\/var\/cache\/nginx[\s\S]*\/var\/run[\s\S]*\/tmp/);
+ assert.match(gameSection,/pids_limit: 100/);
  assert.match(game,/traefik[.]enable=true/);
  assert.match(game,/PathPrefix\(`\/game`\)/);
  assert.match(game,/Host\(`18bro[.]site`\).*Host\(`www[.]18bro[.]site`\)/);
+ assert.doesNotMatch(game,/18bro-ip-http/);
  assert.match(game,/stripprefix[.]prefixes=\/game/);
  assert.match(game,/tls[.]certresolver=letsencrypt/);
  assert.match(game,/external: true/);
@@ -51,7 +82,9 @@ test('deployment workflow verifies first, pins SSH, and deploys SHA image at /ga
  assert.match(workflow,/docker-compose[.]proxy[.]yml/);
  assert.match(workflow,/docker network inspect proxy/);
  assert.match(workflow,/docker logout ghcr[.]io/);
- assert.match(workflow,/http:\/\/\$VPS_HOST\/game\/healthz/);
+ assert.match(workflow,/--header 'Host: 18bro[.]site' http:\/\/127[.]0[.]0[.]1\/game\/healthz/);
+ assert.match(workflow,/https:\/\/18bro[.]site\/game\/healthz/);
+ assert.doesNotMatch(workflow,/http:\/\/\$VPS_HOST\/game\/healthz/);
 });
 
 test('deployment sources contain no local production values or retired Caddy edge',()=>{

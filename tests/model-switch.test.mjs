@@ -19,6 +19,17 @@ function sceneHarness(){
  return scene;
 }
 
+test('hero local, aggregate and runtime manifests stay synchronized',()=>{
+ const local=JSON.parse(fs.readFileSync(new URL('../art/characters/18bro/manifest.json',import.meta.url),'utf8'));
+ const aggregate=JSON.parse(fs.readFileSync(new URL('../art/manifest.json',import.meta.url),'utf8')).assets.find(asset=>asset.assetId==='18bro-v1');
+ const runtime=MODEL_MANIFEST.find(asset=>asset.assetId==='18bro-v1');
+ for(const entry of [aggregate,runtime]){
+  assert.equal(entry.sha256,local.sha256);
+  assert.equal(entry.bytes,local.bytes);
+  assert.equal(entry.triangles,local.triangles);
+  assert.equal(entry.designRevision,local.designRevision);
+ }
+});
 test('Refreshed hero stays active through every pose and cosmetic',async()=>{
  const scene=sceneHarness();
  assert.equal(await scene.setModelSetPreference('refreshed'),'refreshed',scene.modelSetError);

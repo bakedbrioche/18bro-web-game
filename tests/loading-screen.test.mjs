@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {LOADING_MESSAGES,loadingLetters,renderLoadingMessage,createLoadingScreen} from '../dist/loading-screen.mjs';
+import {LOADING_EXIT_MS,LOADING_MESSAGES,loadingLetters,renderLoadingMessage,createLoadingScreen} from '../dist/loading-screen.mjs';
 
 function classes(){const values=new Set();return {add:(...names)=>names.forEach(name=>values.add(name)),remove:(...names)=>names.forEach(name=>values.delete(name)),contains:name=>values.has(name)};}
 function loadingDocument(){
@@ -24,6 +24,7 @@ test('loading copy is split into the same smooth per-letter wave vocabulary as B
 });
 
 test('loading overlay waits for readiness, rotates copy, then cleans up',async()=>{
+ assert.equal(LOADING_EXIT_MS,1050,'exit fade has time to read as a soft transition');
  const fixture=loadingDocument();let rotate,resolveReady,cleared=false;
  const globalRef={__18BRO_UI_IMAGES__:{'loading-icon':'data:image/png;base64,exact'},setInterval(fn){rotate=fn;return 7;},clearInterval(id){cleared=id===7;},setTimeout(fn){fn();}};
  const screen=createLoadingScreen({documentRef:fixture.documentRef,globalRef,minimumVisibleMs:0,now:()=>100});
